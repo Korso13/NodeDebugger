@@ -22,6 +22,7 @@ struct ImVec2 { ImVec2(float, float) {}; };
 #ifndef FORCENODEDEBUG_OFF
 #define NOCOMP ; //used for conditional compilation
 #define NOCOMP_B ;//used for conditional compilation
+#define NOCOMP_F ;
 #define NOCOMP_PTR ;//used for conditional compilation
 #define ND_CASTALLOWED !NodeDebugger::get()->checkRaycastCollision()
 #include "ImGuiNode.h"
