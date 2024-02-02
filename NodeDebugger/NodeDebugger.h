@@ -107,7 +107,7 @@ public:
 	void onClick(const Touch::Begin& clickEvent) NOCOMP;
 
 	//Use this to alter game time scale - multiply your dt by this value
-	const float getTimeScale() const;
+	const float getTimeScale() const NOCOMP_F;
 
 private:
 

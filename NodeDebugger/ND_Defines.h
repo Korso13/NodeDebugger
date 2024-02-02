@@ -13,6 +13,7 @@ W4_USE_UNSTRICT_INTERFACE
 #define ND_CASTALLOWED true
 #define NOCOMP {};
 #define NOCOMP_B {return true;};
+#define NOCOMP_F {return 1.f;};
 #define NOCOMP_PTR {return nullptr;}
 class ImGuiNode;
 struct ImVec2 { ImVec2(float, float) {}; };
