@@ -20,6 +20,9 @@ W4_USE_UNSTRICT_INTERFACE
 #define ND_VARCB(name, variable, callback) NodeDebugger::get()->addDebugVariable(name, variable, callback)
 #define ND_BTN(name, callback) NodeDebugger::get()->addDebugCBButton(name, callback)
 
+//Use this before casting any rays to check if you are clicking ImGui interface. Returns false if mouse is above ImGui window
+#define ND_CASTALLOWED !NodeDebugger::get()->checkRaycastCollision()
+
 //Controlls map:
 /*
 	C - camera debug mode

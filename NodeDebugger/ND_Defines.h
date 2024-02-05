@@ -10,7 +10,6 @@ W4_USE_UNSTRICT_INTERFACE
 //conditional compilation - debugger switched off in shipping version. Comment out if you need debugger in shipping
 #if W4_LOG_MIN_LEVEL >= W4_LOG_LEVEL_ERROR
 #define FORCENODEDEBUG_OFF
-#define ND_CASTALLOWED true
 #define NOCOMP {};
 #define NOCOMP_B {return true;};
 #define NOCOMP_F {return 1.f;};
@@ -24,7 +23,6 @@ struct ImVec2 { ImVec2(float, float) {}; };
 #define NOCOMP_B ;//used for conditional compilation
 #define NOCOMP_F ;
 #define NOCOMP_PTR ;//used for conditional compilation
-#define ND_CASTALLOWED !NodeDebugger::get()->checkRaycastCollision()
 #include "ImGuiNode.h"
 #include "ImGuiHelpers.h"
 #include "internal/ImGuiFontRoboto.h"
