@@ -33,6 +33,8 @@ void ND_ImGui::addImGuiNode(sptr<Node> inNode, std::string name)
 {
     if (!inNode)
         return;
+    if (m_staticNodes.find(inNode) != m_staticNodes.end())
+        return;
 
     if (inNode->is<Spine>())
     {
@@ -55,6 +57,12 @@ void ND_ImGui::addImGuiNode(sptr<Node> inNode, std::string name)
 
         if (ImGui::TreeNode(name.c_str()))
         {
+            ImGui::SameLine();
+            if (ImGui::Button("x"))
+            {
+                m_staticNodes[_node].markedForDeletion = true;
+            }
+
             //Drag gizmo
             ImGuizmo::BeginFrame();
             ImGuiDrawerGizmo::drawGizmosHandles(_node);
@@ -113,17 +121,20 @@ void ND_ImGui::addImGuiNode(sptr<Node> inNode, std::string name)
         }
     };
 
-    ImG_Node newImGUI_node = { inNode, ImGUI_drawCall };
-    m_staticNodes.push_back(newImGUI_node);
+    ImG_Node nodeStruct = { ImGUI_drawCall , false };
+    m_staticNodes.insert({ inNode, nodeStruct });
 }
 
 void ND_ImGui::removeImGuiNode(const std::string nodeName)
 {
-    std::erase_if(m_staticNodes, [this, nodeName](ImG_Node node)
+    for (auto [node, IMGnode] : m_staticNodes)
+    {
+        if (node->getName() == nodeName)
         {
-            return node.first->getName() == nodeName;
+            m_staticNodes.erase(node);
+            return;
         }
-    );
+    }
 }
 
 void ND_ImGui::removeAllImGuiNodes()
@@ -266,16 +277,31 @@ void ND_ImGui::onGui(float dt)
                         ND_Util::ImGuiSearchBar(m_nodesFilter);
                     else if(!m_nodesFilter.empty())
                         m_nodesFilter.clear();
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Add all existing nodes"))
+                    {
+                        Render::getRoot()->traversalTyped<Node>([this](sptr<Node> _node)
+                            {
+                                addImGuiNode(_node);
+                            });
+                    }
+
                     for (auto& ImG_Node : m_staticNodes)
                     {
-                        if (ImG_Node.first && ImG_Node.second)
+                        if (ImG_Node.first && ImG_Node.second.onRender && !ImG_Node.second.markedForDeletion)
                         {
                             if (ND_Util::checkFilterConditions(ImG_Node.first->getName(), m_nodesFilter))
                             {
-                                ImG_Node.second(ImG_Node.first);
+                                ImG_Node.second.onRender(ImG_Node.first);
                             }
                         }
                     }
+                    std::erase_if(m_staticNodes,
+                        [](const auto& record)
+                        {
+                            return record.second.markedForDeletion;
+                        });
 
                     ImGui::EndTabItem();
                 }

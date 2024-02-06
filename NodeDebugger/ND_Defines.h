@@ -69,7 +69,11 @@ static float	sliderSensivity = 0.01;
 #define IMG_SCALERANGE 30.f
 //=========================================================================================
 
-typedef std::pair<sptr<Node>, std::function<void(sptr<Node>)>> ImG_Node;
+struct ImG_Node
+{
+	std::function<void(sptr<Node>)> onRender;
+	bool markedForDeletion = false;
+};
 
 enum class LogLevel
 {

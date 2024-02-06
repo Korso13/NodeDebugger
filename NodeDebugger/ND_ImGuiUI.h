@@ -60,7 +60,7 @@ protected:
 	ImVec2 m_ImGWindowSize = IMG_STARTSIZE;
 	vec4 m_clearColor = Render::getScreenCamera()->getClearColor();
 
-	std::vector<ImG_Node> m_staticNodes;
+	std::unordered_map<sptr<Node>, ImG_Node> m_staticNodes;
 	std::string m_nodesFilter = "";
 
 	std::unordered_map<std::string, std::function<void()>> m_debugCallbacks;
