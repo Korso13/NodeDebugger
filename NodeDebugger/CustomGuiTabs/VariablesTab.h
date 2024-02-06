@@ -26,6 +26,8 @@ private:
 	std::unordered_map<std::string, debugVar<bool> > m_debugBools;
 	std::unordered_map<std::string, debugVar<vec2> > m_debugVec2;
 	std::unordered_map<std::string, debugVar<vec3> > m_debugVec3;
+
+	std::string m_variablesFilter = "";
 };
 
 

@@ -262,10 +262,19 @@ void ND_ImGui::onGui(float dt)
                 if (ImGui::BeginTabItem("Nodes,Meshes"))
                 {
                     ND_Util::ImGuiNodeSettings();
+                    if(m_staticNodes.size() > 6)
+                        ND_Util::ImGuiSearchBar(m_nodesFilter);
+                    else if(!m_nodesFilter.empty())
+                        m_nodesFilter.clear();
                     for (auto& ImG_Node : m_staticNodes)
                     {
                         if (ImG_Node.first && ImG_Node.second)
-                            ImG_Node.second(ImG_Node.first);
+                        {
+                            if (ND_Util::checkFilterConditions(ImG_Node.first->getName(), m_nodesFilter))
+                            {
+                                ImG_Node.second(ImG_Node.first);
+                            }
+                        }
                     }
 
                     ImGui::EndTabItem();

@@ -1,4 +1,6 @@
 #include "ND_Utilities.h"
+#include "external/imgui_stdlib.h"
+#include <regex>
 
 #ifndef FORCENODEDEBUG_OFF
 
@@ -411,6 +413,28 @@ namespace ND_Util
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
+    }
+
+    void ImGuiSearchBar(std::string& lastSearchVal)
+    {
+        ImGui::PushID(repeatElemId++);
+        ImGui::Text("%s", "Filter: ");
+        ImGui::SameLine();
+        ImGui::InputText(" ", &lastSearchVal);
+        ImGui::Separator();
+
+        ImGui::PopID();
+    }
+
+    bool checkFilterConditions(const std::string& itemName, const std::string& filter)
+    {
+        if(filter.empty())
+            return true;
+
+        std::regex regex(filter, std::regex::icase);
+        std::smatch name_match;
+
+        return std::regex_search(itemName, name_match, regex);
     }
 
     void resetImGuiRepeatElemId()

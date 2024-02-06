@@ -12,8 +12,16 @@ void SpinesTab::onGuiCall()
     ImGui::Checkbox("Copy animation name(not length) on Play", &m_copyAnimNameNotLength);
     ImGui::Separator();
 
+    if (m_debugSpines.size() > 6)
+        ND_Util::ImGuiSearchBar(m_spinesFilter);
+    else if (!m_spinesFilter.empty())
+        m_spinesFilter.clear();
+
     for (auto& debugSpine : m_debugSpines)
     {
+        if (!ND_Util::checkFilterConditions(debugSpine.spineName, m_spinesFilter))
+            continue;
+
         if (ImGui::TreeNode(debugSpine.spineName.c_str()))
         {
             //Drag gizmo

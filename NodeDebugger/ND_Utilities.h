@@ -30,6 +30,10 @@ namespace ND_Util
 	void resetImGuiRepeatElemId();
 	float getTimeScale();
 
+	void ImGuiSearchBar(std::string& lastSearchVal);
+	//use to filter which items to show after getting filter from searchbar. Returns true if no filter is set or filter string found in itemName(case non-sensitive!)
+	bool checkFilterConditions(const std::string& itemName, const std::string& filter);
+
 	void ImGuiTweensBody(sptr<Node> _node, tweenDebugRecord& tweenRecord);
 	void ImGuiTweens(sptr<Node> _node);
 
