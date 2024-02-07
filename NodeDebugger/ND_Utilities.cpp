@@ -1,8 +1,8 @@
 #include "ND_Utilities.h"
-#include "external/imgui_stdlib.h"
-#include <regex>
 
 #ifndef FORCENODEDEBUG_OFF
+#include "external/imgui_stdlib.h"
+#include <regex>
 
 namespace ND_Util
 {
