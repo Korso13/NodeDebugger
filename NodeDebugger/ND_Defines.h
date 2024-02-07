@@ -11,7 +11,7 @@ W4_USE_UNSTRICT_INTERFACE
 #if W4_LOG_MIN_LEVEL >= W4_LOG_LEVEL_ERROR
 #define FORCENODEDEBUG_OFF
 #define NOCOMP {};
-#define NOCOMP_B {return true;};
+#define NOCOMP_B {return false;};
 #define NOCOMP_F {return 1.f;};
 #define NOCOMP_PTR {return nullptr;}
 class ImGuiNode;
