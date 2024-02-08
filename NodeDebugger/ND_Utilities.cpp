@@ -1,11 +1,16 @@
 #include "ND_Utilities.h"
 
 #ifndef FORCENODEDEBUG_OFF
+#include <sources/common/NodeDebugger/ND_JsonTools.h>
 #include "external/imgui_stdlib.h"
 #include <regex>
+#include "TweenFactory.h"
+
+#define TWEENCONTAINER CustomTweens::getTweenContainer()
 
 namespace ND_Util
 {
+
     std::string jsstring(vec3 vec)
     {
         std::string jstring;
@@ -172,58 +177,6 @@ namespace ND_Util
                         node->setLocalScale(newValue);
             }
         }
-    }
-
-    sptr<CustomTweens::Tween<vec3>> generateTween(tweenDebugRecord& tweenRecord, sptr<Node> _node)
-    {
-        if (tweenRecord.tweenDelays.empty() || tweenRecord.tweenPoints.empty())
-            return nullptr;
-
-        auto tween = make::sptr<CustomTweens::Tween<vec3>>(
-            tweenRecord.tweenStart,
-            [tweenRecord, _node](vec3 newValue)
-            {
-                if (!_node)
-                    return;
-
-                if (tweenRecord.moveTween)
-                    if (tweenRecord.worldVec3)
-                        _node->setWorldTranslation(newValue);
-                    else
-                        _node->setLocalTranslation(newValue);
-                else
-                    if (tweenRecord.worldVec3)
-                        _node->setWorldScale(newValue);
-                    else
-                        _node->setLocalScale(newValue);
-            });
-
-        for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
-        {
-            tween->addMore(
-                tweenRecord.tweenPoints[i],
-                tweenRecord.tweenDelays[i],
-                tweenRecord.easingTypes[i],
-                []()
-                {});
-        }
-
-        return tween;
-    }
-
-    sptr<CustomTweens::EndlessTween<vec3>> generateEndlessTween(tweenDebugRecord& tweenRecord, sptr<Node> _node)
-    {
-        if (tweenRecord.tweenDelays.empty() || tweenRecord.tweenPoints.empty())
-            return nullptr;
-
-        sptr<CustomTweens::EndlessTween<vec3>> tween = make::sptr<CustomTweens::EndlessTween<vec3>>(tweenRecord.tweenStart, "new_tween");
-        float nowTime = 0.f;
-        for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
-        {
-            nowTime += tweenRecord.tweenDelays[i];
-            tween->add(tweenRecord.tweenPoints[i], nowTime, tweenRecord.easingTypes[i]);
-        }
-        return tween;
     }
 
     void printDebugNodeInfo(sptr<Node> printNode)
@@ -460,6 +413,49 @@ namespace ND_Util
     //reusable ImGui form for different types of vec3 tweens (used in ImGuiTweens)
     void ImGuiTweensBody(sptr<Node> _node, tweenDebugRecord& tweenRecord)
     {
+        //tween sample (settings container item) loader
+        if (!TWEENCONTAINER.empty())
+        {
+            const char* tween_names[TWEENCONTAINER.size()];
+            for (size_t i = 0; i < TWEENCONTAINER.size(); i++)
+            {
+                if (tweenRecord.moveTween == TWEENCONTAINER[i].moveTween)
+                    tween_names[i] = TWEENCONTAINER[i].tweenName.c_str();
+                else
+                    tween_names[i] = "!WRONG TWEEN TYPE!";
+            }
+            ImGui::Columns(2);
+            ImGui::Combo("Tweens", &lastSelectedTweenSample, tween_names, TWEENCONTAINER.size(), 6);
+            ImGui::NextColumn();
+            std::string buttonCaption = "Load ";
+            buttonCaption += tween_names[lastSelectedTweenSample];
+            if (tweenRecord.moveTween == TWEENCONTAINER[lastSelectedTweenSample].moveTween)
+            {
+                if (ImGui::Button(buttonCaption.c_str()))
+                {
+                    tweenRecord = TWEENCONTAINER[lastSelectedTweenSample];
+                }
+            }
+            ImGui::Separator();
+            ImGui::Columns(1);
+        }
+        
+        //save+export buttons
+        ImGui::Columns(2);
+        if (ImGui::Button("Save tween to Samples"))
+        {
+            CustomTweens::addNewTweenSample(tweenRecord);
+        }
+        ImGui::NextColumn();
+        if (ImGui::Button("Export samples to JSON"))
+        {
+            CustomTweens::exportTweenContainerToJson();
+        }
+        ImGui::Columns(1);
+
+        //Tween sample settings
+        ImGui::InputText("Tween name", &tweenRecord.tweenName);
+
         if (ImGui::Checkbox("Looped tween", &tweenRecord.loopedTween))
         {
             tweenRecord.tweenEndless = nullptr;
@@ -467,7 +463,10 @@ namespace ND_Util
         }
         ImGui::Checkbox("World vec3 values?", &tweenRecord.worldVec3);
 
-        if (ImGui::Button("Set current node value"))
+        //start point setter
+        ImGui::Text("Tween start point");
+        ImGui::Columns(2);
+        if (ImGui::Button("Set start to current node value"))
         {
             if (tweenRecord.moveTween)
                 if (tweenRecord.worldVec3)
@@ -480,12 +479,14 @@ namespace ND_Util
                 else
                     tweenRecord.tweenStart = _node->getLocalScale();
         }
+        ImGui::NextColumn();
         if (ImGui::Button("Insert from clipboard(JSON string)")) //Due to ImGui bug it copies correct CB data only on second push :(
         {
             std::string cbText = ImGui::GetClipboardText();
             //info("Extracted string from CB: %s", cbText.c_str());
             tweenRecord.tweenStart = vec3FromJSString(cbText);
         }
+        ImGui::Columns(1);
         ImGui::DragVec3("Start point", tweenRecord.tweenStart, -500.f, 500.f, sliderSensivity);
 
         //tween points settings UI render
@@ -495,6 +496,7 @@ namespace ND_Util
                 ImGui::Text("Point %d", CastI(i + 1));
 
                 //Point value setters
+                ImGui::Columns(2);
                 if (ImGui::Button(CSTR("Set point " + STR(i + 1) + " to current value")))
                 {
                     if (tweenRecord.moveTween)
@@ -508,21 +510,40 @@ namespace ND_Util
                         else
                             tweenRecord.tweenPoints[i] = _node->getLocalScale();
                 }
+                ImGui::NextColumn();
                 if (ImGui::Button(CSTR("Set point " + STR(i + 1) + " to clipboard value(JSON string)"))) //Due to ImGui bug it copies correct CB data only on second push :(
                 {
                     std::string cbText = ImGui::GetClipboardText();
                     //info("Extracted string from CB: %s", cbText.c_str());
                     tweenRecord.tweenPoints[i] = vec3FromJSString(cbText);
                 }
+                ImGui::Columns(1);
 
-                //vec, time, easing values
+                //vec, time selector
                 ImGui::DragVec3(CSTR("Vec " + STR(i + 1)), tweenRecord.tweenPoints[i], -500.f, 500.f, sliderSensivity);
                 ImGui::InputFloat(CSTR("Time " + STR(i + 1)), &tweenRecord.tweenDelays[i], 0.01, 0.1, "%.2f");
-                int intEasingType = CastI(tweenRecord.easingTypes[i]);
+                
+                //Easings selector
+                int intEasingType = CastI(tweenRecord.easingTypes[i]); //selected easing type
+                //one-time script to load easings' names
+                if (!loadedEasings)
+                {
+                    loadedEasings = true;
+                    int easingsCount;
+                    const auto* easings = nlohmann::adl_serializer<Easing>::getValues(easingsCount);
+                    for (size_t i = 0; i < easingsCount; i++)
+                    {
+                        easingNames[i] = easings[i].second;
+                    }
+                }
+                //easings drop-down menu
                 if (ImGui::Combo(CSTR("Easing " + STR(i + 1)), &intEasingType, easingNames, 31))
                 {
                     tweenRecord.easingTypes[i] = static_cast<Easing>(intEasingType);
                 }
+                ImGui::Separator();
+                ImGui::Spacing();
+
                 if (ImGui::Button(CSTR("Delete point" + STR(i + 1))))
                 {
                     tweenRecord.tweenPoints.erase(tweenRecord.tweenPoints.begin() + i);
@@ -558,20 +579,22 @@ namespace ND_Util
             else
                 tweenRecord.easingTypes.push_back(tweenRecord.easingTypes.back());
         }
+        ImGui::Columns(2);
         if (ImGui::Button("Play tween"))
         {
 
             if (!tweenRecord.loopedTween)
-                tweenRecord.tween = generateTween(tweenRecord, _node);
+                tweenRecord.tween = CustomTweens::generateTween(tweenRecord, _node);
             else
-                tweenRecord.tweenEndless = generateEndlessTween(tweenRecord, _node);
+                tweenRecord.tweenEndless = CustomTweens::generateEndlessTween(tweenRecord, _node);
         }
-
+        ImGui::NextColumn();
         if (ImGui::Button("Stop tween"))
         {
             tweenRecord.tween = nullptr;
             tweenRecord.tweenEndless = nullptr;
         }
+        ImGui::Columns(1);
     }
 
     //reusable tween builder menu
@@ -612,11 +635,14 @@ namespace ND_Util
                 ImGui::TreePop();
             }
             //Scale tween branch
-            if (ImGui::TreeNode("Scale tween"))
+            if (_node != Render::getScreenCamera())
             {
-                ImGuiTweensBody(_node, tweenRecordScale);
+                if (ImGui::TreeNode("Scale tween"))
+                {
+                    ImGuiTweensBody(_node, tweenRecordScale);
 
-                ImGui::TreePop();
+                    ImGui::TreePop();
+                }
             }
 
             //buttons for simultaneous launch/stop
@@ -624,13 +650,13 @@ namespace ND_Util
             {
 
                 if (!tweenRecordMove.loopedTween)
-                    tweenRecordMove.tween = generateTween(tweenRecordMove, _node);
+                    tweenRecordMove.tween = CustomTweens::generateTween(tweenRecordMove, _node);
                 else
-                    tweenRecordMove.tweenEndless = generateEndlessTween(tweenRecordMove, _node);
+                    tweenRecordMove.tweenEndless = CustomTweens::generateEndlessTween(tweenRecordMove, _node);
                 if (!tweenRecordScale.loopedTween)
-                    tweenRecordScale.tween = generateTween(tweenRecordScale, _node);
+                    tweenRecordScale.tween = CustomTweens::generateTween(tweenRecordScale, _node);
                 else
-                    tweenRecordScale.tweenEndless = generateEndlessTween(tweenRecordScale, _node);
+                    tweenRecordScale.tweenEndless = CustomTweens::generateEndlessTween(tweenRecordScale, _node);
             }
             if (ImGui::Button("Stop all tweens"))
             {

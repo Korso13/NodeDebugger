@@ -45,6 +45,7 @@ private:
 	//ImGui NodeDebugger methods
 	void ImGuiCamera() NOCOMP;
 	void ImGuiConsole() NOCOMP;
+	void ImGuiNodes() NOCOMP;
 
 protected:
 
@@ -62,6 +63,7 @@ protected:
 
 	std::unordered_map<sptr<Node>, ImG_Node> m_staticNodes;
 	std::string m_nodesFilter = "";
+	int m_nodeFilterItems = 0;
 
 	std::unordered_map<std::string, std::function<void()>> m_debugCallbacks;
 

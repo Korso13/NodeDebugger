@@ -14,8 +14,6 @@ namespace ND_Util
 	vec3 vec3FromJSString(std::string jsstring);
 
 	void updateTweens(float& dt);
-	sptr<CustomTweens::Tween<vec3>> generateTween(tweenDebugRecord& tweenRecord, sptr<Node> _node);
-	sptr<CustomTweens::EndlessTween<vec3>> generateEndlessTween(tweenDebugRecord& tweenRecord, sptr<Node> _node);
 
 	void printDebugNodeInfo(sptr<Node> printNode);
 	void printKeymapping();
@@ -39,5 +37,9 @@ namespace ND_Util
 
 	static std::map<sptr<Node>, tweenDebugRecord> debugTweensMove;
 	static std::map<sptr<Node>, tweenDebugRecord> debugTweensScale;
+	static int lastSelectedTweenSample = 0;
+
+	static bool loadedEasings = false;
+	static const char* easingNames[31];
 }
 

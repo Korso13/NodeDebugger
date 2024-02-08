@@ -44,7 +44,6 @@ static int  floatAccuracy = SIF("debugNode_floatAccuracy", 2); //number of digit
 static int	minLoggingLevel = 1; //what is written in the console log
 
 static std::string keyMappings = { "\nC - camera debug mode\nL - directional light debug mode\nR - switch rotation output mode (radians|degrees)\nP - switchon/off click placement mode\n\nFor camera mode:\nA-D - move camera by X\nW-S - move camera by Y\nQ-E - move camera by Z\nFor light mode:\nA-D - change light direction vector by X\nW-S - change light direction vector by Y\nQ-E - change light direction vector by Z\n\nNode transformations:\n1-9 digits - select debugged node.\nalso\n1 - Gizmo Translate Mode\n2 - Gizmo Rotate Mode\n3 - Gizmo Scale Mode\nArrow Left/Right - move by x\nArrow Up/Down - move by y\nPage Up and Down	 - move by z\nNumPad1 - NumPad3 - rotation along y axis\nNumPad2 - NumPad5 - rotation along x axis\nNumPad4 - NumPad6 - rotation along z axis\nNumpad+ and Numpad-  - scale in all 3 dimentions\nHome - End - scale by x\nInsert - Delete - scale by y\n[  -  ] - scale by z\nMinus - Equal - Decrease / increase translation step\nNumpad7 - Numpad9 - Decrease / increase rotation step\nNumpadDivide(/) - NumpadMultiply(*) - Decrease / increase scaling percent\nAny other key - print selected node's translation\n\n N - print all conected nodes\n" };
-static const char* easingNames[31] = { "Linear","QuadIn","QuadOut","QuadInOut","CubicIn","CubicOut","CubicInOut","SineIn","SineOut","SineInOut","BounceIn","BounceOut","BounceInOut","BackIn","BackOut","BackInOut","CircIn","CircOut","CircInOut","ElasticIn","ElasticOut","ElasticInOut","ExpoIn","ExpoOut","ExpoInOut","QuartIn","QuartOut","QuartInOut","QuintIn","QuintOut","QuintInOut" };
 
 //ImGui global variables
 static bool		bindXYZScaling = true;
@@ -86,6 +85,7 @@ enum class LogLevel
 
 struct tweenDebugRecord
 {
+	std::string tweenName;
 	bool loopedTween = false;
 	bool moveTween = true;
 	bool worldVec3 = true;

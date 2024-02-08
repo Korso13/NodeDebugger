@@ -4,6 +4,7 @@
 #include "utils/EditorCamera.h"
 #include <others/spineAnimation/SpineAnimationBase.h>
 #include "ND_Utilities.h"
+#include "TweenFactory.h"
 #include <sources/common/NodeDebugger/ND_iGuiTab.h>
 #include <sources/common/NodeDebugger/CustomGuiTabs/SpotlightTab.h>
 #include <sources/common/NodeDebugger/CustomGuiTabs/SpinesTab.h>
@@ -27,6 +28,7 @@ ND_ImGui::ND_ImGui()
     m_editorCamera->setParent(Render::getRoot());
 
     initCustomTabs();
+    CustomTweens::preloadTweenContainer();
 }
 
 void ND_ImGui::addImGuiNode(sptr<Node> inNode, std::string name)
@@ -272,36 +274,7 @@ void ND_ImGui::onGui(float dt)
             if (!m_staticNodes.empty())
                 if (ImGui::BeginTabItem("Nodes,Meshes"))
                 {
-                    ND_Util::ImGuiNodeSettings();
-                    if(m_staticNodes.size() > 6)
-                        ND_Util::ImGuiSearchBar(m_nodesFilter);
-                    else if(!m_nodesFilter.empty())
-                        m_nodesFilter.clear();
-
-                    ImGui::SameLine();
-                    if (ImGui::Button("Add all existing nodes"))
-                    {
-                        Render::getRoot()->traversalTyped<Node>([this](sptr<Node> _node)
-                            {
-                                addImGuiNode(_node);
-                            });
-                    }
-
-                    for (auto& ImG_Node : m_staticNodes)
-                    {
-                        if (ImG_Node.first && ImG_Node.second.onRender && !ImG_Node.second.markedForDeletion)
-                        {
-                            if (ND_Util::checkFilterConditions(ImG_Node.first->getName(), m_nodesFilter))
-                            {
-                                ImG_Node.second.onRender(ImG_Node.first);
-                            }
-                        }
-                    }
-                    std::erase_if(m_staticNodes,
-                        [](const auto& record)
-                        {
-                            return record.second.markedForDeletion;
-                        });
+                    ImGuiNodes();
 
                     ImGui::EndTabItem();
                 }
@@ -345,5 +318,53 @@ void ND_ImGui::onGui(float dt)
 
     ImGui::End();
 }
+
+void ND_ImGui::ImGuiNodes()
+{
+    ND_Util::ImGuiNodeSettings();
+    if (m_staticNodes.size() > 6)
+        ND_Util::ImGuiSearchBar(m_nodesFilter);
+    else if (!m_nodesFilter.empty())
+        m_nodesFilter.clear();
+
+    ImGui::SameLine();
+    if (ImGui::Button("Add all existing nodes"))
+    {
+        Render::getRoot()->traversalTyped<Node>([this](sptr<Node> _node)
+            {
+                if (_node && _node != Render::getRoot() && _node != Render::getScreenCamera())
+                    addImGuiNode(_node);
+            });
+        for (auto& ImG_Node : m_staticNodes)
+        {
+            if (!ImG_Node.first)
+                ImG_Node.second.markedForDeletion = true;
+        }
+    }
+    ImGui::SameLine();
+    ImGui::Text("Nodes shown: %d", m_nodeFilterItems);
+
+    if (m_nodesFilter.empty())
+        m_nodeFilterItems = m_staticNodes.size();
+    else
+        m_nodeFilterItems = 0;
+    for (auto& ImG_Node : m_staticNodes)
+    {
+        if (ImG_Node.first && ImG_Node.second.onRender && !ImG_Node.second.markedForDeletion)
+        {
+            if (ND_Util::checkFilterConditions(ImG_Node.first->getName(), m_nodesFilter))
+            {
+                ImG_Node.second.onRender(ImG_Node.first);
+                m_nodeFilterItems++;
+            }
+        }
+    }
+    std::erase_if(m_staticNodes,
+        [](const auto& record)
+        {
+            return record.second.markedForDeletion;
+        });
+}
+
 
 #endif //ends #ifndef FORCENODEDEBUG_OFF - conditional compilation macro. If FORCENODEDEBUG_OFF is defined, NOCOMP macro provides empty implementation and saves some weight in build size
