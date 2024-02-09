@@ -14,8 +14,9 @@
 ND_ImGui::ND_ImGui()
 {
     //imGUI init
+    Render::enableHud(true);
     m_imguiNode = make::sptr<ImGuiNode>();
-    m_imguiNode->setParent(Render::getRoot());
+    Render::getHudPass().getRoot()->addChild(m_imguiNode);
     m_imguiNode->setRenderOrder(100000);
     m_imguiNode->setFontInline("default",
         ImGuiFontRoboto::rawData,

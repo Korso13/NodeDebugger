@@ -14,19 +14,15 @@ NodeDebugger::NodeDebugger() :
 {
     setAutomaticOnUpdate(true);
     event::Keyboard::Down::subscribe(std::bind(&NodeDebugger::onKeyPressed, this, std::placeholders::_1));
-    
-    if (!isDebuggerOn)
-        return;
+
+    if (!isDebuggerOn) return;
 
     m_clickMesh = Mesh::create::plane(vec2(1000.f, 1000.f));
-    auto matInst = RMat("sprite")->createInstance();
-    matInst->setParam<vec4>("color", vec4(1.f, 1.f, 1.f, 0.001));
-    m_clickMesh->setMaterialInst(matInst);
+    m_clickMesh->setName("clickMesh_debug");
     auto collider = m_clickMesh->addCollider<AABB>("clickMesh_debug", m_clickMesh);
     collider->setReceiveRaycasts(true);
     collider->setBlockRaycasts(false);
-    m_clickMesh->setName("clickMesh_debug");
-    Render::getRoot()->addChild(m_clickMesh);
+    Render::getHudPass().getRoot()->addChild(m_clickMesh, true, Node::VisibilityPolice::Hidden);
 
     event::Touch::Begin::subscribe(std::bind(&NodeDebugger::onClick, this, std::placeholders::_1));
 }
