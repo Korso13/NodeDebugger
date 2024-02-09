@@ -197,7 +197,9 @@ namespace nlohmann
 		
 		//exportJson.unflatten(); doesn't work due to values not being JSON primitives. Needs custom unflattener
 		std::string flatJson = jsonUnflatten(exportJson);
+#ifndef FORCENODEDEBUG_OFF
 		ImGui::SetClipboardText(flatJson.c_str());
+#endif
 		jsWriteEvent(flatJson.c_str(), "tweens.json");
 		return; 
 
