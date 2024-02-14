@@ -69,9 +69,10 @@ namespace nlohmann
 		static void from_json(const json& j, tweenDebugRecord& obj)
 		{
 			FIELD_DESERIALIZE(tweenName);
-			FIELD_DESERIALIZE(loopedTween);
-			FIELD_DESERIALIZE(moveTween);
-			FIELD_DESERIALIZE(worldVec3);
+			FIELD_DESERIALIZE(isLoopedTween);
+			FIELD_DESERIALIZE(isRelativeValues);
+			FIELD_DESERIALIZE(isMoveTween);
+			FIELD_DESERIALIZE(isWorldVec3);
 			FIELD_DESERIALIZE(tweenStart);
 			FIELD_DESERIALIZE(tweenPoints);
 			FIELD_DESERIALIZE(tweenDelays);
@@ -81,9 +82,10 @@ namespace nlohmann
 		static void to_json(json& j, const tweenDebugRecord& obj)
 		{
 			FIELD_SERIALIZE(tweenName);
-			FIELD_SERIALIZE(loopedTween);
-			FIELD_SERIALIZE(moveTween);
-			FIELD_SERIALIZE(worldVec3);
+			FIELD_SERIALIZE(isLoopedTween);
+			FIELD_SERIALIZE(isRelativeValues);
+			FIELD_SERIALIZE(isMoveTween);
+			FIELD_SERIALIZE(isWorldVec3);
 			FIELD_SERIALIZE(tweenStart);
 			FIELD_SERIALIZE(tweenPoints);
 			FIELD_SERIALIZE(tweenDelays);

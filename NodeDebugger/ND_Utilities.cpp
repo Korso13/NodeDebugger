@@ -6,7 +6,7 @@
 #include <regex>
 #include "TweenFactory.h"
 
-#define TWEENCONTAINER CustomTweens::getTweenContainer()
+#define TWEENCONTAINER TweenContainer::getTweenContainer()
 
 namespace ND_Util
 {
@@ -140,13 +140,13 @@ namespace ND_Util
             if (tweenRec.tweenEndless)
             {
                 vec3 newValue = tweenRec.tweenEndless->updValue(dt);
-                if (tweenRec.moveTween)
-                    if (tweenRec.worldVec3)
+                if (tweenRec.isMoveTween)
+                    if (tweenRec.isWorldVec3)
                         node->setWorldTranslation(newValue);
                     else
                         node->setLocalTranslation(newValue);
                 else
-                    if (tweenRec.worldVec3)
+                    if (tweenRec.isWorldVec3)
                         node->setWorldScale(newValue);
                     else
                         node->setLocalScale(newValue);
@@ -165,13 +165,13 @@ namespace ND_Util
             if (tweenRec.tweenEndless)
             {
                 vec3 newValue = tweenRec.tweenEndless->updValue(dt);
-                if (tweenRec.moveTween)
-                    if (tweenRec.worldVec3)
+                if (tweenRec.isMoveTween)
+                    if (tweenRec.isWorldVec3)
                         node->setWorldTranslation(newValue);
                     else
                         node->setLocalTranslation(newValue);
                 else
-                    if (tweenRec.worldVec3)
+                    if (tweenRec.isWorldVec3)
                         node->setWorldScale(newValue);
                     else
                         node->setLocalScale(newValue);
@@ -419,7 +419,7 @@ namespace ND_Util
             const char* tween_names[TWEENCONTAINER.size()];
             for (size_t i = 0; i < TWEENCONTAINER.size(); i++)
             {
-                if (tweenRecord.moveTween == TWEENCONTAINER[i].moveTween)
+                if (tweenRecord.isMoveTween == TWEENCONTAINER[i].isMoveTween)
                     tween_names[i] = TWEENCONTAINER[i].tweenName.c_str();
                 else
                     tween_names[i] = "!WRONG TWEEN TYPE!";
@@ -429,7 +429,7 @@ namespace ND_Util
             ImGui::NextColumn();
             std::string buttonCaption = "Load ";
             buttonCaption += tween_names[lastSelectedTweenSample];
-            if (tweenRecord.moveTween == TWEENCONTAINER[lastSelectedTweenSample].moveTween)
+            if (tweenRecord.isMoveTween == TWEENCONTAINER[lastSelectedTweenSample].isMoveTween)
             {
                 if (ImGui::Button(buttonCaption.c_str()))
                 {
@@ -444,37 +444,38 @@ namespace ND_Util
         ImGui::Columns(2);
         if (ImGui::Button("Save tween to Samples"))
         {
-            CustomTweens::addNewTweenSample(tweenRecord);
+            TweenContainer::addNewTweenSample(tweenRecord);
         }
         ImGui::NextColumn();
         if (ImGui::Button("Export samples to JSON"))
         {
-            CustomTweens::exportTweenContainerToJson();
+            TweenContainer::exportTweenContainerToJson();
         }
         ImGui::Columns(1);
 
         //Tween sample settings
         ImGui::InputText("Tween name", &tweenRecord.tweenName);
 
-        if (ImGui::Checkbox("Looped tween", &tweenRecord.loopedTween))
+        if (ImGui::Checkbox("Looped tween", &tweenRecord.isLoopedTween))
         {
             tweenRecord.tweenEndless = nullptr;
             tweenRecord.tween = nullptr;
         }
-        ImGui::Checkbox("World vec3 values?", &tweenRecord.worldVec3);
+        ImGui::Checkbox("World vec3 values?", &tweenRecord.isWorldVec3);
+        ImGui::Checkbox("Relative values", &tweenRecord.isRelativeValues);
 
         //start point setter
         ImGui::Text("Tween start point");
         ImGui::Columns(2);
         if (ImGui::Button("Set start to current node value"))
         {
-            if (tweenRecord.moveTween)
-                if (tweenRecord.worldVec3)
+            if (tweenRecord.isMoveTween)
+                if (tweenRecord.isWorldVec3)
                     tweenRecord.tweenStart = _node->getWorldTranslation();
                 else
                     tweenRecord.tweenStart = _node->getLocalTranslation();
             else
-                if (tweenRecord.worldVec3)
+                if (tweenRecord.isWorldVec3)
                     tweenRecord.tweenStart = _node->getWorldScale();
                 else
                     tweenRecord.tweenStart = _node->getLocalScale();
@@ -499,13 +500,13 @@ namespace ND_Util
                 ImGui::Columns(2);
                 if (ImGui::Button(CSTR("Set point " + STR(i + 1) + " to current value")))
                 {
-                    if (tweenRecord.moveTween)
-                        if (tweenRecord.worldVec3)
+                    if (tweenRecord.isMoveTween)
+                        if (tweenRecord.isWorldVec3)
                             tweenRecord.tweenPoints[i] = _node->getWorldTranslation();
                         else
                             tweenRecord.tweenPoints[i] = _node->getLocalTranslation();
                     else
-                        if (tweenRecord.worldVec3)
+                        if (tweenRecord.isWorldVec3)
                             tweenRecord.tweenPoints[i] = _node->getWorldScale();
                         else
                             tweenRecord.tweenPoints[i] = _node->getLocalScale();
@@ -559,13 +560,13 @@ namespace ND_Util
         if (ImGui::Button("Add new point"))
         {
             tweenRecord.tweenPoints.push_back(vec3::zero);
-            if (tweenRecord.moveTween)
-                if (tweenRecord.worldVec3)
+            if (tweenRecord.isMoveTween)
+                if (tweenRecord.isWorldVec3)
                     tweenRecord.tweenPoints.back() = _node->getWorldTranslation();
                 else
                     tweenRecord.tweenPoints.back() = _node->getLocalTranslation();
             else
-                if (tweenRecord.worldVec3)
+                if (tweenRecord.isWorldVec3)
                     tweenRecord.tweenPoints.back() = _node->getWorldScale();
                 else
                     tweenRecord.tweenPoints.back() = _node->getLocalScale();
@@ -583,10 +584,10 @@ namespace ND_Util
         if (ImGui::Button("Play tween"))
         {
 
-            if (!tweenRecord.loopedTween)
-                tweenRecord.tween = CustomTweens::generateTween(tweenRecord, _node);
+            if (!tweenRecord.isLoopedTween)
+                tweenRecord.tween = TweenContainer::generateTween(tweenRecord, _node);
             else
-                tweenRecord.tweenEndless = CustomTweens::generateEndlessTween(tweenRecord, _node);
+                tweenRecord.tweenEndless = TweenContainer::generateEndlessTween(tweenRecord, _node);
         }
         ImGui::NextColumn();
         if (ImGui::Button("Stop tween"))
@@ -612,14 +613,14 @@ namespace ND_Util
                 debugTweensMove.insert({ _node, tweenDebugRecord() });
                 debugTweensScale.insert({ _node, tweenDebugRecord() });
 
-                debugTweensMove[_node].moveTween = true;
-                if (debugTweensMove[_node].worldVec3)
+                debugTweensMove[_node].isMoveTween = true;
+                if (debugTweensMove[_node].isWorldVec3)
                     debugTweensMove[_node].tweenStart = _node->getWorldTranslation();
                 else
                     debugTweensMove[_node].tweenStart = _node->getLocalTranslation();
 
-                debugTweensScale[_node].moveTween = false;
-                if (debugTweensScale[_node].worldVec3)
+                debugTweensScale[_node].isMoveTween = false;
+                if (debugTweensScale[_node].isWorldVec3)
                     debugTweensScale[_node].tweenStart = _node->getWorldScale();
                 else
                     debugTweensScale[_node].tweenStart = _node->getLocalScale();
@@ -649,14 +650,14 @@ namespace ND_Util
             if (ImGui::Button("Play all tweens"))
             {
 
-                if (!tweenRecordMove.loopedTween)
-                    tweenRecordMove.tween = CustomTweens::generateTween(tweenRecordMove, _node);
+                if (!tweenRecordMove.isLoopedTween)
+                    tweenRecordMove.tween = TweenContainer::generateTween(tweenRecordMove, _node);
                 else
-                    tweenRecordMove.tweenEndless = CustomTweens::generateEndlessTween(tweenRecordMove, _node);
-                if (!tweenRecordScale.loopedTween)
-                    tweenRecordScale.tween = CustomTweens::generateTween(tweenRecordScale, _node);
+                    tweenRecordMove.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordMove, _node);
+                if (!tweenRecordScale.isLoopedTween)
+                    tweenRecordScale.tween = TweenContainer::generateTween(tweenRecordScale, _node);
                 else
-                    tweenRecordScale.tweenEndless = CustomTweens::generateEndlessTween(tweenRecordScale, _node);
+                    tweenRecordScale.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordScale, _node);
             }
             if (ImGui::Button("Stop all tweens"))
             {

@@ -27,9 +27,10 @@ ND_ImGui::ND_ImGui()
 
     m_editorCamera = make::sptr<EditorCamera>("Debug camera");
     m_editorCamera->setParent(Render::getRoot());
+    m_editorCamera->m_lookButton = w4::event::Touch::Button::Middle;
 
     initCustomTabs();
-    CustomTweens::preloadTweenContainer();
+    TweenContainer::preloadTweenContainer();
 }
 
 void ND_ImGui::addImGuiNode(sptr<Node> inNode, std::string name)

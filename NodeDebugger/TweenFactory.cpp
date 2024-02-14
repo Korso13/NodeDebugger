@@ -1,7 +1,7 @@
 #include "TweenFactory.h"
 #include "ND_JsonTools.h"
 
-void CustomTweens::preloadTweenContainer()
+void TweenContainer::preloadTweenContainer()
 {
     if (!tweenSettingsContainer.empty())
         return;
@@ -9,7 +9,7 @@ void CustomTweens::preloadTweenContainer()
     tweenSettingsContainer = nlohmann::loadTweens().tweenRecordsData;
 }
 
-void CustomTweens::addNewTweenSample(tweenDebugRecord tweenRecord)
+void TweenContainer::addNewTweenSample(tweenDebugRecord tweenRecord)
 {
     //replace mechanic
     for (auto& tweenSample : tweenSettingsContainer)
@@ -25,7 +25,7 @@ void CustomTweens::addNewTweenSample(tweenDebugRecord tweenRecord)
     tweenSettingsContainer.push_back(tweenRecord);
 }
 
-void CustomTweens::exportTweenContainerToJson()
+void TweenContainer::exportTweenContainerToJson()
 {
     if (tweenSettingsContainer.empty())
         return;
@@ -36,7 +36,7 @@ void CustomTweens::exportTweenContainerToJson()
     nlohmann::exportTweens(tweenExportContainer);
 }
 
-const std::vector<tweenDebugRecord>& CustomTweens::getTweenContainer()
+const std::vector<tweenDebugRecord>& TweenContainer::getTweenContainer()
 {
     return tweenSettingsContainer;
 }

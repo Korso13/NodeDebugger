@@ -86,9 +86,10 @@ enum class LogLevel
 struct tweenDebugRecord
 {
 	std::string tweenName;
-	bool loopedTween = false;
-	bool moveTween = true;
-	bool worldVec3 = true;
+	bool isLoopedTween = false;
+	bool isRelativeValues = false;
+	bool isMoveTween = true;
+	bool isWorldVec3 = true;
 	vec3 tweenStart = vec3::zero;
 	std::vector<vec3> tweenPoints;
 	std::vector<float> tweenDelays;
