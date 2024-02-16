@@ -53,6 +53,18 @@ void VariablesTab::onGuiCall()
 			if (var_v3.onChangeCb)var_v3.onChangeCb();
 		}
 	}
+	for (auto& [name_v4, var_v4] : m_debugVec4)
+	{
+		if (!ND_Util::checkFilterConditions(name_v4, m_variablesFilter))
+			continue; 
+		
+		bool valueChanged = false;
+		if (ImGui::ColorEdit(name_v4.c_str(), *var_v4.var))
+		{
+			if (var_v4.onChangeCb)
+				var_v4.onChangeCb();
+		}
+	}
 	for (auto& [name_b, var_b] : m_debugBools)
 	{
 		if (!ND_Util::checkFilterConditions(name_b, m_variablesFilter))

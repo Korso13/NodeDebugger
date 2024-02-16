@@ -26,6 +26,7 @@ private:
 	std::unordered_map<std::string, debugVar<bool> > m_debugBools;
 	std::unordered_map<std::string, debugVar<vec2> > m_debugVec2;
 	std::unordered_map<std::string, debugVar<vec3> > m_debugVec3;
+	std::unordered_map<std::string, debugVar<vec4> > m_debugVec4;
 
 	std::string m_variablesFilter = "";
 };
@@ -70,4 +71,12 @@ inline void VariablesTab::addItemTyped(const std::string& altName, vec3* item, s
 	debugVar.var = item;
 	debugVar.onChangeCb = cb;
 	m_debugVec3.insert({ altName, debugVar });
+}
+template<>
+inline void VariablesTab::addItemTyped(const std::string& altName, vec4* item, std::function<void()> cb)
+{
+	debugVar<vec4> debugVar;
+	debugVar.var = item;
+	debugVar.onChangeCb = cb;
+	m_debugVec4.insert({ altName, debugVar });
 }
