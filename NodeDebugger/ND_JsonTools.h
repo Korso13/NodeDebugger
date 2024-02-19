@@ -71,6 +71,7 @@ namespace nlohmann
 			FIELD_DESERIALIZE(tweenName);
 			FIELD_DESERIALIZE(isLoopedTween);
 			FIELD_DESERIALIZE(isRelativeValues);
+			FIELD_DESERIALIZE(isPercentRelativeValues);
 			FIELD_DESERIALIZE(isMoveTween);
 			FIELD_DESERIALIZE(isWorldVec3);
 			FIELD_DESERIALIZE(tweenStart);
@@ -84,6 +85,7 @@ namespace nlohmann
 			FIELD_SERIALIZE(tweenName);
 			FIELD_SERIALIZE(isLoopedTween);
 			FIELD_SERIALIZE(isRelativeValues);
+			FIELD_SERIALIZE(isPercentRelativeValues);
 			FIELD_SERIALIZE(isMoveTween);
 			FIELD_SERIALIZE(isWorldVec3);
 			FIELD_SERIALIZE(tweenStart);

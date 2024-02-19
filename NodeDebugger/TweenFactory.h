@@ -12,6 +12,7 @@ namespace TweenContainer
 	void addNewTweenSample(tweenDebugRecord tweenRecord);
 	void exportTweenContainerToJson();
 	const std::vector<tweenDebugRecord>& getTweenContainer();
+    vec3 getPercentModifyer(const vec3& startValue, const vec3& targetValue);
 
     //Non-looped tween generator
 	static sptr<CustomTweens::Tween<vec3>> generateTween(const tweenDebugRecord& tweenRecord, sptr<Node> _node, std::function<void(vec3&)>&& changeValueOnUpdateCB = nullptr, std::function<void()>&& onFinishCB = nullptr)
@@ -19,25 +20,26 @@ namespace TweenContainer
         if (tweenRecord.tweenDelays.empty() || tweenRecord.tweenPoints.empty())
             return nullptr;
 
-        vec3 offset;
-        if (!tweenRecord.isRelativeValues)
+        vec3 offset, tweenStart;
+
+        if (tweenRecord.isMoveTween)
+            if (tweenRecord.isWorldVec3)
+                tweenStart = _node->getWorldTranslation();
+            else
+                tweenStart = _node->getLocalTranslation();
+        else
+            if (tweenRecord.isWorldVec3)
+                tweenStart = _node->getWorldScale();
+            else
+                tweenStart = _node->getLocalScale();
+
+        if (!tweenRecord.isRelativeValues || (tweenRecord.isRelativeValues && tweenRecord.isPercentRelativeValues) )
             offset = vec3::zero;
         else
-        {
-            if (tweenRecord.isMoveTween)
-                if (tweenRecord.isWorldVec3)
-                    offset = _node->getWorldTranslation();
-                else
-                    offset = _node->getLocalTranslation();
-            else
-                if (tweenRecord.isWorldVec3)
-                    offset = _node->getWorldScale();
-                else
-                    offset = _node->getLocalScale();
-        }
+            offset = tweenStart-tweenRecord.tweenStart;
 
         auto tween = make::sptr<CustomTweens::Tween<vec3>>(
-            tweenRecord.tweenStart + offset,
+            tweenStart,
             [tweenRecord, _node, changeValueOnUpdateCB](vec3 newValue)
             {
                 if (!_node)
@@ -60,8 +62,17 @@ namespace TweenContainer
 
         for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
         {
+            vec3 nextValue = vec3::zero;
+            if (tweenRecord.isRelativeValues && tweenRecord.isPercentRelativeValues)
+            {
+                nextValue = tweenStart * getPercentModifyer(tweenRecord.tweenStart, tweenRecord.tweenPoints[i]);
+            }
+            else
+            {
+                nextValue = tweenRecord.tweenPoints[i] + offset;
+            }
             tween->addMore(
-                tweenRecord.tweenPoints[i] + offset,
+                nextValue,
                 tweenRecord.tweenDelays[i],
                 tweenRecord.easingTypes[i],
 
@@ -80,29 +91,39 @@ namespace TweenContainer
         if (tweenRecord.tweenDelays.empty() || tweenRecord.tweenPoints.empty())
             return nullptr;
 
-        vec3 offset;
-        if (!tweenRecord.isRelativeValues)
+        vec3 offset, tweenStart;
+
+        if (tweenRecord.isMoveTween)
+            if (tweenRecord.isWorldVec3)
+                tweenStart = _node->getWorldTranslation();
+            else
+                tweenStart = _node->getLocalTranslation();
+        else
+            if (tweenRecord.isWorldVec3)
+                tweenStart = _node->getWorldScale();
+            else
+                tweenStart = _node->getLocalScale();
+
+        if (!tweenRecord.isRelativeValues || (tweenRecord.isRelativeValues && tweenRecord.isPercentRelativeValues))
             offset = vec3::zero;
         else
-        {
-            if (tweenRecord.isMoveTween)
-                if (tweenRecord.isWorldVec3)
-                    offset = _node->getWorldTranslation();
-                else
-                    offset = _node->getLocalTranslation();
-            else
-                if (tweenRecord.isWorldVec3)
-                    offset = _node->getWorldScale();
-                else
-                    offset = _node->getLocalScale();
-        }
+            offset = tweenStart - tweenRecord.tweenStart;
 
-        sptr<CustomTweens::EndlessTween<vec3>> tween = make::sptr<CustomTweens::EndlessTween<vec3>>(tweenRecord.tweenStart + offset, "new_tween");
+        sptr<CustomTweens::EndlessTween<vec3>> tween = make::sptr<CustomTweens::EndlessTween<vec3>>(tweenStart, "new_tween");
         float nowTime = 0.f;
         for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
         {
+            vec3 nextValue = vec3::zero;
+            if (tweenRecord.isRelativeValues && tweenRecord.isPercentRelativeValues)
+            {
+                nextValue = tweenStart * getPercentModifyer(tweenRecord.tweenStart, tweenRecord.tweenPoints[i]);
+            }
+            else
+            {
+                nextValue = tweenRecord.tweenPoints[i] + offset;
+            }
             nowTime += tweenRecord.tweenDelays[i];
-            tween->add(tweenRecord.tweenPoints[i] + offset, nowTime, tweenRecord.easingTypes[i]);
+            tween->add(nextValue, nowTime, tweenRecord.easingTypes[i]);
         }
 
         return tween;

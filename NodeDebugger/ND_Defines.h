@@ -88,6 +88,7 @@ struct tweenDebugRecord
 	std::string tweenName;
 	bool isLoopedTween = false;
 	bool isRelativeValues = false;
+	bool isPercentRelativeValues = false;
 	bool isMoveTween = true;
 	bool isWorldVec3 = true;
 	vec3 tweenStart = vec3::zero;

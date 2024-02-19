@@ -1,48 +1,30 @@
 {
-  "tweenRecordsData": [
-    {
-      "tweenName": "test_tween_move",
-      "isRelativeValues": true,
-      "isLoopedTween": false,
-      "isMoveTween": true,
-      "isWorldVec3": false,
-      "tweenStart": { "x": 0.0, "y": 0.0, "z": 0.0},
-      "tweenPoints": [
-        { "x": 2.0, "y": 2.0, "z": 0.0 }
-      ],      
-      "tweenDelays": [
-        1.5
-      ],    
-      "easingTypes": [
-        "Linear"
-      ]
-    },
-    {
-      "tweenName": "test_tween_scale",
-      "isRelativeValues": true,
-      "isLoopedTween": true,
-      "isMoveTween": false,
-      "isWorldVec3": false,
-      "tweenStart": { "x": 1.0, "y": 1.0, "z": 1.0},
-      "tweenPoints": [
-        { "x": 1.2, "y": 1.2, "z": 1.0 },
-        { "x": 0.8, "y": 0.8, "z": 1.0},
-        {
-          "x": 1.0,
-          "y": 1.0,
-          "z": 1.0
-        }
-      ],      
-      "tweenDelays": [
-        0.5,
-        0.6,
-        0.5
-      ],    
-      "easingTypes": [
-        "Linear",
-        "Linear",
-        "Linear"
-      ]
-    }
-  ]
+	"tweenRecordsData":[
+		{
+			"easingTypes":[
+				"BackInOut"
+			],
+			"isLoopedTween":false,
+			"isMoveTween":false,
+			"isPercentRelativeValues":true,
+			"isRelativeValues":true,
+			"isWorldVec3":true,
+			"tweenDelays":[
+				0.6000000238418579
+			],
+			"tweenName":"tapCircleScale",
+			"tweenPoints":[
+				{
+					"x":0.699999988079071,
+					"y":0.699999988079071,
+					"z":0.3499999940395355
+				}
+			],
+			"tweenStart":{
+				"x":0.3499999940395355,
+				"y":0.3499999940395355,
+				"z":0.3499999940395355
+			}
+		}
+	]
 }

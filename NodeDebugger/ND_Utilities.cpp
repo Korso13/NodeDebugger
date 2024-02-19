@@ -462,7 +462,14 @@ namespace ND_Util
             tweenRecord.tween = nullptr;
         }
         ImGui::Checkbox("World vec3 values?", &tweenRecord.isWorldVec3);
+        ImGui::Columns(2);
         ImGui::Checkbox("Relative values", &tweenRecord.isRelativeValues);
+        ImGui::NextColumn();
+        if (tweenRecord.isRelativeValues)
+        {
+            ImGui::Checkbox("Relative values in %% ?", &tweenRecord.isPercentRelativeValues);
+        }
+        ImGui::Columns(1);
 
         //start point setter
         ImGui::Text("Tween start point");
