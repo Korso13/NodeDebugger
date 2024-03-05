@@ -246,6 +246,7 @@ void ND_ImGui::onGui(float dt)
     {
         if (m_foldImGuiMenu)
             m_foldImGuiMenu = false;
+        m_windowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_::ImGuiFocusedFlags_AnyWindow);
 
         //start size-related code
         if (m_firstUpdates > 0)

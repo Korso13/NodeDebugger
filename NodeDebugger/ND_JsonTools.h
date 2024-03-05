@@ -117,7 +117,7 @@ namespace nlohmann
 		auto file = w4::filesystem::open("config/tweens.json");
 		auto json = nlohmann::json::parse(file->data(), file->data() + file->size());
 		nlohmann::adl_serializer<tweenRecordsContainer>::from_json(json, tweenContainer);
-
+		W4_LOG_DEBUG("Loaded [%d] tween samples to Tween Container", tweenContainer.tweenRecordsData.size());
 		return tweenContainer;
 	}
 

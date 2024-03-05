@@ -75,7 +75,6 @@ namespace TweenContainer
                 nextValue,
                 tweenRecord.tweenDelays[i],
                 tweenRecord.easingTypes[i],
-
                 (i + 1 == tweenRecord.tweenPoints.size())
                 ? onFinishCB
                 : []() {}

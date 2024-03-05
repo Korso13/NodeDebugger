@@ -53,6 +53,7 @@ protected:
 	sptr<ImGuiNode> m_imguiNode;
 
 	bool m_foldImGuiMenu = false;
+	bool m_windowFocused = false;
 
 	float m_imGuiFontSize = IMG_FONTSIZE; 
 
@@ -81,7 +82,6 @@ inline void ND_ImGui::addDebugVariable(std::string name, T* variablePtr, std::fu
 {
 	if (!getCustomTabByName("Variables"))
     return;
-
 
     cast_sptr<VariablesTab>(getCustomTabByName("Variables"))->addItemTyped(name, variablePtr, cb);
 }

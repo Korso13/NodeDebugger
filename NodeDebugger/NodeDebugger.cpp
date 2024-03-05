@@ -121,7 +121,7 @@ void NodeDebugger::purgeDebugger()
 
 void NodeDebugger::onKeyPressed(const event::Keyboard::Down& evt)
 { 
-    if (!isDebuggerOn)
+    if (!isDebuggerOn || m_windowFocused)
         return;
 
     auto light = Render::getPass(0)->getDirectionalLight();
