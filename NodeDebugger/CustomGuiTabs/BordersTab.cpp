@@ -1,6 +1,8 @@
 #include "BordersTab.h"
 #include "../ND_JsonTools.h"
 
+std::function<void(nlohmann::json)> BordersTab::m_onJsonLoaded = nullptr;
+
 #ifndef FORCENODEDEBUG_OFF
 
 //overload needed for std::set to function
@@ -150,6 +152,11 @@ void BordersTab::onGuiCall()
 		nlohmann::adl_serializer<TabBorderContainer>::to_json(exportJson, borderContainer);
 		exportAsJson(exportJson);
 	}
+
+	if (ImGui::Button("Import borders from JSON"))
+	{
+		loadJson();
+	}
 }
 
 void BordersTab::addItem(std::any item, const std::string& altName)
@@ -240,6 +247,52 @@ void BordersTab::exportAsJson(nlohmann::json& inJson)
 	std::string flatJson = nlohmann::jsonUnflatten(inJson);
 	ImGui::SetClipboardText(flatJson.c_str());
 	jsWriteEvent(flatJson.c_str(), "bordersContainerSettings.json");
+}
+
+void BordersTab::loadJson()
+{
+	jsReadJson(this, &BordersTab::onJSONLoadCB);
+
+	if (!m_onJsonLoaded)
+	{
+		//executed on file load:
+		m_onJsonLoaded = [this](nlohmann::json loadedJson)
+		{
+			//W4_LOG_INFO("[BorderTab]\nParsed json: %s", loadedJson.dump().c_str());
+			TabBorderContainer borderContainer;
+			nlohmann::adl_serializer<TabBorderContainer>::from_json(loadedJson, borderContainer);
+			
+			for (auto& borderRecord : borderContainer.borders)
+			{
+				//adding border records to the borders tab
+				m_debugBorders.insert(make::sptr<TabBorderLineData>(borderRecord));
+				//info("[BorderTab]\nAdded new records to m_debugBorders");
+
+				//generating border points
+				int i = 0;
+				for (auto& borderPoint : borderRecord.points)
+				{
+					auto newPointName = borderRecord.borderName + STR(i);
+					auto newPointMesh = Mesh::create::plane(vec2(0.1, 0.1));
+					newPointMesh->setMaterialInst(Material::getDefault()->createInstance());
+					Render::getRoot()->addChild(newPointMesh);
+					newPointMesh->setRenderOrder(10000);
+
+					m_borderRender.insert(
+						{
+							newPointName,
+							newPointMesh
+						});
+					m_borderRender[newPointName]->setWorldTranslation(vec3(borderPoint.x, borderPoint.y, -0.001f));
+					//debug("[BorderTab]\nAdded %s border point", newPointName.c_str());
+					i++;
+				}
+
+				//generating border lines
+				renderBorderLines(borderRecord.borderName);
+			}
+		};
+	}
 }
 
 #endif

@@ -18,6 +18,12 @@ namespace nlohmann {
 	template<>
 	struct adl_serializer<TabBorderLineData>
 	{
+		static void from_json(const json& j, TabBorderLineData& obj)
+		{
+			FIELD_DESERIALIZE(borderName);
+			FIELD_DESERIALIZE(points);
+		}
+
 		static void to_json(json& j, const TabBorderLineData& obj)
 		{
 			FIELD_SERIALIZE(borderName);
@@ -28,6 +34,11 @@ namespace nlohmann {
 	template<>
 	struct adl_serializer<TabBorderContainer>
 	{
+		static void from_json(const json& j, TabBorderContainer& obj)
+		{
+			FIELD_DESERIALIZE(borders);
+		}
+
 		static void to_json(json& j, const TabBorderContainer& obj)
 		{
 			FIELD_SERIALIZE(borders);
@@ -52,6 +63,15 @@ private:
 
 	void renderBorderLines(std::string borderRecordToRedraw);
 	void exportAsJson(nlohmann::json& inJson);
+	void loadJson();
+
+	static void onJSONLoadCB(void* self, char* result)
+	{
+		std::string partSettings = result;
+		nlohmann::json importJson = nlohmann::json::parse(partSettings);
+
+		if (m_onJsonLoaded) m_onJsonLoaded(importJson);
+	}
 
 private:
 
@@ -60,4 +80,6 @@ private:
 	std::set<sptr<TabBorderLineData>> m_debugBorders;
 	std::map<std::string, sptr<Mesh>> m_borderRender; //border points' meshes
 	std::map<std::string/*m_debugBorders border name*/, std::vector<sptr<Mesh>>> m_borderLinesRender;
+
+	static std::function<void(nlohmann::json)> m_onJsonLoaded;
 };

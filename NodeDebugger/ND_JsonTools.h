@@ -51,13 +51,19 @@ W4_NLOHMANN_JSON_SERIALIZE_ENUM(w4::resources::Easing, {
 });
 
 //Import JS func to write into files (via save dialogue)
+typedef void (*JSStringCallback) (void*, char*);
+
 #ifdef __EMSCRIPTEN__
 W4_JS_IMPORT
 {
 void jsWriteEvent(const char* data, const char* filename);
+void jsReadImage(void* self, JSStringCallback callback);
+void jsReadJson(void* self, JSStringCallback callback);
 }
 #else
 void jsWriteEvent(const char* data, const char* filename) {}
+void jsReadImage(void* self, JSStringCallback callback) {};
+void jsReadJson(void* self, JSStringCallback callback) {};
 #endif
 
 namespace nlohmann 
