@@ -109,9 +109,6 @@ public:
 	void setClickMeshZ(float targetZ) NOCOMP;
 	void onClick(const Touch::Begin& clickEvent) NOCOMP;
 
-	//Use this to alter game time scale - multiply your dt by this value
-	const float getTimeScale() const NOCOMP_F;
-
 private:
 
 	NodeDebugger() NOCOMP;

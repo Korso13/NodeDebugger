@@ -362,21 +362,27 @@ namespace ND_Util
 
     void ImGuiSettings()
     {
-        ImGui::SliderInt("% Game timescale", &timescale, 0, 500);
+        if (ImGui::SliderInt("% Game timescale", &timescale, 0, 500))
+        {
+            Game::getInstance()->setTimeScale(timescale/100.f);
+        }
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
     }
 
-    void ImGuiSearchBar(std::string& lastSearchVal)
+    bool ImGuiSearchBar(std::string& lastSearchVal)
     {
         ImGui::PushID(repeatElemId++);
+
         ImGui::Text("%s", "Filter: ");
         ImGui::SameLine();
-        ImGui::InputText(" ", &lastSearchVal);
+        bool isSearchChanged = ImGui::InputText(" ", &lastSearchVal);
         ImGui::Separator();
 
         ImGui::PopID();
+
+        return isSearchChanged;
     }
 
     bool checkFilterConditions(const std::string& itemName, const std::string& filter)
@@ -393,11 +399,6 @@ namespace ND_Util
     void resetImGuiRepeatElemId()
     {
         repeatElemId = 0;
-    }
-
-    float getTimeScale()
-    {
-        return timescale / 100.f;
     }
 
     void ImGuiNodeSettings()

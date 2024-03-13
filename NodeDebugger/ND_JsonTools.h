@@ -93,7 +93,6 @@ namespace nlohmann
 			FIELD_SERIALIZE(tweenDelays);
 			FIELD_SERIALIZE(easingTypes);
 		}
-
 	};
 
 	template<>
@@ -199,22 +198,10 @@ namespace nlohmann
 		nlohmann::json exportJson;
 		nlohmann::adl_serializer<tweenRecordsContainer>::to_json(exportJson, containerData);
 		
-		//exportJson.unflatten(); doesn't work due to values not being JSON primitives. Needs custom unflattener
 		std::string flatJson = jsonUnflatten(exportJson);
 #ifndef FORCENODEDEBUG_OFF
 		ImGui::SetClipboardText(flatJson.c_str());
 #endif
 		jsWriteEvent(flatJson.c_str(), "tweens.json");
-		return; 
-
-		//writing directly into files doesn't work yet((
-		//auto file = w4::filesystem::open("config/tweens.json", FileMode::Write);
-		//unsigned char jsonData[exportJson.dump().size()];
-		//for (size_t i = 0; i < exportJson.dump().size(); i++)
-		//{
-		//	jsonData[i] = exportJson.dump().data()[i];
-		//}
-		//
-		//file->write(jsonData, exportJson.dump().size());
 	}
 }

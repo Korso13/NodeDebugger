@@ -64,6 +64,7 @@ protected:
 
 	std::unordered_map<sptr<Node>, ImG_Node> m_staticNodes;
 	std::string m_nodesFilter = "";
+	std::set<std::string> m_lastNodeFilterList;
 	int m_nodeFilterItems = 0;
 
 	std::unordered_map<std::string, std::function<void()>> m_debugCallbacks;

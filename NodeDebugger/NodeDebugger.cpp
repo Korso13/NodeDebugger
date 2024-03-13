@@ -477,14 +477,7 @@ void NodeDebugger::printConnectedNodes()
 
 void NodeDebugger::onUpdate(float dt)
 {
-    dt *= getTimeScale();
-    
     ND_Util::updateTweens(dt);
-}
-
-const float NodeDebugger::getTimeScale() const
-{
-    return ND_Util::getTimeScale();
 }
 
 #endif //ends #ifndef FORCENODEDEBUG_OFF - conditional compilation macro. If FORCENODEDEBUG_OFF is defined, NOCOMP macro provides empty implementation and saves some weight in build size

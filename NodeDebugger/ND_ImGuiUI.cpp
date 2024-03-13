@@ -10,6 +10,7 @@
 #include <sources/common/NodeDebugger/CustomGuiTabs/SpinesTab.h>
 #include <sources/common/NodeDebugger/CustomGuiTabs/VariablesTab.h>
 #include <sources/common/NodeDebugger/CustomGuiTabs/ConsoleTab.h>
+#include <sources/common/NodeDebugger/CustomGuiTabs/BordersTab.h>
 
 ND_ImGui::ND_ImGui()
 {
@@ -179,10 +180,12 @@ void ND_ImGui::initCustomTabs()
     m_extraTabs.push_back(make::sptr<SpinesTab>());
     //Variables tab
     m_extraTabs.push_back(make::sptr<VariablesTab>());
+    //Borders tab
+    //m_extraTabs.push_back(make::sptr<BordersTab>()); //not needed by default
     //Spotlight tab
     m_extraTabs.push_back(make::sptr<SpotlightTab>());
     //Console tab
-    m_extraTabs.push_back(make::sptr<ConsoleTab>());
+    //m_extraTabs.push_back(make::sptr<ConsoleTab>()); //not needed by default
 }
 
 sptr<iGuiTab> ND_ImGui::getCustomTabByName(std::string tabName)
@@ -325,8 +328,9 @@ void ND_ImGui::onGui(float dt)
 void ND_ImGui::ImGuiNodes()
 {
     ND_Util::ImGuiNodeSettings();
+    bool isFilterChanged = false;
     if (m_staticNodes.size() > 6)
-        ND_Util::ImGuiSearchBar(m_nodesFilter);
+        isFilterChanged = ND_Util::ImGuiSearchBar(m_nodesFilter);
     else if (!m_nodesFilter.empty())
         m_nodesFilter.clear();
 
@@ -347,21 +351,54 @@ void ND_ImGui::ImGuiNodes()
     ImGui::SameLine();
     ImGui::Text("Nodes shown: %d", m_nodeFilterItems);
 
-    if (m_nodesFilter.empty())
-        m_nodeFilterItems = m_staticNodes.size();
-    else
-        m_nodeFilterItems = 0;
-    for (auto& ImG_Node : m_staticNodes)
+    if (m_nodesFilter.empty()) //no filter applied
     {
-        if (ImG_Node.first && ImG_Node.second.onRender && !ImG_Node.second.markedForDeletion)
+        m_nodeFilterItems = m_staticNodes.size();
+        for (auto& ImG_Node : m_staticNodes)
         {
-            if (ND_Util::checkFilterConditions(ImG_Node.first->getName(), m_nodesFilter))
+            if (ImG_Node.first && ImG_Node.second.onRender && !ImG_Node.second.markedForDeletion)
             {
                 ImG_Node.second.onRender(ImG_Node.first);
                 m_nodeFilterItems++;
             }
         }
     }
+    else
+    {
+        if (isFilterChanged) //filter changed. resetting list of matching node names
+        {
+            m_nodeFilterItems = 0;
+            m_lastNodeFilterList.clear();
+
+            for (auto& ImG_Node : m_staticNodes)
+            {
+                if (ImG_Node.first && ImG_Node.second.onRender && !ImG_Node.second.markedForDeletion)
+                {
+                    if (ND_Util::checkFilterConditions(ImG_Node.first->getName(), m_nodesFilter))
+                    {
+                        ImG_Node.second.onRender(ImG_Node.first);
+                        m_lastNodeFilterList.insert(ImG_Node.first->getName());
+                        m_nodeFilterItems++;
+                    }
+                }
+            }
+        }
+        else //filter has't changed sonce last render. Less compute overhead
+        {
+            //m_nodeFilterItems = m_lastNodeFilterList.size();
+            for (auto& ImG_Node : m_staticNodes)
+            {
+                if (ImG_Node.first 
+                    && ImG_Node.second.onRender 
+                    && !ImG_Node.second.markedForDeletion
+                    && m_lastNodeFilterList.find(ImG_Node.first->getName()) != m_lastNodeFilterList.end())
+                {
+                    ImG_Node.second.onRender(ImG_Node.first);
+                }
+            }
+        }
+    }
+
     std::erase_if(m_staticNodes,
         [](const auto& record)
         {
