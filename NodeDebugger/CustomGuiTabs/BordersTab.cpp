@@ -200,7 +200,7 @@ void BordersTab::renderBorderLines(std::string borderRecordToRedraw)
 			prevPos.x = prevPointCoords.x;
 			prevPos.y = prevPointCoords.y;
 
-			debug("\nDrawing line [%d] from \n%s \nto \n%s", i, CSTR(prevPos), CSTR(pos));
+			//debug("\nDrawing line [%d] from \n%s \nto \n%s", i, CSTR(prevPos), CSTR(pos));
 
 			//auto l = w4::render::Plotter::buildLine(prevPos, pos, color(color::Red));
 			//m_borderRender[borderPointName]->addChild(l);
@@ -230,7 +230,7 @@ void BordersTab::renderBorderLines(std::string borderRecordToRedraw)
 			++i;
 		}
 		
-		info("%s", debugOutput.c_str());
+		//info("%s", debugOutput.c_str());
 	}
 
 }
