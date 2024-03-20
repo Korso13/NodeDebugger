@@ -101,17 +101,8 @@ void ND_ImGui::addImGuiNode(sptr<Node> inNode, std::string name)
             if (_node->is<Mesh>())
             {
                 ImGui::Separator();
-                if (ImGui::TreeNode("Color"))
-                {
-                    auto col = _node->as<Mesh>()->getMaterialInst()->getParam<vec4>("color");
-                    float color[4] = { col.r, col.g, col.b, col.a };
-                    if (ImGui::ColorPicker4("Color edit", color))
-                    {
-                        _node->as<Mesh>()->getMaterialInst()->setParam<vec4>("color", vec4(color[0], color[1], color[2], color[3]));
-                    }
-                    ImGui::TreePop();
-                    ImGui::Separator();
-                }
+                const auto mesh = cast_sptr<Mesh>(_node);
+                ImGuiDrawerMaterial::onGui("Mesh material settings", *mesh->getMaterialInst());
             }
 
             //printing info to console
@@ -181,7 +172,7 @@ void ND_ImGui::initCustomTabs()
     //Variables tab
     m_extraTabs.push_back(make::sptr<VariablesTab>());
     //Borders tab
-    //m_extraTabs.push_back(make::sptr<BordersTab>()); //not needed by default
+    m_extraTabs.push_back(make::sptr<BordersTab>()); //not needed by default
     //Spotlight tab
     m_extraTabs.push_back(make::sptr<SpotlightTab>());
     //Console tab

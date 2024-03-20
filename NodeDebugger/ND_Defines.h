@@ -112,6 +112,7 @@ struct SpineDebugging
 	int selectedSkin2 = 0;
 	int selectedSkin3 = 0;
 	int selectedSkin4 = 0;
+	std::map<int, std::string> slots;
 };
 
 template<typename T>

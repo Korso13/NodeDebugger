@@ -170,8 +170,26 @@ void SpinesTab::onGuiCall()
 
             ImGui::Columns(1);
 
-            ImGui::TreePop();
+            if(!debugSpine.slots.empty())
+                if (ImGui::TreeNode("Slots materials' settings"))
+                {              
+                    for (auto& [slotId, slotName] : debugSpine.slots)
+                    {
+                        if (!debugSpine.spine->getSlotMaterial(slotId))
+                        {
+                            std::string reportText = "No material in slot ";
+                            reportText += STR(slotId) + "(" + slotName + ")";
+                            ImGui::Text("%s", reportText.c_str());
+                            continue;
+                        }
+                        ImGuiDrawerMaterial::onGui(slotName.c_str(), *debugSpine.spine->getSlotMaterial(slotId));
+                    }
+
+                    ImGui::TreePop();
+                }
+
             ImGui::Separator();
+            ImGui::TreePop();
         }
     }
 }
@@ -209,8 +227,14 @@ void SpinesTab::addItem(std::any item, const std::string& altName)
         spineDebugRec.skinNames.push_back(skins[i]->getName().buffer());
     }
 
-    m_debugSpines.push_back(spineDebugRec);
+    for (size_t i = 0; i < spineDebugRec.spine->skeleton->getSlots().size(); i++)
+    {
+        std::string slotName = spineDebugRec.spine->skeleton->getSlots()[i]->getData().getName().buffer();
+        int slotIndex = spineDebugRec.spine->skeleton->getSlots()[i]->getData().getIndex();
+        spineDebugRec.slots.insert({ slotIndex , slotName });
+    }
 
+    m_debugSpines.push_back(spineDebugRec);
 }
 
 #endif
