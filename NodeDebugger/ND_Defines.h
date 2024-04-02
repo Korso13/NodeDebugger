@@ -70,7 +70,8 @@ static float	sliderSensivity = 0.01;
 
 struct ImG_Node
 {
-	std::function<void(sptr<Node>)> onRender;
+	wptr<Node> node;
+	std::string name;
 	bool markedForDeletion = false;
 };
 

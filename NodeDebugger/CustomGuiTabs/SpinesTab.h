@@ -17,6 +17,6 @@ public:
 private:
 
 	bool m_copyAnimNameNotLength = true;
-	std::vector<SpineDebugging> m_debugSpines;
+	std::map<std::string, SpineDebugging> m_debugSpines;
 	std::string m_spinesFilter = "";
 };

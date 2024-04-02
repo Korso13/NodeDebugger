@@ -14,11 +14,15 @@ W4_USE_UNSTRICT_INTERFACE
 
 //quick access macros
 #define NODEDEBUG NodeDebugger::get()
-#define ND_NODE(node) NodeDebugger::get()->addImGuiNode(node)
+#define ND_NODE NodeDebugger::get()->addImGuiNode
+#define ND_NNODE(node, name) NodeDebugger::get()->addImGuiNode(node, name)
 #define ND_SPINE(spine) NodeDebugger::get()->addSpine(spine)
 #define ND_VAR(name, variable) NodeDebugger::get()->addDebugVariable(name, variable, nullptr)
 #define ND_VARCB(name, variable, callback) NodeDebugger::get()->addDebugVariable(name, variable, callback)
 #define ND_BTN(name, callback) NodeDebugger::get()->addDebugCBButton(name, callback)
+
+//kinda breakpoint that stops playable update. Can be resumed via NodeDebugger GUI
+#define ND_BRK  Game::getInstance()->setTimeScale(0.f) 
 
 //Use this before casting any rays to check if you are clicking ImGui interface. Returns false if mouse is above ImGui window
 #define ND_CASTALLOWED !NodeDebugger::get()->checkRaycastCollision()

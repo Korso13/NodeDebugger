@@ -362,6 +362,12 @@ namespace ND_Util
 
     void ImGuiSettings()
     {
+        if (ImGui::Button("100%"))
+        {
+            Game::getInstance()->setTimeScale(1.f);
+        }
+        ImGui::SameLine();
+        timescale = Game::getInstance()->getTimeScale()*100.f;
         if (ImGui::SliderInt("% Game timescale", &timescale, 0, 500))
         {
             Game::getInstance()->setTimeScale(timescale/100.f);

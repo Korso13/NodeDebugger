@@ -38,8 +38,6 @@ void ND_ImGui::addImGuiNode(sptr<Node> inNode, std::string name)
 {
     if (!inNode)
         return;
-    if (m_staticNodes.find(inNode) != m_staticNodes.end())
-        return;
 
     if (inNode->is<Spine>())
     {
@@ -55,79 +53,53 @@ void ND_ImGui::addImGuiNode(sptr<Node> inNode, std::string name)
     if (name == "default")
         name = inNode->getName();
 
-    auto ImGUI_drawCall = [this, name](sptr<Node> _node)
+    //prevents duplicate names
+    std::string zeroes = "00"; //for better sorting
+    if (m_staticNodes.contains(name))
     {
-        if (!m_imguiNode || !_node)
+        //checks if the list contains this node already
+        if (!m_staticNodes.at(name).node.expired() && m_staticNodes.at(name).node.lock().get() == inNode.get())
             return;
 
-        if (ImGui::TreeNode(name.c_str()))
+        for (size_t i = 0; i < 500; i++) 
         {
-            ImGui::SameLine();
-            if (ImGui::Button("x"))
+            if (i == 10 || i == 100)
+                zeroes.pop_back();
+            
+            if (!m_staticNodes.contains(name + "(" + zeroes + STR(i) + ")"))
             {
-                m_staticNodes[_node].markedForDeletion = true;
+
+                name += "(" + zeroes + STR(i) + ")";
+                break;
             }
-
-            //Drag gizmo
-            ImGuizmo::BeginFrame();
-            ImGuiDrawerGizmo::drawGizmosHandles(_node);
-
-            //visibility button
-            if (ImGui::Button("Toggle visibility"))
-            {
-                _node->setEnabled(!_node->isEnabled());
-            }
-
-            if (ImGui::Button("Center on camera"))
-            {
-                vec3 target = Render::getScreenCamera()->getWorldTranslation();
-                target.z = 0.f;
-                _node->setWorldTranslation(target);
-            }
-
-            if (_node->is<Mesh>())
-            {
-                ImGui::Separator();
-                int meshRO = _node->as<Mesh>()->getRenderOrder();
-                bool roChanged = false;
-                roChanged = ImGui::DragInt("Render order", &meshRO, sliderSensivity, 0, 10000);
-                if (roChanged)
-                    _node->as<Mesh>()->setRenderOrder(meshRO);
-            }
-
-            ND_Util::ImGuiTransforms(_node);
-            ND_Util::ImGuiTweens(_node);
-
-            if (_node->is<Mesh>())
-            {
-                ImGui::Separator();
-                const auto mesh = cast_sptr<Mesh>(_node);
-                ImGuiDrawerMaterial::onGui("Mesh material settings", *mesh->getMaterialInst());
-            }
-
-            //printing info to console
-            ImGui::Separator();
-            if (ImGui::Button("Print node info"))
-            {
-                ND_Util::printDebugNodeInfo(_node);
-            }
-
-            ImGui::TreePop();
-            ImGui::Separator();
+            //checks if the list contains this node already
+            else if (!m_staticNodes.at(name + "(" + zeroes + STR(i) + ")").node.expired() && 
+                     m_staticNodes.at(name + "(" + zeroes + STR(i) + ")").node.lock().get() == inNode.get())
+                return;
         }
-    };
+    }
 
-    ImG_Node nodeStruct = { ImGUI_drawCall , false };
-    m_staticNodes.insert({ inNode, nodeStruct });
+    ImG_Node nodeStruct = { 
+        .node = inNode,
+        .name = name,
+        .markedForDeletion = false 
+    };
+    m_staticNodes.insert({ name, nodeStruct });
 }
 
 void ND_ImGui::removeImGuiNode(const std::string nodeName)
 {
-    for (auto [node, IMGnode] : m_staticNodes)
+    if (m_staticNodes.contains(nodeName))
     {
-        if (node->getName() == nodeName)
+        m_staticNodes.erase(nodeName);
+        return;
+    }
+
+    for (auto& [name, ImG_NodeStruct] : m_staticNodes)
+    {
+        if (!ImG_NodeStruct.node.expired() && ImG_NodeStruct.node.lock()->getName() == nodeName)
         {
-            m_staticNodes.erase(node);
+            m_staticNodes.erase(ImG_NodeStruct.name);
             return;
         }
     }
@@ -172,9 +144,9 @@ void ND_ImGui::initCustomTabs()
     //Variables tab
     m_extraTabs.push_back(make::sptr<VariablesTab>());
     //Borders tab
-    m_extraTabs.push_back(make::sptr<BordersTab>()); //not needed by default
+    //m_extraTabs.push_back(make::sptr<BordersTab>()); //not needed by default
     //Spotlight tab
-    m_extraTabs.push_back(make::sptr<SpotlightTab>());
+    //m_extraTabs.push_back(make::sptr<SpotlightTab>());
     //Console tab
     //m_extraTabs.push_back(make::sptr<ConsoleTab>()); //not needed by default
 }
@@ -328,15 +300,15 @@ void ND_ImGui::ImGuiNodes()
     ImGui::SameLine();
     if (ImGui::Button("Add all existing nodes"))
     {
-        Render::getRoot()->traversalTyped<Node>([this](sptr<Node> _node)
+        Render::getRoot()->traversalChildrenTyped<Node>([this](sptr<Node> _node)
             {
                 if (_node && _node != Render::getRoot() && _node != Render::getScreenCamera())
                     addImGuiNode(_node);
             });
-        for (auto& ImG_Node : m_staticNodes)
+        for (auto& [name, ImG_NodeStruct] : m_staticNodes)
         {
-            if (!ImG_Node.first)
-                ImG_Node.second.markedForDeletion = true;
+            if (ImG_NodeStruct.node.expired())
+                ImG_NodeStruct.markedForDeletion = true;
         }
     }
     ImGui::SameLine();
@@ -345,13 +317,17 @@ void ND_ImGui::ImGuiNodes()
     if (m_nodesFilter.empty()) //no filter applied
     {
         m_nodeFilterItems = m_staticNodes.size();
-        for (auto& ImG_Node : m_staticNodes)
+        for (auto& [name, ImG_NodeStruct] : m_staticNodes)
         {
-            if (ImG_Node.first && ImG_Node.second.onRender && !ImG_Node.second.markedForDeletion)
+            if (!ImG_NodeStruct.node.expired() && !ImG_NodeStruct.markedForDeletion)
             {
-                ImG_Node.second.onRender(ImG_Node.first);
+                //Node item render code
+                ImGNodeRender(ImG_NodeStruct.node.lock(), name);
+
                 m_nodeFilterItems++;
             }
+            else if (ImG_NodeStruct.node.expired())
+                ImG_NodeStruct.markedForDeletion = true;
         }
     }
     else
@@ -361,31 +337,39 @@ void ND_ImGui::ImGuiNodes()
             m_nodeFilterItems = 0;
             m_lastNodeFilterList.clear();
 
-            for (auto& ImG_Node : m_staticNodes)
+            for (auto& [name, ImG_NodeStruct] : m_staticNodes)
             {
-                if (ImG_Node.first && ImG_Node.second.onRender && !ImG_Node.second.markedForDeletion)
+                if (!ImG_NodeStruct.node.expired() && !ImG_NodeStruct.markedForDeletion)
                 {
-                    if (ND_Util::checkFilterConditions(ImG_Node.first->getName(), m_nodesFilter))
+                    if (ND_Util::checkFilterConditions(name, m_nodesFilter))
                     {
-                        ImG_Node.second.onRender(ImG_Node.first);
-                        m_lastNodeFilterList.insert(ImG_Node.first->getName());
+                        //Node item render code
+                        ImGNodeRender(ImG_NodeStruct.node.lock(), name);
+
+                        m_lastNodeFilterList.insert(name);
                         m_nodeFilterItems++;
                     }
                 }
+                else if (ImG_NodeStruct.node.expired())
+                    ImG_NodeStruct.markedForDeletion = true;
             }
         }
         else //filter has't changed sonce last render. Less compute overhead
         {
             //m_nodeFilterItems = m_lastNodeFilterList.size();
-            for (auto& ImG_Node : m_staticNodes)
+            for (auto& [name, ImG_NodeStruct] : m_staticNodes)
             {
-                if (ImG_Node.first 
-                    && ImG_Node.second.onRender 
-                    && !ImG_Node.second.markedForDeletion
-                    && m_lastNodeFilterList.find(ImG_Node.first->getName()) != m_lastNodeFilterList.end())
+                if (
+                    !ImG_NodeStruct.node.expired()
+                    && !ImG_NodeStruct.markedForDeletion
+                    && m_lastNodeFilterList.contains(name)
+                    )
                 {
-                    ImG_Node.second.onRender(ImG_Node.first);
+                    //Node item render code
+                    ImGNodeRender(ImG_NodeStruct.node.lock(), name);
                 }
+                else if (ImG_NodeStruct.node.expired())
+                    ImG_NodeStruct.markedForDeletion = true;
             }
         }
     }
@@ -397,5 +381,67 @@ void ND_ImGui::ImGuiNodes()
         });
 }
 
+void ND_ImGui::ImGNodeRender(sptr<Node> _node, const std::string& name)
+{
+    if (!m_imguiNode || !_node)
+        return;
+
+    if (ImGui::TreeNode(name.c_str()))
+    {
+        ImGui::SameLine();
+        if (ImGui::Button("x"))
+        {
+            m_staticNodes[name].markedForDeletion = true;
+        }
+
+        //Drag gizmo
+        ImGuizmo::BeginFrame();
+        ImGuiDrawerGizmo::drawGizmosHandles(_node);
+
+        //visibility button
+        if (ImGui::Button("Toggle visibility"))
+        {
+            _node->setEnabled(!_node->isEnabled());
+        }
+
+        if (ImGui::Button("Center on camera"))
+        {
+            vec3 target = Render::getScreenCamera()->getWorldTranslation();
+            target.z = 0.f;
+            _node->setWorldTranslation(target);
+        }
+
+        if (_node->is<Mesh>())
+        {
+            ImGui::Separator();
+            int meshRO = _node->as<Mesh>()->getRenderOrder();
+            bool roChanged = false;
+            roChanged = ImGui::DragInt("Render order", &meshRO, sliderSensivity, 0, 10000);
+            if (roChanged)
+                _node->as<Mesh>()->setRenderOrder(meshRO);
+        }
+
+        ND_Util::ImGuiTransforms(_node);
+        ND_Util::ImGuiTweens(_node);
+
+        if (_node->is<Mesh>())
+        {
+            ImGui::Separator();
+            const auto mesh = cast_sptr<Mesh>(_node);
+            ImGuiDrawerMaterial::onGui("Mesh material settings", *mesh->getMaterialInst());
+        }
+
+        //printing info to console
+        ImGui::Separator();
+        if (ImGui::Button("Print node info"))
+        {
+            ND_Util::printDebugNodeInfo(_node);
+        }
+
+        ImGui::TreePop();
+        ImGui::Separator();
+    }
+
+}
 
 #endif //ends #ifndef FORCENODEDEBUG_OFF - conditional compilation macro. If FORCENODEDEBUG_OFF is defined, NOCOMP macro provides empty implementation and saves some weight in build size

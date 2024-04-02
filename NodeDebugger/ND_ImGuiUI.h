@@ -46,6 +46,7 @@ private:
 	void ImGuiCamera() NOCOMP;
 	void ImGuiConsole() NOCOMP;
 	void ImGuiNodes() NOCOMP;
+	void ImGNodeRender(sptr<Node> _node, const std::string& name) NOCOMP;
 
 protected:
 
@@ -62,7 +63,7 @@ protected:
 	ImVec2 m_ImGWindowSize = IMG_STARTSIZE;
 	vec4 m_clearColor = Render::getScreenCamera()->getClearColor();
 
-	std::unordered_map<sptr<Node>, ImG_Node> m_staticNodes;
+	std::map<std::string, ImG_Node> m_staticNodes;
 	std::string m_nodesFilter = "";
 	std::set<std::string> m_lastNodeFilterList;
 	int m_nodeFilterItems = 0;

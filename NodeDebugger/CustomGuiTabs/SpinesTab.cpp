@@ -17,7 +17,7 @@ void SpinesTab::onGuiCall()
     else if (!m_spinesFilter.empty())
         m_spinesFilter.clear();
 
-    for (auto& debugSpine : m_debugSpines)
+    for (auto& [name, debugSpine] : m_debugSpines)
     {
         if (!ND_Util::checkFilterConditions(debugSpine.spineName, m_spinesFilter))
             continue;
@@ -208,6 +208,28 @@ void SpinesTab::addItem(std::any item, const std::string& altName)
     else
         spineDebugRec.spineName = altName;
 
+
+    if (m_debugSpines.contains(spineDebugRec.spineName))
+    {
+        //checks if the list contains this spine already
+        if (m_debugSpines[spineDebugRec.spineName].spine == spineToDebug)
+            return;
+
+        //prevents repeating names
+        std::string zeroes = "00"; //for better sorting
+        for (size_t i = 1; i < 500; i++)
+        {
+            if (i == 10 || i == 100)
+                zeroes.pop_back();
+
+            if (!m_debugSpines.contains(spineDebugRec.spineName + "(" + zeroes + STR(i) + ")"))
+            {
+                spineDebugRec.spineName += "(" + zeroes + STR(i) + ")";
+                break;
+            }
+        }
+    }
+
     std::vector<std::string> animationNames;
     std::vector<float> animationLength;
 
@@ -234,7 +256,7 @@ void SpinesTab::addItem(std::any item, const std::string& altName)
         spineDebugRec.slots.insert({ slotIndex , slotName });
     }
 
-    m_debugSpines.push_back(spineDebugRec);
+    m_debugSpines.insert({ spineDebugRec.spineName, spineDebugRec });
 }
 
 #endif
