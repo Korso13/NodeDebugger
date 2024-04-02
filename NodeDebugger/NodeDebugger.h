@@ -22,7 +22,11 @@ W4_USE_UNSTRICT_INTERFACE
 #define ND_BTN(name, callback) NodeDebugger::get()->addDebugCBButton(name, callback)
 
 //kinda breakpoint that stops playable update. Can be resumed via NodeDebugger GUI
-#define ND_BRK  Game::getInstance()->setTimeScale(0.f) 
+#ifndef FORCENODEDEBUG_OFF
+	#define ND_BRK Game::getInstance()->setTimeScale(0.f)
+#else 
+	#define ND_BRK ;
+#endif
 
 //Use this before casting any rays to check if you are clicking ImGui interface. Returns false if mouse is above ImGui window
 #define ND_CASTALLOWED !NodeDebugger::get()->checkRaycastCollision()
