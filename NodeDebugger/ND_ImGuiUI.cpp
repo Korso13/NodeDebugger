@@ -140,15 +140,29 @@ void ND_ImGui::initCustomTabs()
     //Order of adding determines order of ImGui tabs!
     
     //Spines tab
+#ifdef NDSPINES
     m_extraTabs.push_back(make::sptr<SpinesTab>());
+#endif // NDSPINES
+
     //Variables tab
+#ifdef NDVARIABLES
     m_extraTabs.push_back(make::sptr<VariablesTab>());
+#endif // NDVARIABLES
+
     //Borders tab
-    //m_extraTabs.push_back(make::sptr<BordersTab>()); //not needed by default
+#ifdef NDBORDERS
+    m_extraTabs.push_back(make::sptr<BordersTab>()); //not needed by default
+#endif // NDBORDERS
+
     //Spotlight tab
-    //m_extraTabs.push_back(make::sptr<SpotlightTab>());
+#ifdef NDSPOTLIGHTS
+    m_extraTabs.push_back(make::sptr<SpotlightTab>());
+#endif // NDSPOTLIGHTS
+
     //Console tab
-    //m_extraTabs.push_back(make::sptr<ConsoleTab>()); //not needed by default
+#ifdef NDCONSOLE
+    m_extraTabs.push_back(make::sptr<ConsoleTab>()); //not needed by default
+#endif // NDCONSOLE
 }
 
 sptr<iGuiTab> ND_ImGui::getCustomTabByName(std::string tabName)

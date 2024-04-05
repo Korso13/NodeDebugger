@@ -31,6 +31,13 @@ struct ImVec2 { ImVec2(float, float) {}; };
 
 #define jsprint(vec) ND_Util::jsstring(vec).c_str()
 
+//Switches for custom ImGui tabs
+#define NDSPINES
+#define NDVARIABLES
+#define NDBORDERS
+//#define NDSPOTLIGHTS
+//#define NDCONSOLE
+
 //=========================================================================================
 // Node Debugger SETTINGS and Global Variables
 //=========================================================================================
