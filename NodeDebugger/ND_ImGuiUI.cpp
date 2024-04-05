@@ -11,6 +11,7 @@
 #include <sources/common/NodeDebugger/CustomGuiTabs/VariablesTab.h>
 #include <sources/common/NodeDebugger/CustomGuiTabs/ConsoleTab.h>
 #include <sources/common/NodeDebugger/CustomGuiTabs/BordersTab.h>
+#include "CustomGuiTabs/PathdrawerTab.h"
 
 ND_ImGui::ND_ImGui()
 {
@@ -151,8 +152,12 @@ void ND_ImGui::initCustomTabs()
 
     //Borders tab
 #ifdef NDBORDERS
-    m_extraTabs.push_back(make::sptr<BordersTab>()); //not needed by default
+    m_extraTabs.push_back(make::sptr<BordersTab>()); 
 #endif // NDBORDERS
+
+#ifdef NDPATHDRAWER
+    m_extraTabs.push_back(make::sptr<PathdrawerTab>());
+#endif // NDPATHDRAWER
 
     //Spotlight tab
 #ifdef NDSPOTLIGHTS
@@ -161,7 +166,7 @@ void ND_ImGui::initCustomTabs()
 
     //Console tab
 #ifdef NDCONSOLE
-    m_extraTabs.push_back(make::sptr<ConsoleTab>()); //not needed by default
+    m_extraTabs.push_back(make::sptr<ConsoleTab>()); 
 #endif // NDCONSOLE
 }
 

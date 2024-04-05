@@ -61,9 +61,9 @@ public:
 
 private:
 
-	void renderBorderLines(std::string borderRecordToRedraw);
-	void exportAsJson(nlohmann::json& inJson);
-	void loadJson();
+	void renderBorderLines(std::string borderRecordToRedraw) NOCOMP;
+	void exportAsJson(nlohmann::json& inJson) NOCOMP;
+	void loadJson() NOCOMP;
 
 	static void onJSONLoadCB(void* self, char* result)
 	{

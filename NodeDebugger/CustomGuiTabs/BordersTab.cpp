@@ -13,7 +13,6 @@ bool operator<(const sptr<TabBorderLineData>& b1, const sptr<TabBorderLineData>&
 
 void BordersTab::onGuiCall()
 {
-
 	for (const auto& borderRecord : m_debugBorders)
 	{
 		bool bNeedRemovePoint = false;
