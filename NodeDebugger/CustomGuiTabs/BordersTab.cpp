@@ -25,7 +25,7 @@ void BordersTab::onGuiCall()
 			{
 				for (size_t i = 0; i < borderRecord->points.size(); i++) //border points list render
 				{
-					std::string meshSearchName = borderRecord->borderName + STR(i);
+					std::string meshSearchName = borderRecord->borderName + "_" + STR(i);
 					if (ImGui::TreeNode(meshSearchName.c_str()))
 					{
 						//point deletion button
@@ -77,7 +77,7 @@ void BordersTab::onGuiCall()
 				else
 					borderRecord->points.push_back(Render::getScreenCamera()->getWorldTranslation().withoutZ());
 
-				auto newPointName = borderRecord->borderName + STR(borderRecord->points.size()-1);
+				auto newPointName = borderRecord->borderName + "_" + STR(borderRecord->points.size()-1);
 				auto newPointMesh = Mesh::create::plane(vec2(0.1, 0.1));
 				newPointMesh->setMaterialInst(Material::getDefault()->createInstance());
 				Render::getRoot()->addChild(newPointMesh);
@@ -100,7 +100,7 @@ void BordersTab::onGuiCall()
 		//border points removing mechanism
 		if (bNeedRemovePoint)
 		{
-			std::string meshSearchName = borderRecord->borderName + STR(removePointIndex);
+			std::string meshSearchName = borderRecord->borderName + "_" + STR(removePointIndex);
 
 			if (m_borderRender.find(meshSearchName) != m_borderRender.end()
 				&& m_borderRender[meshSearchName])
@@ -114,8 +114,8 @@ void BordersTab::onGuiCall()
 			//shifting remaining points' names to reflect deletion
 			for (size_t i = removePointIndex; i < borderRecord->points.size(); i++)
 			{
-				std::string newSearchName = borderRecord->borderName + STR(i);
-				std::string oldSearchName = borderRecord->borderName + STR(i+1);
+				std::string newSearchName = borderRecord->borderName + "_" + STR(i);
+				std::string oldSearchName = borderRecord->borderName + "_" + STR(i+1);
 				m_borderRender[newSearchName] = m_borderRender[oldSearchName];
 
 				if(i+1 == borderRecord->points.size())
@@ -187,7 +187,7 @@ void BordersTab::renderBorderLines(std::string borderRecordToRedraw)
 
 		for (const auto& border : borderRegion->points) 
 		{
-			std::string borderPointName = borderRegion->borderName + STR(i);
+			std::string borderPointName = borderRegion->borderName + "_" + STR(i);
 
 			vec3 pos = vec3(border.x, border.y, 0.0);
 			//m_borderRender[borderPointName]->removeAllChildren();
@@ -271,7 +271,7 @@ void BordersTab::loadJson()
 				int i = 0;
 				for (auto& borderPoint : borderRecord.points)
 				{
-					auto newPointName = borderRecord.borderName + STR(i);
+					auto newPointName = borderRecord.borderName + "_" + STR(i);
 					auto newPointMesh = Mesh::create::plane(vec2(0.1, 0.1));
 					newPointMesh->setMaterialInst(Material::getDefault()->createInstance());
 					Render::getRoot()->addChild(newPointMesh);
