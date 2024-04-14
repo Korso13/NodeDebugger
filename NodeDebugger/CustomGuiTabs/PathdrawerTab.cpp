@@ -102,16 +102,27 @@ void PathdrawerTab::onGuiPathNodesTab()
 			if (child)
 				m_pathNodeRender[removePointName]->removeChild(child);
 		}
-		Render::getRoot()->removeChild(m_pathNodeRender[removePointName]);
+		m_pathNodeRender[removePointName]->getParent()->removeChild(m_pathNodeRender[removePointName]);
+		m_pathNodeRender[removePointName].reset();
+		m_pathNodeRender.erase(removePointName);
 		for (auto& path : m_pathsData.paths)
 		{
 			if (path.startPoint == removePointName)
+			{
 				path.startPoint = "";
+				renderPathLines(path, true);
+			}
 			if (path.endPoint == removePointName)
+			{
 				path.endPoint = "";
+				renderPathLines(path, true);
+			}
 			for(auto& midPoint : path.midPoints)
 				if (midPoint == removePointName)
+				{
 					midPoint = "";
+					renderPathLines(path, true);
+				}
 		}
 	}
 
@@ -146,19 +157,7 @@ void PathdrawerTab::onGuiPathEditorTab()
 		ImGui::Combo("<-Selected Path", &placeholderId, placeholderPathName, 1);
 	}
 	else
-	{
-		const char* paths_names[m_pathsData.paths.size()];
-		for (size_t i = 0; i < m_pathsData.paths.size(); i++)
-		{
-			paths_names[i] = m_pathsData.paths[i].pathName.c_str();
-		}
-
-		if (ImGui::Combo("<-Selected Path", &m_selectedPathIndex, paths_names, m_pathsData.paths.size()))
-		{
-			selectPathLine(m_pathsData.paths[m_selectedPathIndex].pathName);
-			renderPathLines(m_pathsData.paths[m_selectedPathIndex]);
-		}
-	}
+		coloredPathCombo(); //List of paths. Unfinished paths are colored red
 
 	ImGui::Spacing();
 	ImGui::Separator();
@@ -171,6 +170,30 @@ void PathdrawerTab::onGuiPathEditorTab()
 	{
 		plottedPath newPath{ .pathName = m_newPathNaming };
 		m_pathsData.paths.push_back(newPath);
+	}
+	//Path deleter
+	if (!m_pathsData.paths.empty() && m_selectedPathIndex != -1)
+	{
+		if (ImGui::Button(("Delete path [" + m_pathsData.paths[m_selectedPathIndex].pathName + "]").c_str()))
+		{
+			std::erase_if(m_pathsData.paths, [this](plottedPath path)
+				{
+					if (path.pathName == m_pathsData.paths[m_selectedPathIndex].pathName)
+					{
+						for (auto& mesh : m_pathLinesRender[path.pathName])
+						{
+							mesh->getParent()->removeChild(mesh);
+							mesh.reset();
+						}
+						m_pathLinesRender.erase(path.pathName);
+						m_lastSelectedPathName = "";
+						return true;
+					}
+					else
+						return false;
+				});
+			m_selectedPathIndex = -1;
+		}
 	}
 	ImGui::Columns(1);
 
@@ -449,5 +472,49 @@ void PathdrawerTab::renderPathNode(const std::string name, const pathNode& nodeD
 	m_pathNodeRender[newPointName]->setWorldTranslation(vec3(nodeData.pos.x, nodeData.pos.y, -0.002f));
 }
 
+
+void PathdrawerTab::coloredPathCombo()
+{
+	std::string selectedPointPreview = (m_selectedPathIndex == -1) ? "NONE" : m_pathsData.paths[m_selectedPathIndex].pathName;
+
+	if (ImGui::BeginCombo("<-Selected Path", selectedPointPreview.c_str()))
+	{
+		for (size_t i = 0; i < m_pathsData.paths.size(); i++)
+		{
+			bool needColorReset = false;
+			bool isSelected = i == m_selectedPathIndex;
+			if (!checkPathComplete(m_pathsData.paths[i]))
+			{
+				ImGui::PushStyleColor(ImGuiCol_Header, IMG_RED);
+				ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IMG_RED);
+				ImGui::PushStyleColor(ImGuiCol_HeaderActive, IMG_RED);
+				needColorReset = true;
+				isSelected = true; //cheat to color the Selectable
+			}
+
+			if (ImGui::Selectable(m_pathsData.paths[i].pathName.c_str(), &isSelected))
+			{
+				m_selectedPathIndex = i;
+				selectPathLine(m_pathsData.paths[m_selectedPathIndex].pathName);
+				renderPathLines(m_pathsData.paths[m_selectedPathIndex]);
+			}
+
+			if (needColorReset)
+				ImGui::PopStyleColor(3);
+		}
+		ImGui::EndCombo();
+	}
+}
+
+bool PathdrawerTab::checkPathComplete(const plottedPath& pathRecord)
+{
+	if (pathRecord.startPoint == "" || pathRecord.endPoint == "")
+		return false;
+	for (auto& midPoint : pathRecord.midPoints)
+		if (midPoint == "")
+			return false;
+
+	return true;
+}
 
 #endif

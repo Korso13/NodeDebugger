@@ -24,6 +24,9 @@ private:
 	void renderPathLines(const plottedPath& pathRecordToRedraw, bool forceRedrawColor = false) NOCOMP;
 	void selectPathLine(const std::string& pathName) NOCOMP;
 
+	void coloredPathCombo();
+	bool checkPathComplete(const plottedPath& pathRecord);
+
 	void exportAsJson(nlohmann::json& inJson) NOCOMP;
 	void loadJson() NOCOMP;
 
