@@ -599,9 +599,9 @@ namespace ND_Util
         {
 
             if (!tweenRecord.isLoopedTween)
-                tweenRecord.tween = TweenContainer::generateTween(tweenRecord, _node);
+                tweenRecord.tween = TweenContainer::generateTween(tweenRecord, _node, nullptr, nullptr, true);
             else
-                tweenRecord.tweenEndless = TweenContainer::generateEndlessTween(tweenRecord, _node);
+                tweenRecord.tweenEndless = TweenContainer::generateEndlessTween(tweenRecord, _node, true);
         }
         ImGui::NextColumn();
         if (ImGui::Button("Stop tween"))
@@ -665,13 +665,13 @@ namespace ND_Util
             {
 
                 if (!tweenRecordMove.isLoopedTween)
-                    tweenRecordMove.tween = TweenContainer::generateTween(tweenRecordMove, _node);
+                    tweenRecordMove.tween = TweenContainer::generateTween(tweenRecordMove, _node, nullptr, nullptr, true);
                 else
-                    tweenRecordMove.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordMove, _node);
+                    tweenRecordMove.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordMove, _node, true);
                 if (!tweenRecordScale.isLoopedTween)
-                    tweenRecordScale.tween = TweenContainer::generateTween(tweenRecordScale, _node);
+                    tweenRecordScale.tween = TweenContainer::generateTween(tweenRecordScale, _node, nullptr, nullptr, true);
                 else
-                    tweenRecordScale.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordScale, _node);
+                    tweenRecordScale.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordScale, _node, true);
             }
             if (ImGui::Button("Stop all tweens"))
             {

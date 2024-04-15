@@ -15,23 +15,40 @@ namespace TweenContainer
     vec3 getPercentModifyer(const vec3& startValue, const vec3& targetValue);
 
     //Non-looped tween generator
-	static sptr<CustomTweens::Tween<vec3>> generateTween(const tweenDebugRecord& tweenRecord, sptr<Node> _node, std::function<void(vec3&)>&& changeValueOnUpdateCB = nullptr, std::function<void()>&& onFinishCB = nullptr)
+	static sptr<CustomTweens::Tween<vec3>> generateTween(const tweenDebugRecord& tweenRecord, sptr<Node> _node, std::function<void(vec3&)>&& changeValueOnUpdateCB = nullptr, std::function<void()>&& onFinishCB = nullptr, bool bSetNodeToStartPoint = false)
 	{
         if (tweenRecord.tweenDelays.empty() || tweenRecord.tweenPoints.empty())
             return nullptr;
 
         vec3 offset, tweenStart;
 
-        if (tweenRecord.isMoveTween)
-            if (tweenRecord.isWorldVec3)
-                tweenStart = _node->getWorldTranslation();
+        if (!bSetNodeToStartPoint || tweenRecord.isRelativeValues) //default behavior
+        {
+            if (tweenRecord.isMoveTween)
+                if (tweenRecord.isWorldVec3)
+                    tweenStart = _node->getWorldTranslation();
+                else
+                    tweenStart = _node->getLocalTranslation();
             else
-                tweenStart = _node->getLocalTranslation();
-        else
-            if (tweenRecord.isWorldVec3)
-                tweenStart = _node->getWorldScale();
+                if (tweenRecord.isWorldVec3)
+                    tweenStart = _node->getWorldScale();
+                else
+                    tweenStart = _node->getLocalScale();
+        }
+        else //used by ImGui TweenEditor
+        {
+            tweenStart = tweenRecord.tweenStart;
+            if (tweenRecord.isMoveTween)
+                if (tweenRecord.isWorldVec3)
+                    _node->setWorldTranslation(tweenStart);
+                else
+                    _node->setLocalTranslation(tweenStart);
             else
-                tweenStart = _node->getLocalScale();
+                if (tweenRecord.isWorldVec3)
+                    _node->setWorldScale(tweenStart);
+                else
+                    _node->setLocalScale(tweenStart);
+        }
 
         if (!tweenRecord.isRelativeValues || (tweenRecord.isRelativeValues && tweenRecord.isPercentRelativeValues) )
             offset = vec3::zero;
@@ -85,23 +102,42 @@ namespace TweenContainer
 	}
 
     //Looped tween generator
-    static sptr<CustomTweens::EndlessTween<vec3>> generateEndlessTween(const tweenDebugRecord& tweenRecord, sptr<Node> _node)
+    static sptr<CustomTweens::EndlessTween<vec3>> generateEndlessTween(const tweenDebugRecord& tweenRecord, sptr<Node> _node, bool bSetNodeToStartPoint = false)
     {
         if (tweenRecord.tweenDelays.empty() || tweenRecord.tweenPoints.empty())
             return nullptr;
 
         vec3 offset, tweenStart;
 
-        if (tweenRecord.isMoveTween)
-            if (tweenRecord.isWorldVec3)
-                tweenStart = _node->getWorldTranslation();
+
+
+        if (!bSetNodeToStartPoint || tweenRecord.isRelativeValues) //default behavior
+        {
+            if (tweenRecord.isMoveTween)
+                if (tweenRecord.isWorldVec3)
+                    tweenStart = _node->getWorldTranslation();
+                else
+                    tweenStart = _node->getLocalTranslation();
             else
-                tweenStart = _node->getLocalTranslation();
-        else
-            if (tweenRecord.isWorldVec3)
-                tweenStart = _node->getWorldScale();
+                if (tweenRecord.isWorldVec3)
+                    tweenStart = _node->getWorldScale();
+                else
+                    tweenStart = _node->getLocalScale();
+        }
+        else //used by ImGui TweenEditor
+        {
+            tweenStart = tweenRecord.tweenStart;
+            if (tweenRecord.isMoveTween)
+                if (tweenRecord.isWorldVec3)
+                    _node->setWorldTranslation(tweenStart);
+                else
+                    _node->setLocalTranslation(tweenStart);
             else
-                tweenStart = _node->getLocalScale();
+                if (tweenRecord.isWorldVec3)
+                    _node->setWorldScale(tweenStart);
+                else
+                    _node->setLocalScale(tweenStart);
+        }
 
         if (!tweenRecord.isRelativeValues || (tweenRecord.isRelativeValues && tweenRecord.isPercentRelativeValues))
             offset = vec3::zero;
