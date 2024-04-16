@@ -24,7 +24,13 @@ ND_ImGui::ND_ImGui()
         ImGuiFontRoboto::rawData,
         static_cast<int>(sizeof(ImGuiFontRoboto::rawData)),
         m_imGuiFontSize);
-    m_imguiNode->setCallback([this](float dt) { onGui(dt); });
+    m_imguiNode->setCallback([this](float dt) { 
+        if (dt == 0.f) 
+            dt = 0.01; 
+        onGui(dt); 
+        });
+    m_imguiNode->setAutomaticOnUpdate(false);
+
     ImGui::SetWindowSize(m_ImGWindowSize);
 
     m_editorCamera = make::sptr<EditorCamera>("Debug camera");
@@ -461,6 +467,16 @@ void ND_ImGui::ImGNodeRender(sptr<Node> _node, const std::string& name)
         ImGui::Separator();
     }
 
+}
+
+void ND_ImGui::ImGuiUpdate(float dt)
+{
+    if (!m_imguiNode)
+        return;
+
+    if (dt == 0.f)
+        dt = 0.01;
+    m_imguiNode->onUpdate(dt);
 }
 
 #endif //ends #ifndef FORCENODEDEBUG_OFF - conditional compilation macro. If FORCENODEDEBUG_OFF is defined, NOCOMP macro provides empty implementation and saves some weight in build size

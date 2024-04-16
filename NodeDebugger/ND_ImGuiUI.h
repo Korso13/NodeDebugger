@@ -16,6 +16,7 @@ public:
 
 	ND_ImGui() NOCOMP;
 
+	void ImGuiUpdate(float dt)NOCOMP;
 	void onGui(float dt) NOCOMP;
 
 	void addImGuiNode(sptr<Node> inNode, std::string altName = "default") NOCOMP;

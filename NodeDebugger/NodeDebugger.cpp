@@ -478,6 +478,7 @@ void NodeDebugger::printConnectedNodes()
 void NodeDebugger::onUpdate(float dt)
 {
     ND_Util::updateTweens(dt);
+    ImGuiUpdate(dt);
 }
 
 #endif //ends #ifndef FORCENODEDEBUG_OFF - conditional compilation macro. If FORCENODEDEBUG_OFF is defined, NOCOMP macro provides empty implementation and saves some weight in build size
