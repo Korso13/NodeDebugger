@@ -58,3 +58,56 @@ vec3 TweenContainer::getPercentModifyer(const vec3& startValue, const vec3& targ
         result.z = 1.f;
     return result;
 }
+
+vec3 TweenContainer::nodeValueGetter(sptr<Node> _node, const tweenDebugRecord& tweenRecord)
+{
+    vec3 returnValue;
+    if (tweenRecord.transformType == tweenTransformType::MOVE)
+    {
+        if (tweenRecord.isWorldVec3)
+            returnValue = _node->getWorldTranslation();
+        else
+            returnValue = _node->getLocalTranslation();
+    }
+    else if (tweenRecord.transformType == tweenTransformType::SCALE)
+    {
+        if (tweenRecord.isWorldVec3)
+            returnValue = _node->getWorldScale();
+        else
+            returnValue = _node->getLocalScale();
+    }
+    else if (tweenRecord.transformType == tweenTransformType::ROTATE)
+    {
+        if (tweenRecord.isWorldVec3)
+            returnValue = _node->getWorldRotation().euler() * RAD2DEG;
+        else
+            returnValue = _node->getLocalRotation().euler() * RAD2DEG;
+    }
+
+    return returnValue;
+}
+
+void TweenContainer::nodeValueSetter(vec3 value, sptr<Node> _node, const tweenDebugRecord& tweenRecord)
+{
+    if (tweenRecord.transformType == tweenTransformType::MOVE)
+    {
+        if (tweenRecord.isWorldVec3)
+            _node->setWorldTranslation(value);
+        else
+            _node->setLocalTranslation(value);
+    }
+    else if (tweenRecord.transformType == tweenTransformType::SCALE)
+    {
+        if (tweenRecord.isWorldVec3)
+            _node->setWorldScale(value);
+        else
+            _node->setLocalScale(value);
+    }
+    else if (tweenRecord.transformType == tweenTransformType::ROTATE)
+    {
+        if (tweenRecord.isWorldVec3)
+            _node->setWorldRotation(Rotator(value * DEG2RAD));
+        else
+            _node->setLocalRotation(Rotator(value * DEG2RAD));
+    }
+}

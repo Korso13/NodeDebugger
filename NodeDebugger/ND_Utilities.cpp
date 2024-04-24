@@ -140,16 +140,7 @@ namespace ND_Util
             if (tweenRec.tweenEndless)
             {
                 vec3 newValue = tweenRec.tweenEndless->updValue(dt);
-                if (tweenRec.isMoveTween)
-                    if (tweenRec.isWorldVec3)
-                        node->setWorldTranslation(newValue);
-                    else
-                        node->setLocalTranslation(newValue);
-                else
-                    if (tweenRec.isWorldVec3)
-                        node->setWorldScale(newValue);
-                    else
-                        node->setLocalScale(newValue);
+                TweenContainer::nodeValueSetter(newValue, node, tweenRec);
             }
         }
         for (auto& [node, tweenRec] : debugTweensScale)
@@ -165,16 +156,23 @@ namespace ND_Util
             if (tweenRec.tweenEndless)
             {
                 vec3 newValue = tweenRec.tweenEndless->updValue(dt);
-                if (tweenRec.isMoveTween)
-                    if (tweenRec.isWorldVec3)
-                        node->setWorldTranslation(newValue);
-                    else
-                        node->setLocalTranslation(newValue);
-                else
-                    if (tweenRec.isWorldVec3)
-                        node->setWorldScale(newValue);
-                    else
-                        node->setLocalScale(newValue);
+                TweenContainer::nodeValueSetter(newValue, node, tweenRec);
+            }
+        }
+        for (auto& [node, tweenRec] : debugTweensRotate)
+        {
+            if (tweenRec.tween)
+            {
+                tweenRec.tween->updValue(dt);
+                tweenRec.tween->checkCb();
+                if (tweenRec.tween->checkIsDone())
+                    tweenRec.tween = nullptr;
+            }
+
+            if (tweenRec.tweenEndless)
+            {
+                vec3 newValue = tweenRec.tweenEndless->updValue(dt);
+                TweenContainer::nodeValueSetter(newValue, node, tweenRec);
             }
         }
     }
@@ -426,17 +424,17 @@ namespace ND_Util
             const char* tween_names[TWEENCONTAINER.size()];
             for (size_t i = 0; i < TWEENCONTAINER.size(); i++)
             {
-                if (tweenRecord.isMoveTween == TWEENCONTAINER[i].isMoveTween)
+                if (tweenRecord.transformType == TWEENCONTAINER[i].transformType)
                     tween_names[i] = TWEENCONTAINER[i].tweenName.c_str();
                 else
                     tween_names[i] = "!WRONG TWEEN TYPE!";
             }
             ImGui::Columns(2);
-            ImGui::Combo("Tweens", &lastSelectedTweenSample, tween_names, TWEENCONTAINER.size(), 6);
+            ImGui::Combo("Samples", &lastSelectedTweenSample, tween_names, TWEENCONTAINER.size(), 6);
             ImGui::NextColumn();
             std::string buttonCaption = "Load ";
             buttonCaption += tween_names[lastSelectedTweenSample];
-            if (tweenRecord.isMoveTween == TWEENCONTAINER[lastSelectedTweenSample].isMoveTween)
+            if (tweenRecord.transformType == TWEENCONTAINER[lastSelectedTweenSample].transformType)
             {
                 if (ImGui::Button(buttonCaption.c_str()))
                 {
@@ -481,18 +479,9 @@ namespace ND_Util
         //start point setter
         ImGui::Text("Tween start point");
         ImGui::Columns(2);
-        if (ImGui::Button("Set start to current node value"))
+        if (ImGui::Button("Set start to current value"))
         {
-            if (tweenRecord.isMoveTween)
-                if (tweenRecord.isWorldVec3)
-                    tweenRecord.tweenStart = _node->getWorldTranslation();
-                else
-                    tweenRecord.tweenStart = _node->getLocalTranslation();
-            else
-                if (tweenRecord.isWorldVec3)
-                    tweenRecord.tweenStart = _node->getWorldScale();
-                else
-                    tweenRecord.tweenStart = _node->getLocalScale();
+            tweenRecord.tweenStart = TweenContainer::nodeValueGetter(_node, tweenRecord);
         }
         ImGui::NextColumn();
         if (ImGui::Button("Insert from clipboard(JSON string)")) //Due to ImGui bug it copies correct CB data only on second push :(
@@ -514,16 +503,7 @@ namespace ND_Util
                 ImGui::Columns(2);
                 if (ImGui::Button(CSTR("Set point " + STR(i + 1) + " to current value")))
                 {
-                    if (tweenRecord.isMoveTween)
-                        if (tweenRecord.isWorldVec3)
-                            tweenRecord.tweenPoints[i] = _node->getWorldTranslation();
-                        else
-                            tweenRecord.tweenPoints[i] = _node->getLocalTranslation();
-                    else
-                        if (tweenRecord.isWorldVec3)
-                            tweenRecord.tweenPoints[i] = _node->getWorldScale();
-                        else
-                            tweenRecord.tweenPoints[i] = _node->getLocalScale();
+                    tweenRecord.tweenPoints[i] = TweenContainer::nodeValueGetter(_node, tweenRecord);
                 }
                 ImGui::NextColumn();
                 if (ImGui::Button(CSTR("Set point " + STR(i + 1) + " to clipboard value(JSON string)"))) //Due to ImGui bug it copies correct CB data only on second push :(
@@ -574,16 +554,7 @@ namespace ND_Util
         if (ImGui::Button("Add new point"))
         {
             tweenRecord.tweenPoints.push_back(vec3::zero);
-            if (tweenRecord.isMoveTween)
-                if (tweenRecord.isWorldVec3)
-                    tweenRecord.tweenPoints.back() = _node->getWorldTranslation();
-                else
-                    tweenRecord.tweenPoints.back() = _node->getLocalTranslation();
-            else
-                if (tweenRecord.isWorldVec3)
-                    tweenRecord.tweenPoints.back() = _node->getWorldScale();
-                else
-                    tweenRecord.tweenPoints.back() = _node->getLocalScale();
+            tweenRecord.tweenPoints.back() = TweenContainer::nodeValueGetter(_node, tweenRecord);
 
             if (tweenRecord.tweenDelays.empty())
                 tweenRecord.tweenDelays.push_back(0.f);
@@ -624,41 +595,44 @@ namespace ND_Util
             //creating records if this is the first time opening the branch
             if (debugTweensMove.find(_node) == debugTweensMove.end())
             {
-                debugTweensMove.insert({ _node, tweenDebugRecord() });
-                debugTweensScale.insert({ _node, tweenDebugRecord() });
-
-                debugTweensMove[_node].isMoveTween = true;
-                if (debugTweensMove[_node].isWorldVec3)
-                    debugTweensMove[_node].tweenStart = _node->getWorldTranslation();
-                else
-                    debugTweensMove[_node].tweenStart = _node->getLocalTranslation();
-
-                debugTweensScale[_node].isMoveTween = false;
-                if (debugTweensScale[_node].isWorldVec3)
-                    debugTweensScale[_node].tweenStart = _node->getWorldScale();
-                else
-                    debugTweensScale[_node].tweenStart = _node->getLocalScale();
+                debugTweensMove.insert({ _node, tweenDebugRecord{.transformType = tweenTransformType::MOVE} });
+                debugTweensScale.insert({ _node, tweenDebugRecord{.transformType = tweenTransformType::SCALE} });
+                debugTweensRotate.insert({ _node, tweenDebugRecord{.transformType = tweenTransformType::ROTATE} });
+                debugTweensMove[_node].tweenStart = TweenContainer::nodeValueGetter(_node, debugTweensMove[_node]);
+                debugTweensScale[_node].tweenStart = TweenContainer::nodeValueGetter(_node, debugTweensScale[_node]);
+                debugTweensRotate[_node].tweenStart = TweenContainer::nodeValueGetter(_node, debugTweensRotate[_node]);
             }
 
             tweenDebugRecord& tweenRecordMove = debugTweensMove[_node];
             tweenDebugRecord& tweenRecordScale = debugTweensScale[_node];
-            //Movement tween branch
-            if (ImGui::TreeNode("Movement tween"))
+            tweenDebugRecord& tweenRecordRotate = debugTweensRotate[_node];
+            //TODO::rewrite as tabs
+            if (ImGui::BeginTabBar("Tween editor tabbar"))
             {
-                ImGuiTweensBody(_node, tweenRecordMove);
-
-                ImGui::TreePop();
-            }
-            //Scale tween branch
-            if (_node != Render::getScreenCamera())
-            {
-                if (ImGui::TreeNode("Scale tween"))
+                //Movement tween branch
+                if (ImGui::BeginTabItem("Move"))
                 {
-                    ImGuiTweensBody(_node, tweenRecordScale);
+                    ImGuiTweensBody(_node, tweenRecordMove);
 
-                    ImGui::TreePop();
+                    ImGui::EndTabItem();
+                }
+                //Scale tween branch
+                if (_node != Render::getScreenCamera())
+                    if (ImGui::BeginTabItem("Scale"))
+                    {
+                        ImGuiTweensBody(_node, tweenRecordScale);
+
+                        ImGui::EndTabItem();
+                    }
+                //Rotate tween branch
+                if (ImGui::BeginTabItem("Rotate"))
+                {
+                    ImGuiTweensBody(_node, tweenRecordRotate);
+
+                    ImGui::EndTabItem();
                 }
             }
+            ImGui::EndTabBar();
 
             //buttons for simultaneous launch/stop
             if (ImGui::Button("Play all tweens"))
@@ -668,10 +642,16 @@ namespace ND_Util
                     tweenRecordMove.tween = TweenContainer::generateTween(tweenRecordMove, _node, nullptr, nullptr, true);
                 else
                     tweenRecordMove.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordMove, _node, true);
+                
                 if (!tweenRecordScale.isLoopedTween)
                     tweenRecordScale.tween = TweenContainer::generateTween(tweenRecordScale, _node, nullptr, nullptr, true);
                 else
                     tweenRecordScale.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordScale, _node, true);
+                
+                if (!tweenRecordRotate.isLoopedTween)
+                    tweenRecordRotate.tween = TweenContainer::generateTween(tweenRecordRotate, _node, nullptr, nullptr, true);
+                else
+                    tweenRecordRotate.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordRotate, _node, true);
             }
             if (ImGui::Button("Stop all tweens"))
             {
@@ -679,6 +659,8 @@ namespace ND_Util
                 tweenRecordMove.tweenEndless = nullptr;
                 tweenRecordScale.tween = nullptr;
                 tweenRecordScale.tweenEndless = nullptr;
+                tweenRecordRotate.tween = nullptr;
+                tweenRecordRotate.tweenEndless = nullptr;
             }
 
             ImGui::TreePop();

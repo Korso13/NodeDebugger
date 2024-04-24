@@ -49,6 +49,11 @@ W4_NLOHMANN_JSON_SERIALIZE_ENUM(w4::resources::Easing, {
 	{ w4::resources::Easing::QuintOut,		"QuintOut" },
 	{ w4::resources::Easing::QuintInOut,	"QuintInOut" }
 });
+W4_NLOHMANN_JSON_SERIALIZE_ENUM(tweenTransformType, {
+	{ tweenTransformType::MOVE,		"MOVE" },
+	{ tweenTransformType::SCALE,	"SCALE" },
+	{ tweenTransformType::ROTATE,	"ROTATE" }
+});
 
 //Import JS func to write into files (via save dialogue)
 typedef void (*JSStringCallback) (void*, char*);
@@ -78,7 +83,7 @@ namespace nlohmann
 			FIELD_DESERIALIZE(isLoopedTween);
 			FIELD_DESERIALIZE(isRelativeValues);
 			FIELD_DESERIALIZE(isPercentRelativeValues);
-			FIELD_DESERIALIZE(isMoveTween);
+			FIELD_DESERIALIZE(transformType);
 			FIELD_DESERIALIZE(isWorldVec3);
 			FIELD_DESERIALIZE(tweenStart);
 			FIELD_DESERIALIZE(tweenPoints);
@@ -92,7 +97,7 @@ namespace nlohmann
 			FIELD_SERIALIZE(isLoopedTween);
 			FIELD_SERIALIZE(isRelativeValues);
 			FIELD_SERIALIZE(isPercentRelativeValues);
-			FIELD_SERIALIZE(isMoveTween);
+			FIELD_SERIALIZE(transformType);
 			FIELD_SERIALIZE(isWorldVec3);
 			FIELD_SERIALIZE(tweenStart);
 			FIELD_SERIALIZE(tweenPoints);

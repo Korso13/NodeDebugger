@@ -447,6 +447,13 @@ void ND_ImGui::ImGNodeRender(sptr<Node> _node, const std::string& name)
         }
 
         ND_Util::ImGuiTransforms(_node);
+        //printing info to console
+        ImGui::Separator();
+        if (ImGui::Button("Print node info"))
+        {
+            ND_Util::printDebugNodeInfo(_node);
+        }
+
         ND_Util::ImGuiTweens(_node);
 
         if (_node->is<Mesh>())
@@ -456,15 +463,9 @@ void ND_ImGui::ImGNodeRender(sptr<Node> _node, const std::string& name)
             ImGuiDrawerMaterial::onGui("Mesh material settings", *mesh->getMaterialInst());
         }
 
-        //printing info to console
-        ImGui::Separator();
-        if (ImGui::Button("Print node info"))
-        {
-            ND_Util::printDebugNodeInfo(_node);
-        }
-
         ImGui::TreePop();
         ImGui::Separator();
+        ImGui::Spacing();
     }
 
 }

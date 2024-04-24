@@ -14,6 +14,11 @@ namespace TweenContainer
 	const std::vector<tweenDebugRecord>& getTweenContainer();
     vec3 getPercentModifyer(const vec3& startValue, const vec3& targetValue);
 
+    //Pulls nessesary node transforms (translate, rotate, scale; world/local) based on tweenRecord
+    vec3 nodeValueGetter(sptr<Node> _node, const tweenDebugRecord& tweenRecord);
+    //Sets nessesary node transforms (translate, rotate, scale; world/local) based on tweenRecord
+    void nodeValueSetter(vec3 value, sptr<Node> _node, const tweenDebugRecord& tweenRecord);
+
     //Non-looped tween generator
 	static sptr<CustomTweens::Tween<vec3>> generateTween(const tweenDebugRecord& tweenRecord, sptr<Node> _node, std::function<void(vec3&)>&& changeValueOnUpdateCB = nullptr, std::function<void()>&& onFinishCB = nullptr, bool bSetNodeToStartPoint = false)
 	{
@@ -24,30 +29,12 @@ namespace TweenContainer
 
         if (!bSetNodeToStartPoint || tweenRecord.isRelativeValues) //default behavior
         {
-            if (tweenRecord.isMoveTween)
-                if (tweenRecord.isWorldVec3)
-                    tweenStart = _node->getWorldTranslation();
-                else
-                    tweenStart = _node->getLocalTranslation();
-            else
-                if (tweenRecord.isWorldVec3)
-                    tweenStart = _node->getWorldScale();
-                else
-                    tweenStart = _node->getLocalScale();
+            tweenStart = nodeValueGetter(_node, tweenRecord);
         }
         else //used by ImGui TweenEditor
         {
             tweenStart = tweenRecord.tweenStart;
-            if (tweenRecord.isMoveTween)
-                if (tweenRecord.isWorldVec3)
-                    _node->setWorldTranslation(tweenStart);
-                else
-                    _node->setLocalTranslation(tweenStart);
-            else
-                if (tweenRecord.isWorldVec3)
-                    _node->setWorldScale(tweenStart);
-                else
-                    _node->setLocalScale(tweenStart);
+            nodeValueSetter(tweenStart, _node, tweenRecord);
         }
 
         if (!tweenRecord.isRelativeValues || (tweenRecord.isRelativeValues && tweenRecord.isPercentRelativeValues) )
@@ -65,16 +52,7 @@ namespace TweenContainer
                 if (changeValueOnUpdateCB)
                     changeValueOnUpdateCB(newValue);
 
-                if (tweenRecord.isMoveTween)
-                    if (tweenRecord.isWorldVec3)
-                        _node->setWorldTranslation(newValue);
-                    else
-                        _node->setLocalTranslation(newValue);
-                else
-                    if (tweenRecord.isWorldVec3)
-                        _node->setWorldScale(newValue);
-                    else
-                        _node->setLocalScale(newValue);
+                nodeValueSetter(newValue, _node, tweenRecord);
             });
 
         for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
@@ -113,30 +91,12 @@ namespace TweenContainer
 
         if (!bSetNodeToStartPoint || tweenRecord.isRelativeValues) //default behavior
         {
-            if (tweenRecord.isMoveTween)
-                if (tweenRecord.isWorldVec3)
-                    tweenStart = _node->getWorldTranslation();
-                else
-                    tweenStart = _node->getLocalTranslation();
-            else
-                if (tweenRecord.isWorldVec3)
-                    tweenStart = _node->getWorldScale();
-                else
-                    tweenStart = _node->getLocalScale();
+            tweenStart = nodeValueGetter(_node, tweenRecord);
         }
         else //used by ImGui TweenEditor
         {
             tweenStart = tweenRecord.tweenStart;
-            if (tweenRecord.isMoveTween)
-                if (tweenRecord.isWorldVec3)
-                    _node->setWorldTranslation(tweenStart);
-                else
-                    _node->setLocalTranslation(tweenStart);
-            else
-                if (tweenRecord.isWorldVec3)
-                    _node->setWorldScale(tweenStart);
-                else
-                    _node->setLocalScale(tweenStart);
+            nodeValueSetter(tweenStart, _node, tweenRecord);
         }
 
         if (!tweenRecord.isRelativeValues || (tweenRecord.isRelativeValues && tweenRecord.isPercentRelativeValues))

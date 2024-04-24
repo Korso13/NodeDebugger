@@ -34,8 +34,8 @@ struct ImVec2 { ImVec2(float, float) {}; };
 //Switches for custom ImGui tabs
 #define NDSPINES
 #define NDVARIABLES
-#define NDBORDERS
-#define NDPATHDRAWER
+//#define NDBORDERS
+//#define NDPATHDRAWER
 //#define NDSPOTLIGHTS
 //#define NDCONSOLE
 
@@ -92,14 +92,21 @@ enum class LogLevel
 	Error = 4
 };
 
+enum class tweenTransformType
+{
+	MOVE,
+	SCALE,
+	ROTATE
+};
+
 struct tweenDebugRecord
 {
 	std::string tweenName;
 	bool isLoopedTween = false;
 	bool isRelativeValues = false;
 	bool isPercentRelativeValues = false;
-	bool isMoveTween = true;
 	bool isWorldVec3 = true;
+	tweenTransformType transformType;
 	vec3 tweenStart = vec3::zero;
 	std::vector<vec3> tweenPoints;
 	std::vector<float> tweenDelays;

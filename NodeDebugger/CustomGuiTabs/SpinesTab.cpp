@@ -60,14 +60,14 @@ void SpinesTab::onGuiCall()
                 debugSpine.spine->setRenderOrder(spineRO);
 
             ND_Util::ImGuiTransforms(debugSpine.spine);
-            ND_Util::ImGuiTweens(debugSpine.spine);
-
             //printing info to console
             ImGui::Separator();
             if (ImGui::Button("Print transform info"))
             {
                 ND_Util::printDebugNodeInfo(debugSpine.spine);
             }
+
+            ND_Util::ImGuiTweens(debugSpine.spine);
 
             ImGui::Spacing();
             ImGui::Separator();
@@ -175,20 +175,22 @@ void SpinesTab::onGuiCall()
                 {              
                     for (auto& [slotId, slotName] : debugSpine.slots)
                     {
-                        if (!debugSpine.spine->getSlotMaterial(slotId))
-                        {
-                            std::string reportText = "No material in slot ";
-                            reportText += STR(slotId) + "(" + slotName + ")";
-                            ImGui::Text("%s", reportText.c_str());
-                            continue;
-                        }
-                        ImGuiDrawerMaterial::onGui(slotName.c_str(), *debugSpine.spine->getSlotMaterial(slotId));
+                        //if (!debugSpine.spine->getSlotMaterial(slotId))
+                        //{
+                        //    std::string reportText = "No material in slot ";
+                        //    reportText += STR(slotId) + "(" + slotName + ")";
+                        //    ImGui::Text("%s", reportText.c_str());
+                        //    continue;
+                        //}
+                        if (debugSpine.spine->getSlotMaterial(slotId))
+                            ImGuiDrawerMaterial::onGui(slotName.c_str(), *debugSpine.spine->getSlotMaterial(slotId));
                     }
 
                     ImGui::TreePop();
                 }
 
             ImGui::Separator();
+            ImGui::Spacing();
             ImGui::TreePop();
         }
     }
