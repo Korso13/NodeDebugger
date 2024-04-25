@@ -135,7 +135,8 @@ namespace TweenContainer
         const std::string& tweenSetting, 
         sptr<Node> node, 
         std::function<void(vec3&)>&& changeValueOnUpdateCB = nullptr, 
-        std::function<void()>&& onFinishCB = nullptr)
+        std::function<void()>&& onFinishCB = nullptr,
+        bool useTweenSettingStartPoint = false)
     {
         if(getTweenContainer().empty())
             preloadTweenContainer();
@@ -144,7 +145,7 @@ namespace TweenContainer
         {
             if (tweenRecord.tweenName == tweenSetting)
             {
-                return generateTween(tweenRecord, node, std::move(changeValueOnUpdateCB), std::move(onFinishCB));
+                return generateTween(tweenRecord, node, std::move(changeValueOnUpdateCB), std::move(onFinishCB), useTweenSettingStartPoint);
             }
         }
 
@@ -157,7 +158,7 @@ namespace TweenContainer
     tweenSetting - name of the record from tweens.json;
     node - node / mesh / spine affected by the tween
     */
-    static sptr<CustomTweens::EndlessTween<vec3>> getLoopedTween(const std::string& tweenSetting, sptr<Node> node)
+    static sptr<CustomTweens::EndlessTween<vec3>> getLoopedTween(const std::string& tweenSetting, sptr<Node> node, bool useTweenSettingStartPoint = false)
     {
         if (getTweenContainer().empty())
             preloadTweenContainer();
@@ -166,7 +167,7 @@ namespace TweenContainer
         {
             if (tweenRecord.tweenName == tweenSetting)
             {
-                return generateEndlessTween(tweenRecord, node);
+                return generateEndlessTween(tweenRecord, node, useTweenSettingStartPoint);
             }
         }
 
