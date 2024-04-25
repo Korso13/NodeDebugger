@@ -31,7 +31,7 @@ ND_ImGui::ND_ImGui()
         });
     m_imguiNode->setAutomaticOnUpdate(false);
 
-    ImGui::SetWindowSize(m_ImGWindowSize);
+    ImGui::SetWindowSize(IMG_STARTSIZE);
 
     m_editorCamera = make::sptr<EditorCamera>("Debug camera");
     m_editorCamera->setParent(Render::getRoot());
@@ -240,17 +240,7 @@ void ND_ImGui::onGui(float dt)
         m_windowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_::ImGuiFocusedFlags_AnyWindow);
 
         //start size-related code
-        if (m_firstUpdates > 0)
-        {
-            ImGui::SetWindowSize(IMG_STARTSIZE);
-            m_ImGWindowSize = ImGui::GetWindowSize();
-            m_firstUpdates--;
-        }
-        else
-        {
-            m_ImGWindowSize = ImGui::GetWindowSize();
-            ImGui::SetWindowSize(m_ImGWindowSize);
-        }
+        ImGui::SetNextWindowSize(IMG_STARTSIZE, ImGuiCond_FirstUseEver);
 
         ND_Util::ImGuiSettings();
 

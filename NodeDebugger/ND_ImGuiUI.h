@@ -59,9 +59,6 @@ protected:
 
 	float m_imGuiFontSize = IMG_FONTSIZE; 
 
-	int m_firstUpdates = 5;
-
-	ImVec2 m_ImGWindowSize = IMG_STARTSIZE;
 	vec4 m_clearColor = Render::getScreenCamera()->getClearColor();
 
 	std::map<std::string, ImG_Node> m_staticNodes;
