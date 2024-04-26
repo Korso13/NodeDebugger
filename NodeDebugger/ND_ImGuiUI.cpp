@@ -233,14 +233,16 @@ void ND_ImGui::onGui(float dt)
         return;
 
     ND_Util::resetImGuiRepeatElemId();
+
+    //start size-related code
+    ImGui::SetNextWindowSize(IMG_STARTSIZE, ImGuiCond_FirstUseEver);
+
     if (ImGui::Begin("Node Debugger"))
     {
+
         if (m_foldImGuiMenu)
             m_foldImGuiMenu = false;
         m_windowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_::ImGuiFocusedFlags_AnyWindow);
-
-        //start size-related code
-        ImGui::SetNextWindowSize(IMG_STARTSIZE, ImGuiCond_FirstUseEver);
 
         ND_Util::ImGuiSettings();
 
