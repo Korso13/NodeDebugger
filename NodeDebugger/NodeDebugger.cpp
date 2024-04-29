@@ -194,12 +194,12 @@ void NodeDebugger::onKeyPressed(const event::Keyboard::Down& evt)
         printConnectedNodes();
         return;
         break;
-    case platform::KeyboardKey::Space:
+    case platform::KeyboardKey::F:
         m_foldImGuiMenu = !m_foldImGuiMenu;
         ImGui::SetWindowCollapsed("Node Debugger", m_foldImGuiMenu);
         return;
         break;
-    case platform::KeyboardKey::Shift:
+    case platform::KeyboardKey::Alt:
         if (camControlOn)
         {
             m_editorCamera->toggleCameraEnabled();

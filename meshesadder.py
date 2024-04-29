@@ -1,4 +1,4 @@
-# version 0.0.0.6
+# version 0.0.0.7
 # надо установить opencv
 # pip install opencv-python
 # запускать из корня проекта
@@ -25,6 +25,7 @@
 # перенос строк нормальный
 # Добавлена табуляция в переносы
 # fix первой записи
+# Fix детектора ресурсов лежащих в корне Textures
 
 import cv2
 import json
@@ -143,12 +144,12 @@ def createMeshContainer(meshes):
 #createMeshContainer(meshes)
 
 def checkFileInResources(file_path, texturesArray):
-    # print("Checking if file " + file_path + " is in textures")
+    print("Checking if file " + file_path + " is in textures")
     for fileResName in texturesArray:
         # print("Checking against record " + fileResName + " with path " + texturesArray[fileResName])
         if(file_path == texturesArray[fileResName]):
             return fileResName
-    return {False, ""}
+    return ""
 
 
 
@@ -162,9 +163,11 @@ def checkResources():
         for m in meshes:
             print("=====checkfile " + m.fileName + "=======")
             #print("dump " + str(data["textures"]))
-            
-            checkResult = checkFileInResources("textures/" + m.folder + "/" + m.fileName + m.ext, data["textures"])
-            if checkResult == {False, ""}:
+            checkTexturePath = "textures/"
+            if len (m.folder) > 0:
+                checkTexturePath = checkTexturePath + m.folder+"/"
+            checkResult = checkFileInResources(checkTexturePath + m.fileName + m.ext, data["textures"])
+            if checkResult == "":
                 print(m.fileName + " not found")
                 if m.folder:
                     data["textures"][m.fileName] =  "textures/"+m.folder+"/"+m.fileName+m.ext
@@ -183,7 +186,7 @@ def checkResources():
         for resName in data["textures"]:
             resourcePathRec = data["textures"][resName]
             result = False
-            print("Checking if "+resourcePathRec + " still exists")
+            print("Checking if resource " + resName + " with path " + resourcePathRec + " still exists")
 
             for m in meshes:
                 # print("mbef = "+"textures/"+m.folder+"/"+m.fileName+m.ext)
@@ -191,9 +194,10 @@ def checkResources():
                 if len (m.folder) > 0:
                     foundTexturePath = foundTexturePath + m.folder+"/"
                 foundTexturePath = foundTexturePath + m.fileName+m.ext
-                print("mbef = "+foundTexturePath)
+                # print("mbef = "+foundTexturePath)
                 
                 if foundTexturePath == resourcePathRec:
+                    m.resourceName = resName
                     result = True
                     break
                 # print("txt "+txt) 
@@ -204,6 +208,7 @@ def checkResources():
                 
             else:
                 print("Found " + resName + " with path " + data["textures"][resName] + " in detected files" )
+                
 
         for resNameRecToDel in remlist:
             data["textures"].pop(resNameRecToDel)
@@ -249,7 +254,7 @@ def checkMeshContainer():
     with open(meshFilePath, "r") as meshes_file:
         data = json.load(meshes_file)
         for m in meshes:
-            print("textures found")
+            # print("textures found")
             print("check record " + m.resourceName)
             #print("dump " + str(data["textures"]))
             i = checkJsonExists( m.resourceName, data["settings"])

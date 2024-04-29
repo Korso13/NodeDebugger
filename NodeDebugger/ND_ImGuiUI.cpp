@@ -468,7 +468,10 @@ void ND_ImGui::ImGuiUpdate(float dt)
         return;
 
     if (dt == 0.f)
+    {
+        m_editorCamera->onUpdate(0.03);
         dt = 0.01;
+    }
     m_imguiNode->onUpdate(dt);
 }
 
