@@ -122,5 +122,4 @@ static void loadPathsIntoPathfinder(
 		}
 	}
 }
-
 #endif

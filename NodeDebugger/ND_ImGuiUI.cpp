@@ -259,7 +259,13 @@ void ND_ImGui::onGui(float dt)
             if (ImGui::BeginTabItem("Camera"))
             {
                 ND_Util::ImGuiNodeSettings();
-                ImGuiCamera();
+
+                if (ImGui::BeginChild("Camera scrollable zone"))
+                {
+                    ImGuiCamera();
+                }
+                ImGui::EndChild();
+
                 ImGui::EndTabItem();
             }
             //debug nodes and meshes tab
@@ -274,13 +280,17 @@ void ND_ImGui::onGui(float dt)
             if (!m_debugCallbacks.empty())
                 if (ImGui::BeginTabItem("Debug calls"))
                 {
-                    for (auto& [name, cb] : m_debugCallbacks)
+                    if (ImGui::BeginChild("Debug calls scrollable zone"))
                     {
-                        if (ImGui::Button(name.c_str()))
+                        for (auto& [name, cb] : m_debugCallbacks)
                         {
-                            if (cb) cb();
+                            if (ImGui::Button(name.c_str()))
+                            {
+                                if (cb) cb();
+                            }
                         }
                     }
+                    ImGui::EndChild();
 
                     ImGui::EndTabItem();
                 }
@@ -337,65 +347,69 @@ void ND_ImGui::ImGuiNodes()
     ImGui::SameLine();
     ImGui::Text("Nodes shown: %d", m_nodeFilterItems);
 
-    if (m_nodesFilter.empty()) //no filter applied
+    if (ImGui::BeginChild("Filtered Nodes"))
     {
-        m_nodeFilterItems = m_staticNodes.size();
-        for (auto& [name, ImG_NodeStruct] : m_staticNodes)
+        if (m_nodesFilter.empty()) //no filter applied
         {
-            if (!ImG_NodeStruct.node.expired() && !ImG_NodeStruct.markedForDeletion)
-            {
-                //Node item render code
-                ImGNodeRender(ImG_NodeStruct.node.lock(), name);
-
-                m_nodeFilterItems++;
-            }
-            else if (ImG_NodeStruct.node.expired())
-                ImG_NodeStruct.markedForDeletion = true;
-        }
-    }
-    else
-    {
-        if (isFilterChanged) //filter changed. resetting list of matching node names
-        {
-            m_nodeFilterItems = 0;
-            m_lastNodeFilterList.clear();
-
+            m_nodeFilterItems = m_staticNodes.size();
             for (auto& [name, ImG_NodeStruct] : m_staticNodes)
             {
                 if (!ImG_NodeStruct.node.expired() && !ImG_NodeStruct.markedForDeletion)
                 {
-                    if (ND_Util::checkFilterConditions(name, m_nodesFilter))
+                    //Node item render code
+                    ImGNodeRender(ImG_NodeStruct.node.lock(), name);
+
+                    m_nodeFilterItems++;
+                }
+                else if (ImG_NodeStruct.node.expired())
+                    ImG_NodeStruct.markedForDeletion = true;
+            }
+        }
+        else
+        {
+            if (isFilterChanged) //filter changed. resetting list of matching node names
+            {
+                m_nodeFilterItems = 0;
+                m_lastNodeFilterList.clear();
+
+                for (auto& [name, ImG_NodeStruct] : m_staticNodes)
+                {
+                    if (!ImG_NodeStruct.node.expired() && !ImG_NodeStruct.markedForDeletion)
+                    {
+                        if (ND_Util::checkFilterConditions(name, m_nodesFilter))
+                        {
+                            //Node item render code
+                            ImGNodeRender(ImG_NodeStruct.node.lock(), name);
+
+                            m_lastNodeFilterList.insert(name);
+                            m_nodeFilterItems++;
+                        }
+                    }
+                    else if (ImG_NodeStruct.node.expired())
+                        ImG_NodeStruct.markedForDeletion = true;
+                }
+            }
+            else //filter has't changed sonce last render. Less compute overhead
+            {
+                //m_nodeFilterItems = m_lastNodeFilterList.size();
+                for (auto& [name, ImG_NodeStruct] : m_staticNodes)
+                {
+                    if (
+                        !ImG_NodeStruct.node.expired()
+                        && !ImG_NodeStruct.markedForDeletion
+                        && m_lastNodeFilterList.contains(name)
+                        )
                     {
                         //Node item render code
                         ImGNodeRender(ImG_NodeStruct.node.lock(), name);
-
-                        m_lastNodeFilterList.insert(name);
-                        m_nodeFilterItems++;
                     }
+                    else if (ImG_NodeStruct.node.expired())
+                        ImG_NodeStruct.markedForDeletion = true;
                 }
-                else if (ImG_NodeStruct.node.expired())
-                    ImG_NodeStruct.markedForDeletion = true;
-            }
-        }
-        else //filter has't changed sonce last render. Less compute overhead
-        {
-            //m_nodeFilterItems = m_lastNodeFilterList.size();
-            for (auto& [name, ImG_NodeStruct] : m_staticNodes)
-            {
-                if (
-                    !ImG_NodeStruct.node.expired()
-                    && !ImG_NodeStruct.markedForDeletion
-                    && m_lastNodeFilterList.contains(name)
-                    )
-                {
-                    //Node item render code
-                    ImGNodeRender(ImG_NodeStruct.node.lock(), name);
-                }
-                else if (ImG_NodeStruct.node.expired())
-                    ImG_NodeStruct.markedForDeletion = true;
             }
         }
     }
+    ImGui::EndChild(); //ends nodes list scrollable zone
 
     std::erase_if(m_staticNodes,
         [](const auto& record)

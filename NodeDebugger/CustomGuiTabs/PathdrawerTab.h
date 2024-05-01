@@ -46,6 +46,7 @@ private:
 	std::string m_newPathNaming = "NewPathName";
 
 	int m_selectedPathIndex = -1;
+	float m_nodeDefaultSpeed = 2.f;
 	std::string m_lastSelectedPathName = "";
 
 	std::map<std::string, sptr<Mesh>> m_pathNodeRender; //path points' meshes

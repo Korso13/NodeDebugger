@@ -13,118 +13,122 @@ bool operator<(const sptr<TabBorderLineData>& b1, const sptr<TabBorderLineData>&
 
 void BordersTab::onGuiCall()
 {
-	for (const auto& borderRecord : m_debugBorders)
+	if (ImGui::BeginChild("Borders scrollable zone", ND_Util::getSizeForChild()))
 	{
-		bool bNeedRemovePoint = false;
-		int removePointIndex = -1;
-		
-		if (ImGui::TreeNode(borderRecord->borderName.c_str())) //Border record render begin
+		for (const auto& borderRecord : m_debugBorders)
 		{
-			//rendering menus for existing border points
-			if (!borderRecord->points.empty())
+			bool bNeedRemovePoint = false;
+			int removePointIndex = -1;
+
+			if (ImGui::TreeNode(borderRecord->borderName.c_str())) //Border record render begin
 			{
-				for (size_t i = 0; i < borderRecord->points.size(); i++) //border points list render
+				//rendering menus for existing border points
+				if (!borderRecord->points.empty())
 				{
-					std::string meshSearchName = borderRecord->borderName + "_" + STR(i);
-					if (ImGui::TreeNode(meshSearchName.c_str()))
+					for (size_t i = 0; i < borderRecord->points.size(); i++) //border points list render
 					{
-						//point deletion button
-						ImGui::SameLine();
-						if (ImGui::Button("x"))
+						std::string meshSearchName = borderRecord->borderName + "_" + STR(i);
+						if (ImGui::TreeNode(meshSearchName.c_str()))
 						{
-							bNeedRemovePoint = true;
-							removePointIndex = i;
-							//removePointBorderName = borderRecord->borderName;
-						}
-
-						//Drag gizmo
-						if (m_borderRender.find(meshSearchName) != m_borderRender.end()
-							&& m_borderRender[meshSearchName])
-						{
-							ImGuizmo::BeginFrame();
-							ImGuiDrawerGizmo::drawGizmosHandles(m_borderRender[meshSearchName]);
-							if (m_borderRender[meshSearchName]->getWorldTranslation().withoutZ() != borderRecord->points[i])
+							//point deletion button
+							ImGui::SameLine();
+							if (ImGui::Button("x"))
 							{
-								borderRecord->points[i] = m_borderRender[meshSearchName]->getWorldTranslation().withoutZ();
-								renderBorderLines(borderRecord->borderName);
+								bNeedRemovePoint = true;
+								removePointIndex = i;
+								//removePointBorderName = borderRecord->borderName;
 							}
-						}
-						//else
-						//	debug("[BorderTab]\nNo %s border point", meshSearchName.c_str());
 
-						//border point position
-						if (ImGui::DragVec2(("Pos" + STR(i)).c_str(), borderRecord->points[i]))
-						{
+							//Drag gizmo
 							if (m_borderRender.find(meshSearchName) != m_borderRender.end()
 								&& m_borderRender[meshSearchName])
 							{
-								//updating mesh position
-								m_borderRender[meshSearchName]->setWorldTranslation(vec3(borderRecord->points[i].x, borderRecord->points[i].y, -0.001f));
-								renderBorderLines(borderRecord->borderName);
+								ImGuizmo::BeginFrame();
+								ImGuiDrawerGizmo::drawGizmosHandles(m_borderRender[meshSearchName]);
+								if (m_borderRender[meshSearchName]->getWorldTranslation().withoutZ() != borderRecord->points[i])
+								{
+									borderRecord->points[i] = m_borderRender[meshSearchName]->getWorldTranslation().withoutZ();
+									renderBorderLines(borderRecord->borderName);
+								}
 							}
-						};
+							//else
+							//	debug("[BorderTab]\nNo %s border point", meshSearchName.c_str());
 
-						ImGui::TreePop();
+							//border point position
+							if (ImGui::DragVec2(("Pos" + STR(i)).c_str(), borderRecord->points[i]))
+							{
+								if (m_borderRender.find(meshSearchName) != m_borderRender.end()
+									&& m_borderRender[meshSearchName])
+								{
+									//updating mesh position
+									m_borderRender[meshSearchName]->setWorldTranslation(vec3(borderRecord->points[i].x, borderRecord->points[i].y, -0.001f));
+									renderBorderLines(borderRecord->borderName);
+								}
+							};
+
+							ImGui::TreePop();
+						}
 					}
 				}
+
+				//add new point to the border
+				if (ImGui::Button("Add new point"))
+				{
+					if (!borderRecord->points.empty())
+						borderRecord->points.push_back(borderRecord->points.back());
+					else
+						borderRecord->points.push_back(Render::getScreenCamera()->getWorldTranslation().withoutZ());
+
+					auto newPointName = borderRecord->borderName + "_" + STR(borderRecord->points.size() - 1);
+					auto newPointMesh = Mesh::create::plane(vec2(0.1, 0.1));
+					newPointMesh->setMaterialInst(Material::getDefault()->createInstance());
+					Render::getRoot()->addChild(newPointMesh);
+					newPointMesh->setRenderOrder(10000);
+
+					m_borderRender.insert(
+						{
+							newPointName,
+							newPointMesh
+						});
+					m_borderRender[newPointName]->setWorldTranslation(vec3(borderRecord->points.back().x, borderRecord->points.back().y, -0.001f));
+					//debug("[BorderTab]\nAdded %s border point", newPointName.c_str());
+
+					renderBorderLines(borderRecord->borderName);
+				}
+
+				ImGui::TreePop();
 			}
 
-			//add new point to the border
-			if (ImGui::Button("Add new point"))
+			//border points removing mechanism
+			if (bNeedRemovePoint)
 			{
-				if (!borderRecord->points.empty())
-					borderRecord->points.push_back(borderRecord->points.back());
-				else
-					borderRecord->points.push_back(Render::getScreenCamera()->getWorldTranslation().withoutZ());
+				std::string meshSearchName = borderRecord->borderName + "_" + STR(removePointIndex);
 
-				auto newPointName = borderRecord->borderName + "_" + STR(borderRecord->points.size()-1);
-				auto newPointMesh = Mesh::create::plane(vec2(0.1, 0.1));
-				newPointMesh->setMaterialInst(Material::getDefault()->createInstance());
-				Render::getRoot()->addChild(newPointMesh);
-				newPointMesh->setRenderOrder(10000);
+				if (m_borderRender.find(meshSearchName) != m_borderRender.end()
+					&& m_borderRender[meshSearchName])
+				{
+					Render::getRoot()->removeChild(m_borderRender[meshSearchName]);
+					m_borderRender.erase(meshSearchName);
+				}
 
-				m_borderRender.insert(
-					{
-						newPointName,
-						newPointMesh
-					});
-				m_borderRender[newPointName]->setWorldTranslation(vec3(borderRecord->points.back().x, borderRecord->points.back().y, -0.001f));
-				//debug("[BorderTab]\nAdded %s border point", newPointName.c_str());
+				//removing point from border record
+				borderRecord->points.erase(borderRecord->points.begin() + removePointIndex);
+				//shifting remaining points' names to reflect deletion
+				for (size_t i = removePointIndex; i < borderRecord->points.size(); i++)
+				{
+					std::string newSearchName = borderRecord->borderName + "_" + STR(i);
+					std::string oldSearchName = borderRecord->borderName + "_" + STR(i + 1);
+					m_borderRender[newSearchName] = m_borderRender[oldSearchName];
+
+					if (i + 1 == borderRecord->points.size())
+						m_borderRender.erase(oldSearchName);
+				}
 
 				renderBorderLines(borderRecord->borderName);
 			}
-
-			ImGui::TreePop();
-		}
-	
-		//border points removing mechanism
-		if (bNeedRemovePoint)
-		{
-			std::string meshSearchName = borderRecord->borderName + "_" + STR(removePointIndex);
-
-			if (m_borderRender.find(meshSearchName) != m_borderRender.end()
-				&& m_borderRender[meshSearchName])
-			{
-				Render::getRoot()->removeChild(m_borderRender[meshSearchName]);
-				m_borderRender.erase(meshSearchName);
-			}
-			
-			//removing point from border record
-			borderRecord->points.erase(borderRecord->points.begin() + removePointIndex);
-			//shifting remaining points' names to reflect deletion
-			for (size_t i = removePointIndex; i < borderRecord->points.size(); i++)
-			{
-				std::string newSearchName = borderRecord->borderName + "_" + STR(i);
-				std::string oldSearchName = borderRecord->borderName + "_" + STR(i+1);
-				m_borderRender[newSearchName] = m_borderRender[oldSearchName];
-
-				if(i+1 == borderRecord->points.size())
-					m_borderRender.erase(oldSearchName);
-			}
-
-			renderBorderLines(borderRecord->borderName);
 		}
 	}
+	ImGui::EndChild(); //ends borders list scrollable zone
 
 	//Adding new set of borders
 	ImGui::Columns(2);

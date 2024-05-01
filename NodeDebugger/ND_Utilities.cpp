@@ -413,9 +413,18 @@ namespace ND_Util
         repeatElemId = 0;
     }
 
+    ImVec2 getSizeForChild(float windowHeightPercent)
+    {
+        ImVec2 size = ImGui::GetWindowSize();
+        size.y *= windowHeightPercent;
+        size.x *= 0.95;
+
+        return size;
+    }
+
     void ImGuiNodeSettings()
     {
-        ImGui::SliderFloat("Sliders sensivity", &sliderSensivity, 0.0001f, 1.0f, "%.4f");
+        ImGui::DragFloat("Sliders sensivity", &sliderSensivity, 0.001, 0.001f, 10.0f, "%.4f");
         ImGui::Checkbox("Rotation in degrees", &degreesOutput);
         ImGui::Checkbox("Single scale value", &bindXYZScaling);
         ImGui::Spacing();

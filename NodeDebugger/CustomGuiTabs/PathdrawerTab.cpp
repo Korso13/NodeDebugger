@@ -47,51 +47,55 @@ void PathdrawerTab::onGuiPathNodesTab()
 	bool bNeedRemovePoint = false;
 	std::string removePointName = "";
 
-	//List of path nodes + gizmo to move them
-	for (auto& [nodeName, pathNode] : m_pathsData.pathnodes)
+	if (ImGui::BeginChild("Path nodes scrollable zone", ND_Util::getSizeForChild(0.4)))
 	{
-		if (ImGui::TreeNode(nodeName.c_str()))
+		//List of path nodes + gizmo to move them
+		for (auto& [nodeName, pathNode] : m_pathsData.pathnodes)
 		{
-			//point deletion button
-			ImGui::SameLine();
-			if (ImGui::Button("x"))
+			if (ImGui::TreeNode(nodeName.c_str()))
 			{
-				bNeedRemovePoint = true;
-				removePointName = nodeName;
-			}
-
-			//Drag gizmo
-			if (m_pathNodeRender.contains(nodeName)
-				&& m_pathNodeRender[nodeName])
-			{
-				ImGuizmo::BeginFrame();
-				ImGuiDrawerGizmo::drawGizmosHandles(m_pathNodeRender[nodeName]);
-				if (m_pathNodeRender[nodeName]->getWorldTranslation().withoutZ() != pathNode.pos)
+				//point deletion button
+				ImGui::SameLine();
+				if (ImGui::Button("x"))
 				{
-					pathNode.pos = m_pathNodeRender[nodeName]->getWorldTranslation().withoutZ();
-					if (m_selectedPathIndex != -1)
-						renderPathLines(m_pathsData.paths[m_selectedPathIndex]);
+					bNeedRemovePoint = true;
+					removePointName = nodeName;
 				}
-			}
 
-			//Path node position
-			if (ImGui::DragVec2(nodeName.c_str(), pathNode.pos))
-			{
+				//Drag gizmo
 				if (m_pathNodeRender.contains(nodeName)
 					&& m_pathNodeRender[nodeName])
 				{
-					//updating mesh position
-					m_pathNodeRender[nodeName]->setWorldTranslation(vec3(pathNode.pos.x, pathNode.pos.y, -0.001f));
-					if(m_selectedPathIndex != -1)
-						renderPathLines(m_pathsData.paths[m_selectedPathIndex]);
+					ImGuizmo::BeginFrame();
+					ImGuiDrawerGizmo::drawGizmosHandles(m_pathNodeRender[nodeName]);
+					if (m_pathNodeRender[nodeName]->getWorldTranslation().withoutZ() != pathNode.pos)
+					{
+						pathNode.pos = m_pathNodeRender[nodeName]->getWorldTranslation().withoutZ();
+						if (m_selectedPathIndex != -1)
+							renderPathLines(m_pathsData.paths[m_selectedPathIndex]);
+					}
 				}
-			};
 
-			ImGui::InputFloat("Speed", &pathNode.speed);
+				//Path node position
+				if (ImGui::DragVec2(nodeName.c_str(), pathNode.pos))
+				{
+					if (m_pathNodeRender.contains(nodeName)
+						&& m_pathNodeRender[nodeName])
+					{
+						//updating mesh position
+						m_pathNodeRender[nodeName]->setWorldTranslation(vec3(pathNode.pos.x, pathNode.pos.y, -0.001f));
+						if (m_selectedPathIndex != -1)
+							renderPathLines(m_pathsData.paths[m_selectedPathIndex]);
+					}
+				};
 
-			ImGui::TreePop();
+				ImGui::InputFloat("Speed", &pathNode.speed);
+
+				ImGui::TreePop();
+			}
 		}
 	}
+	ImGui::EndChild(); //ends path nodes list scrollable zone
 
 	//removing deleted PathNode
 	if (bNeedRemovePoint)
@@ -130,7 +134,19 @@ void PathdrawerTab::onGuiPathNodesTab()
 	ImGui::Spacing();
 	ImGui::Separator();
 	ImGui::Columns(2);
-	ImGui::InputText("Name", &m_newPathNodeNaming);
+	if(ImGui::InputText("Name", &m_newPathNodeNaming, ImGuiInputTextFlags_EnterReturnsTrue))
+	{
+		//Called on pressing enter
+		if (m_newPathNodeNaming == "" || m_newPathNodeNaming.empty() || m_pathsData.pathnodes.contains(m_newPathNodeNaming))
+			return;
+
+		vec2 newPointPos = Render::getScreenCamera()->getWorldTranslation().withoutZ();
+		m_pathsData.pathnodes.insert({
+			m_newPathNodeNaming,
+			pathNode{newPointPos, m_nodeDefaultSpeed}
+			});
+		renderPathNode(m_newPathNodeNaming, m_pathsData.pathnodes[m_newPathNodeNaming]);
+	}
 	ImGui::NextColumn();
 	if (ImGui::Button("Add new path node"))
 	{
@@ -140,11 +156,12 @@ void PathdrawerTab::onGuiPathNodesTab()
 		vec2 newPointPos = Render::getScreenCamera()->getWorldTranslation().withoutZ();
 		m_pathsData.pathnodes.insert({
 			m_newPathNodeNaming,
-			pathNode{newPointPos, 1.f}
+			pathNode{newPointPos, m_nodeDefaultSpeed}
 			});
 		renderPathNode(m_newPathNodeNaming , m_pathsData.pathnodes[m_newPathNodeNaming]);
 	}
 	ImGui::Columns(1);
+	ImGui::DragFloat("Default node speed", &m_nodeDefaultSpeed, 0.1, 0.001);
 }
 
 void PathdrawerTab::onGuiPathEditorTab()

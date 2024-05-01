@@ -17,107 +17,111 @@ void SpinesTab::onGuiCall()
     else if (!m_spinesFilter.empty())
         m_spinesFilter.clear();
 
-    for (auto& [name, debugSpine] : m_debugSpines)
+    if (ImGui::BeginChild("Filtered Spines"))
     {
-        if (!ND_Util::checkFilterConditions(debugSpine.spineName, m_spinesFilter))
-            continue;
-
-        if (ImGui::TreeNode(debugSpine.spineName.c_str()))
+        for (auto& [name, debugSpine] : m_debugSpines)
         {
-            //Drag gizmo
-            ImGuizmo::BeginFrame();
-            ImGuiDrawerGizmo::drawGizmosHandles(debugSpine.spine);
+            if (!ND_Util::checkFilterConditions(debugSpine.spineName, m_spinesFilter))
+                continue;
 
-            if (ImGui::BeginTabBar("Spine tab bar"))
+            if (ImGui::TreeNode(debugSpine.spineName.c_str()))
             {
-                if (ImGui::BeginTabItem("Animations"))
-                {
-                    onGuiAnimations(debugSpine);
+                //Drag gizmo
+                ImGuizmo::BeginFrame();
+                ImGuiDrawerGizmo::drawGizmosHandles(debugSpine.spine);
 
-                    ImGui::EndTabItem();
-                }
-
-                if (ImGui::BeginTabItem("Skins/Visuals"))
+                if (ImGui::BeginTabBar("Spine tab bar"))
                 {
-                    bool alphaOn = debugSpine.spine->getUsePremultipliedAlpha();
-                    if (ImGui::Checkbox("Use premult. alpha", &alphaOn))
+                    if (ImGui::BeginTabItem("Animations"))
                     {
-                        debugSpine.spine->setUsePremultipliedAlpha(alphaOn);
+                        onGuiAnimations(debugSpine);
+
+                        ImGui::EndTabItem();
                     }
 
-                    bool turnRight = debugSpine.spine->skeleton->getScaleX() > 0.f;
-                    if (ImGui::Checkbox("Turn spine to the right", &turnRight))
+                    if (ImGui::BeginTabItem("Skins/Visuals"))
                     {
-                        debugSpine.spine->skeleton->setScaleX(debugSpine.spine->skeleton->getScaleX() * -1.f);
-                    }
-
-                    //visibility button
-                    if (ImGui::Button("Toggle visibility"))
-                    {
-                        debugSpine.spine->setEnabled(!debugSpine.spine->isEnabled());
-                    }
-
-                    int spineRO = debugSpine.spine->getRenderOrder();
-                    bool roChanged = false;
-                    roChanged = ImGui::InputInt("Render order", &spineRO, 1, 10);
-                    if (roChanged)
-                        debugSpine.spine->setRenderOrder(spineRO);
-
-                    //skin setter
-                    onGuiSkinSetter(debugSpine);
-
-                    ImGui::EndTabItem();
-                }
-
-                if (ImGui::BeginTabItem("Transforms"))
-                {
-                    ND_Util::ImGuiTransforms(debugSpine.spine);
-                    //printing info to console
-                    ImGui::Separator();
-                    if (ImGui::Button("Print transform info"))
-                    {
-                        ND_Util::printDebugNodeInfo(debugSpine.spine);
-                    }
-
-                    ImGui::EndTabItem();
-                }
-
-                if (ImGui::BeginTabItem("Materials"))
-                {
-                    if (!debugSpine.slots.empty())
-                    {
-                        bool hasSlots = false;
-                        for (auto& [slotId, slotName] : debugSpine.slots)
+                        bool alphaOn = debugSpine.spine->getUsePremultipliedAlpha();
+                        if (ImGui::Checkbox("Use premult. alpha", &alphaOn))
                         {
-                            if (debugSpine.spine->getSlotMaterial(slotId))
-                            {
-                                ImGuiDrawerMaterial::onGui(slotName.c_str(), *debugSpine.spine->getSlotMaterial(slotId));
-                                hasSlots = true;
-                            }
+                            debugSpine.spine->setUsePremultipliedAlpha(alphaOn);
                         }
 
-                        if (!hasSlots)
-                            ImGui::Text("%s", "No slots with editable materials!");
+                        bool turnRight = debugSpine.spine->skeleton->getScaleX() > 0.f;
+                        if (ImGui::Checkbox("Turn spine to the right", &turnRight))
+                        {
+                            debugSpine.spine->skeleton->setScaleX(debugSpine.spine->skeleton->getScaleX() * -1.f);
+                        }
+
+                        //visibility button
+                        if (ImGui::Button("Toggle visibility"))
+                        {
+                            debugSpine.spine->setEnabled(!debugSpine.spine->isEnabled());
+                        }
+
+                        int spineRO = debugSpine.spine->getRenderOrder();
+                        bool roChanged = false;
+                        roChanged = ImGui::InputInt("Render order", &spineRO, 1, 10);
+                        if (roChanged)
+                            debugSpine.spine->setRenderOrder(spineRO);
+
+                        //skin setter
+                        onGuiSkinSetter(debugSpine);
+
+                        ImGui::EndTabItem();
                     }
 
-                    ImGui::EndTabItem();
-                }
+                    if (ImGui::BeginTabItem("Transforms"))
+                    {
+                        ND_Util::ImGuiTransforms(debugSpine.spine);
+                        //printing info to console
+                        ImGui::Separator();
+                        if (ImGui::Button("Print transform info"))
+                        {
+                            ND_Util::printDebugNodeInfo(debugSpine.spine);
+                        }
 
-                if (ImGui::BeginTabItem("Tween Builder"))
-                {
-                    ND_Util::ImGuiTweens(debugSpine.spine);
+                        ImGui::EndTabItem();
+                    }
 
-                    ImGui::EndTabItem();
+                    if (ImGui::BeginTabItem("Materials"))
+                    {
+                        if (!debugSpine.slots.empty())
+                        {
+                            bool hasSlots = false;
+                            for (auto& [slotId, slotName] : debugSpine.slots)
+                            {
+                                if (debugSpine.spine->getSlotMaterial(slotId))
+                                {
+                                    ImGuiDrawerMaterial::onGui(slotName.c_str(), *debugSpine.spine->getSlotMaterial(slotId));
+                                    hasSlots = true;
+                                }
+                            }
+
+                            if (!hasSlots)
+                                ImGui::Text("%s", "No slots with editable materials!");
+                        }
+
+                        ImGui::EndTabItem();
+                    }
+
+                    if (ImGui::BeginTabItem("Tween Builder"))
+                    {
+                        ND_Util::ImGuiTweens(debugSpine.spine);
+
+                        ImGui::EndTabItem();
+                    }
                 }
+                ImGui::EndTabBar();
+
+                ImGui::Separator();
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::TreePop();
             }
-            ImGui::EndTabBar();
-
-            ImGui::Separator();
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::TreePop();
         }
     }
+    ImGui::EndChild(); //ends spine list scrollable zone
 }
 
 void SpinesTab::onGuiAnimations(SpineDebugging& debugSpine)

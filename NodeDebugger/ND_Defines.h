@@ -60,7 +60,7 @@ static int		timescale = 100;
 static float	sliderSensivity = 0.01;
 
 //ImGui settings:
-#define IMG_STARTSIZE ImVec2(550, 430)	//ImGui window start size
+#define IMG_STARTSIZE ImVec2(550, 470)	//ImGui window start size
 #define IMG_FONTSIZE 28.f				//font size for all ImGui text
 
 //console messages colors:
