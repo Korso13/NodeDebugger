@@ -16,6 +16,11 @@ public:
 
 private:
 
+	void onGuiAnimations(SpineDebugging& debugSpine) NOCOMP;
+	void onGuiSkinSetter(SpineDebugging& debugSpine) NOCOMP;
+
+private:
+
 	bool m_copyAnimNameNotLength = true;
 	std::map<std::string, SpineDebugging> m_debugSpines;
 	std::string m_spinesFilter = "";

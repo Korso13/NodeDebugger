@@ -5,6 +5,7 @@
 #include "external/imgui_stdlib.h"
 #include <regex>
 #include "TweenFactory.h"
+#include <utils/EditorCamera.h>
 
 #define TWEENCONTAINER TweenContainer::getTweenContainer()
 
@@ -245,6 +246,13 @@ namespace ND_Util
 
     void ImGuiTransforms(sptr<Node> _node)
     {
+        if (ImGui::Button("Center on camera"))
+        {
+            vec3 target = Render::getScreenCamera()->getWorldTranslation();
+            target.z = 0.f;
+            _node->setWorldTranslation(target);
+        }
+
         //translation sliders
         ImGui::Separator();
         bool posChangedL = false;
@@ -289,7 +297,7 @@ namespace ND_Util
             _node->setLocalRotation(Rotator(newValL));
         }
 
-        if (!_node->is<Camera>())
+        if (!_node->is<Camera>() && !_node->is<EditorCamera>())
         {
             //scale sliders
             ImGui::Separator();
@@ -589,81 +597,75 @@ namespace ND_Util
         if (!_node)
             return;
 
-        ImGui::Separator();
-        if (ImGui::TreeNode("Tween builder"))
+        //creating records if this is the first time opening the branch
+        if (debugTweensMove.find(_node) == debugTweensMove.end())
         {
-            //creating records if this is the first time opening the branch
-            if (debugTweensMove.find(_node) == debugTweensMove.end())
-            {
-                debugTweensMove.insert({ _node, tweenDebugRecord{.transformType = tweenTransformType::MOVE} });
-                debugTweensScale.insert({ _node, tweenDebugRecord{.transformType = tweenTransformType::SCALE} });
-                debugTweensRotate.insert({ _node, tweenDebugRecord{.transformType = tweenTransformType::ROTATE} });
-                debugTweensMove[_node].tweenStart = TweenContainer::nodeValueGetter(_node, debugTweensMove[_node]);
-                debugTweensScale[_node].tweenStart = TweenContainer::nodeValueGetter(_node, debugTweensScale[_node]);
-                debugTweensRotate[_node].tweenStart = TweenContainer::nodeValueGetter(_node, debugTweensRotate[_node]);
-            }
+            debugTweensMove.insert({ _node, tweenDebugRecord{.transformType = tweenTransformType::MOVE} });
+            debugTweensScale.insert({ _node, tweenDebugRecord{.transformType = tweenTransformType::SCALE} });
+            debugTweensRotate.insert({ _node, tweenDebugRecord{.transformType = tweenTransformType::ROTATE} });
+            debugTweensMove[_node].tweenStart = TweenContainer::nodeValueGetter(_node, debugTweensMove[_node]);
+            debugTweensScale[_node].tweenStart = TweenContainer::nodeValueGetter(_node, debugTweensScale[_node]);
+            debugTweensRotate[_node].tweenStart = TweenContainer::nodeValueGetter(_node, debugTweensRotate[_node]);
+        }
 
-            tweenDebugRecord& tweenRecordMove = debugTweensMove[_node];
-            tweenDebugRecord& tweenRecordScale = debugTweensScale[_node];
-            tweenDebugRecord& tweenRecordRotate = debugTweensRotate[_node];
-            //TODO::rewrite as tabs
-            if (ImGui::BeginTabBar("Tween editor tabbar"))
+        tweenDebugRecord& tweenRecordMove = debugTweensMove[_node];
+        tweenDebugRecord& tweenRecordScale = debugTweensScale[_node];
+        tweenDebugRecord& tweenRecordRotate = debugTweensRotate[_node];
+
+        if (ImGui::BeginTabBar("Tween editor tabbar"))
+        {
+            //Movement tween branch
+            if (ImGui::BeginTabItem("Move"))
             {
-                //Movement tween branch
-                if (ImGui::BeginTabItem("Move"))
+                ImGuiTweensBody(_node, tweenRecordMove);
+
+                ImGui::EndTabItem();
+            }
+            //Scale tween branch
+            if (_node != Render::getScreenCamera())
+                if (ImGui::BeginTabItem("Scale"))
                 {
-                    ImGuiTweensBody(_node, tweenRecordMove);
+                    ImGuiTweensBody(_node, tweenRecordScale);
 
                     ImGui::EndTabItem();
                 }
-                //Scale tween branch
-                if (_node != Render::getScreenCamera())
-                    if (ImGui::BeginTabItem("Scale"))
-                    {
-                        ImGuiTweensBody(_node, tweenRecordScale);
-
-                        ImGui::EndTabItem();
-                    }
-                //Rotate tween branch
-                if (ImGui::BeginTabItem("Rotate"))
-                {
-                    ImGuiTweensBody(_node, tweenRecordRotate);
-
-                    ImGui::EndTabItem();
-                }
-            }
-            ImGui::EndTabBar();
-
-            //buttons for simultaneous launch/stop
-            if (ImGui::Button("Play all tweens"))
+            //Rotate tween branch
+            if (ImGui::BeginTabItem("Rotate"))
             {
+                ImGuiTweensBody(_node, tweenRecordRotate);
 
-                if (!tweenRecordMove.isLoopedTween)
-                    tweenRecordMove.tween = TweenContainer::generateTween(tweenRecordMove, _node, nullptr, nullptr, true);
-                else
-                    tweenRecordMove.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordMove, _node, true);
-                
-                if (!tweenRecordScale.isLoopedTween)
-                    tweenRecordScale.tween = TweenContainer::generateTween(tweenRecordScale, _node, nullptr, nullptr, true);
-                else
-                    tweenRecordScale.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordScale, _node, true);
-                
-                if (!tweenRecordRotate.isLoopedTween)
-                    tweenRecordRotate.tween = TweenContainer::generateTween(tweenRecordRotate, _node, nullptr, nullptr, true);
-                else
-                    tweenRecordRotate.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordRotate, _node, true);
+                ImGui::EndTabItem();
             }
-            if (ImGui::Button("Stop all tweens"))
-            {
-                tweenRecordMove.tween = nullptr;
-                tweenRecordMove.tweenEndless = nullptr;
-                tweenRecordScale.tween = nullptr;
-                tweenRecordScale.tweenEndless = nullptr;
-                tweenRecordRotate.tween = nullptr;
-                tweenRecordRotate.tweenEndless = nullptr;
-            }
+        }
+        ImGui::EndTabBar();
 
-            ImGui::TreePop();
+        //buttons for simultaneous launch/stop
+        if (ImGui::Button("Play all tweens"))
+        {
+
+            if (!tweenRecordMove.isLoopedTween)
+                tweenRecordMove.tween = TweenContainer::generateTween(tweenRecordMove, _node, nullptr, nullptr, true);
+            else
+                tweenRecordMove.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordMove, _node, true);
+                
+            if (!tweenRecordScale.isLoopedTween)
+                tweenRecordScale.tween = TweenContainer::generateTween(tweenRecordScale, _node, nullptr, nullptr, true);
+            else
+                tweenRecordScale.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordScale, _node, true);
+                
+            if (!tweenRecordRotate.isLoopedTween)
+                tweenRecordRotate.tween = TweenContainer::generateTween(tweenRecordRotate, _node, nullptr, nullptr, true);
+            else
+                tweenRecordRotate.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordRotate, _node, true);
+        }
+        if (ImGui::Button("Stop all tweens"))
+        {
+            tweenRecordMove.tween = nullptr;
+            tweenRecordMove.tweenEndless = nullptr;
+            tweenRecordScale.tween = nullptr;
+            tweenRecordScale.tweenEndless = nullptr;
+            tweenRecordRotate.tween = nullptr;
+            tweenRecordRotate.tweenEndless = nullptr;
         }
     }
 }

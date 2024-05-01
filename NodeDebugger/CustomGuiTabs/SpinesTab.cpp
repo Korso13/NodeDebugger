@@ -28,170 +28,211 @@ void SpinesTab::onGuiCall()
             ImGuizmo::BeginFrame();
             ImGuiDrawerGizmo::drawGizmosHandles(debugSpine.spine);
 
-            //visibility button
-            if (ImGui::Button("Toggle visibility"))
+            if (ImGui::BeginTabBar("Spine tab bar"))
             {
-                debugSpine.spine->setEnabled(!debugSpine.spine->isEnabled());
-            }
-
-            bool alphaOn = debugSpine.spine->getUsePremultipliedAlpha();
-            if (ImGui::Checkbox("Use premult. alpha", &alphaOn))
-            {
-                debugSpine.spine->setUsePremultipliedAlpha(alphaOn);
-            }
-
-            bool turnRight = debugSpine.spine->skeleton->getScaleX() > 0.f;
-            if (ImGui::Checkbox("Turn spine to the right", &turnRight))
-            {
-                debugSpine.spine->skeleton->setScaleX(debugSpine.spine->skeleton->getScaleX() * -1.f);
-            }
-
-            if (ImGui::Button("Center on camera"))
-            {
-                vec3 target = Render::getScreenCamera()->getWorldTranslation();
-                target.z = 0.f;
-                debugSpine.spine->setWorldTranslation(target);
-            }
-
-            int spineRO = debugSpine.spine->getRenderOrder();
-            bool roChanged = false;
-            roChanged = ImGui::InputInt("Render order", &spineRO, 1, 10);
-            if (roChanged)
-                debugSpine.spine->setRenderOrder(spineRO);
-
-            ND_Util::ImGuiTransforms(debugSpine.spine);
-            //printing info to console
-            ImGui::Separator();
-            if (ImGui::Button("Print transform info"))
-            {
-                ND_Util::printDebugNodeInfo(debugSpine.spine);
-            }
-
-            ND_Util::ImGuiTweens(debugSpine.spine);
-
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            ImGui::Columns(2);
-            //skin setter
-            const char* skin_names[debugSpine.skinNames.size()];
-            for (size_t i = 0; i < debugSpine.skinNames.size(); i++)
-            {
-                skin_names[i] = debugSpine.skinNames[i].c_str();
-            }
-
-            if (ImGui::Combo("Skin 1", &debugSpine.selectedSkin1, skin_names, debugSpine.skinNames.size(), debugSpine.skinNames.size()))
-            {
-                ImGui::SetClipboardText(CSTR(debugSpine.skinNames[debugSpine.selectedSkin1]));
-            }
-            if (ImGui::Combo("Skin 2", &debugSpine.selectedSkin2, skin_names, debugSpine.skinNames.size(), debugSpine.skinNames.size()))
-            {
-                ImGui::SetClipboardText(CSTR(debugSpine.skinNames[debugSpine.selectedSkin2]));
-            }
-            if (ImGui::Combo("Skin 3", &debugSpine.selectedSkin3, skin_names, debugSpine.skinNames.size(), debugSpine.skinNames.size()))
-            {
-                ImGui::SetClipboardText(CSTR(debugSpine.skinNames[debugSpine.selectedSkin3]));
-            }
-            if (ImGui::Combo("Skin 4", &debugSpine.selectedSkin4, skin_names, debugSpine.skinNames.size(), debugSpine.skinNames.size()))
-            {
-                ImGui::SetClipboardText(CSTR(debugSpine.skinNames[debugSpine.selectedSkin4]));
-            }
-            if (ImGui::Button("Apply skins"))
-            {
-                bool mainSkinSet = false;
-                if (debugSpine.selectedSkin1 != 0)
+                if (ImGui::BeginTabItem("Animations"))
                 {
-                    if (!mainSkinSet)
-                    {
-                        mainSkinSet = true;
-                        ND_Util::setSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin1]);
-                    }
-                    else
-                    {
-                        ND_Util::addSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin1]);
-                    }
+                    onGuiAnimations(debugSpine);
+
+                    ImGui::EndTabItem();
                 }
-                if (debugSpine.selectedSkin2 != 0)
+
+                if (ImGui::BeginTabItem("Skins/Visuals"))
                 {
-                    if (!mainSkinSet)
+                    bool alphaOn = debugSpine.spine->getUsePremultipliedAlpha();
+                    if (ImGui::Checkbox("Use premult. alpha", &alphaOn))
                     {
-                        mainSkinSet = true;
-                        ND_Util::setSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin2]);
+                        debugSpine.spine->setUsePremultipliedAlpha(alphaOn);
                     }
-                    else
+
+                    bool turnRight = debugSpine.spine->skeleton->getScaleX() > 0.f;
+                    if (ImGui::Checkbox("Turn spine to the right", &turnRight))
                     {
-                        ND_Util::addSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin2]);
+                        debugSpine.spine->skeleton->setScaleX(debugSpine.spine->skeleton->getScaleX() * -1.f);
                     }
+
+                    //visibility button
+                    if (ImGui::Button("Toggle visibility"))
+                    {
+                        debugSpine.spine->setEnabled(!debugSpine.spine->isEnabled());
+                    }
+
+                    int spineRO = debugSpine.spine->getRenderOrder();
+                    bool roChanged = false;
+                    roChanged = ImGui::InputInt("Render order", &spineRO, 1, 10);
+                    if (roChanged)
+                        debugSpine.spine->setRenderOrder(spineRO);
+
+                    //skin setter
+                    onGuiSkinSetter(debugSpine);
+
+                    ImGui::EndTabItem();
                 }
-                if (debugSpine.selectedSkin3 != 0)
+
+                if (ImGui::BeginTabItem("Transforms"))
                 {
-                    if (!mainSkinSet)
+                    ND_Util::ImGuiTransforms(debugSpine.spine);
+                    //printing info to console
+                    ImGui::Separator();
+                    if (ImGui::Button("Print transform info"))
                     {
-                        mainSkinSet = true;
-                        ND_Util::setSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin3]);
+                        ND_Util::printDebugNodeInfo(debugSpine.spine);
                     }
-                    else
-                    {
-                        ND_Util::addSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin3]);
-                    }
+
+                    ImGui::EndTabItem();
                 }
-                if (debugSpine.selectedSkin4 != 0)
+
+                if (ImGui::BeginTabItem("Materials"))
                 {
-                    if (!mainSkinSet)
+                    if (!debugSpine.slots.empty())
                     {
-                        mainSkinSet = true;
-                        ND_Util::setSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin4]);
+                        bool hasSlots = false;
+                        for (auto& [slotId, slotName] : debugSpine.slots)
+                        {
+                            if (debugSpine.spine->getSlotMaterial(slotId))
+                            {
+                                ImGuiDrawerMaterial::onGui(slotName.c_str(), *debugSpine.spine->getSlotMaterial(slotId));
+                                hasSlots = true;
+                            }
+                        }
+
+                        if (!hasSlots)
+                            ImGui::Text("%s", "No slots with editable materials!");
                     }
-                    else
-                    {
-                        ND_Util::addSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin4]);
-                    }
+
+                    ImGui::EndTabItem();
+                }
+
+                if (ImGui::BeginTabItem("Tween Builder"))
+                {
+                    ND_Util::ImGuiTweens(debugSpine.spine);
+
+                    ImGui::EndTabItem();
                 }
             }
-
-            ImGui::NextColumn();
-            //animation setter
-            const char* items[debugSpine.animationNames.size()];
-            for (size_t i = 0; i < debugSpine.animationNames.size(); i++)
-            {
-                items[i] = debugSpine.animationNames[i].c_str();
-            }
-            ImGui::ListBox("Animations", &debugSpine.lastSelected, items, debugSpine.animationNames.size(), 4);
-            ImGui::Text("Animation time: %f", debugSpine.animationLength[debugSpine.lastSelected]);
-            if (ImGui::Button("Play"))
-            {
-                debugSpine.spine->state->setAnimation(0, debugSpine.animationNames[debugSpine.lastSelected].c_str(), false);
-                if (!m_copyAnimNameNotLength)
-                    ImGui::SetClipboardText(CSTR(debugSpine.animationLength[debugSpine.lastSelected]));
-                else
-                    ImGui::SetClipboardText(CSTR(debugSpine.animationNames[debugSpine.lastSelected]));
-            }
-
-            ImGui::Columns(1);
-
-            if(!debugSpine.slots.empty())
-                if (ImGui::TreeNode("Slots materials' settings"))
-                {              
-                    for (auto& [slotId, slotName] : debugSpine.slots)
-                    {
-                        //if (!debugSpine.spine->getSlotMaterial(slotId))
-                        //{
-                        //    std::string reportText = "No material in slot ";
-                        //    reportText += STR(slotId) + "(" + slotName + ")";
-                        //    ImGui::Text("%s", reportText.c_str());
-                        //    continue;
-                        //}
-                        if (debugSpine.spine->getSlotMaterial(slotId))
-                            ImGuiDrawerMaterial::onGui(slotName.c_str(), *debugSpine.spine->getSlotMaterial(slotId));
-                    }
-
-                    ImGui::TreePop();
-                }
+            ImGui::EndTabBar();
 
             ImGui::Separator();
             ImGui::Spacing();
+            ImGui::Separator();
             ImGui::TreePop();
+        }
+    }
+}
+
+void SpinesTab::onGuiAnimations(SpineDebugging& debugSpine)
+{
+    //animation setter
+    const char* items[debugSpine.animationNames.size()];
+    for (size_t i = 0; i < debugSpine.animationNames.size(); i++)
+    {
+        items[i] = debugSpine.animationNames[i].c_str();
+    }
+    ImGui::ListBox("Animations", &debugSpine.lastSelected, items, debugSpine.animationNames.size(), 8);
+    ImGui::Text("Animation time: %f", debugSpine.animationLength[debugSpine.lastSelected]);
+    ImGui::Columns(3);
+    if (ImGui::Button("Play"))
+    {
+        debugSpine.spine->state->setAnimation(0, debugSpine.animationNames[debugSpine.lastSelected].c_str(), false);
+        if (!m_copyAnimNameNotLength)
+            ImGui::SetClipboardText(CSTR(debugSpine.animationLength[debugSpine.lastSelected]));
+        else
+            ImGui::SetClipboardText(CSTR(debugSpine.animationNames[debugSpine.lastSelected]));
+    }
+    ImGui::NextColumn();
+    if (ImGui::Button("Play looped"))
+    {
+        debugSpine.spine->state->setAnimation(0, debugSpine.animationNames[debugSpine.lastSelected].c_str(), true);
+        if (!m_copyAnimNameNotLength)
+            ImGui::SetClipboardText(CSTR(debugSpine.animationLength[debugSpine.lastSelected]));
+        else
+            ImGui::SetClipboardText(CSTR(debugSpine.animationNames[debugSpine.lastSelected]));
+    }
+    ImGui::NextColumn();
+    if (ImGui::Button("Reset"))
+    {
+        if(std::find_if(debugSpine.animationNames.begin(), debugSpine.animationNames.end(), [this](std::string name) {return name == "idle"; }) != debugSpine.animationNames.end())
+            debugSpine.spine->state->setAnimation(0, "idle", true);
+        else
+            debugSpine.spine->state->setAnimation(0, debugSpine.animationNames[0].c_str(), true);
+    }
+    ImGui::Columns(1);
+}
+
+void SpinesTab::onGuiSkinSetter(SpineDebugging& debugSpine)
+{
+    const char* skin_names[debugSpine.skinNames.size()];
+    for (size_t i = 0; i < debugSpine.skinNames.size(); i++)
+    {
+        skin_names[i] = debugSpine.skinNames[i].c_str();
+    }
+
+    if (ImGui::Combo("Skin 1", &debugSpine.selectedSkin1, skin_names, debugSpine.skinNames.size(), debugSpine.skinNames.size()))
+    {
+        ImGui::SetClipboardText(CSTR(debugSpine.skinNames[debugSpine.selectedSkin1]));
+    }
+    if (ImGui::Combo("Skin 2", &debugSpine.selectedSkin2, skin_names, debugSpine.skinNames.size(), debugSpine.skinNames.size()))
+    {
+        ImGui::SetClipboardText(CSTR(debugSpine.skinNames[debugSpine.selectedSkin2]));
+    }
+    if (ImGui::Combo("Skin 3", &debugSpine.selectedSkin3, skin_names, debugSpine.skinNames.size(), debugSpine.skinNames.size()))
+    {
+        ImGui::SetClipboardText(CSTR(debugSpine.skinNames[debugSpine.selectedSkin3]));
+    }
+    if (ImGui::Combo("Skin 4", &debugSpine.selectedSkin4, skin_names, debugSpine.skinNames.size(), debugSpine.skinNames.size()))
+    {
+        ImGui::SetClipboardText(CSTR(debugSpine.skinNames[debugSpine.selectedSkin4]));
+    }
+    if (ImGui::Button("Apply skins"))
+    {
+        bool mainSkinSet = false;
+        if (debugSpine.selectedSkin1 != 0)
+        {
+            if (!mainSkinSet)
+            {
+                mainSkinSet = true;
+                ND_Util::setSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin1]);
+            }
+            else
+            {
+                ND_Util::addSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin1]);
+            }
+        }
+        if (debugSpine.selectedSkin2 != 0)
+        {
+            if (!mainSkinSet)
+            {
+                mainSkinSet = true;
+                ND_Util::setSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin2]);
+            }
+            else
+            {
+                ND_Util::addSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin2]);
+            }
+        }
+        if (debugSpine.selectedSkin3 != 0)
+        {
+            if (!mainSkinSet)
+            {
+                mainSkinSet = true;
+                ND_Util::setSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin3]);
+            }
+            else
+            {
+                ND_Util::addSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin3]);
+            }
+        }
+        if (debugSpine.selectedSkin4 != 0)
+        {
+            if (!mainSkinSet)
+            {
+                mainSkinSet = true;
+                ND_Util::setSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin4]);
+            }
+            else
+            {
+                ND_Util::addSkin(debugSpine.spine, debugSpine.skinNames[debugSpine.selectedSkin4]);
+            }
         }
     }
 }

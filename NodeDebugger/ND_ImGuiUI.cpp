@@ -5,6 +5,7 @@
 #include <others/spineAnimation/SpineAnimationBase.h>
 #include "ND_Utilities.h"
 #include "TweenFactory.h"
+#include "ND_ParticleEmitterEditor.h"
 #include <sources/common/NodeDebugger/ND_iGuiTab.h>
 #include <sources/common/NodeDebugger/CustomGuiTabs/SpotlightTab.h>
 #include <sources/common/NodeDebugger/CustomGuiTabs/SpinesTab.h>
@@ -208,13 +209,18 @@ void ND_ImGui::ImGuiCamera()
     auto camera = (editorCamOn) ? m_editorCamera : Render::getScreenCamera();
 
     ND_Util::ImGuiTransforms(camera);
-    ND_Util::ImGuiTweens(camera);
-
     //printing info to console
     ImGui::Separator();
     if (ImGui::Button("Print camera info"))
     {
         ND_Util::printDebugNodeInfo(camera);
+    }
+
+    if (ImGui::TreeNode("Tween Builder"))
+    {
+        ND_Util::ImGuiTweens(camera);
+
+        ImGui::TreePop();
     }
 
     ImGui::Separator();
@@ -421,13 +427,6 @@ void ND_ImGui::ImGNodeRender(sptr<Node> _node, const std::string& name)
             _node->setEnabled(!_node->isEnabled());
         }
 
-        if (ImGui::Button("Center on camera"))
-        {
-            vec3 target = Render::getScreenCamera()->getWorldTranslation();
-            target.z = 0.f;
-            _node->setWorldTranslation(target);
-        }
-
         if (_node->is<Mesh>())
         {
             ImGui::Separator();
@@ -437,29 +436,65 @@ void ND_ImGui::ImGNodeRender(sptr<Node> _node, const std::string& name)
             if (roChanged)
                 _node->as<Mesh>()->setRenderOrder(meshRO);
         }
-
-        ND_Util::ImGuiTransforms(_node);
-        //printing info to console
-        ImGui::Separator();
-        if (ImGui::Button("Print node info"))
-        {
-            ND_Util::printDebugNodeInfo(_node);
-        }
-
-        ND_Util::ImGuiTweens(_node);
-
-        if (_node->is<Mesh>())
+        else if (_node->is<ParticlesEmitter>())
         {
             ImGui::Separator();
-            const auto mesh = cast_sptr<Mesh>(_node);
-            ImGuiDrawerMaterial::onGui("Mesh material settings", *mesh->getMaterialInst());
+            int emitterRO = _node->as<ParticlesEmitter>()->getRenderOrder();
+            if(ImGui::DragInt("Render order", &emitterRO, sliderSensivity, 0, 10000))
+                _node->as<ParticlesEmitter>()->setRenderOrder(emitterRO);
         }
+
+        if (ImGui::BeginTabBar("Node tab bar"))
+        {
+            if (ImGui::BeginTabItem("Transforms"))
+            {
+                ND_Util::ImGuiTransforms(_node);
+                //printing info to console
+                if (ImGui::Button("Print node info"))
+                {
+                    ND_Util::printDebugNodeInfo(_node);
+                }
+
+                ImGui::EndTabItem();
+            }
+            if (_node->is<ParticlesEmitter>())
+            {
+                if (ImGui::BeginTabItem("Emitter settings"))
+                {
+                    ND_Util::imGuiEmitterEditor(_node->as<ParticlesEmitter>());
+
+                    ImGui::EndTabItem();
+                }
+                if (ImGui::BeginTabItem("Material"))
+                {
+                    const auto emitter = cast_sptr<ParticlesEmitter>(_node);
+                    ImGuiDrawerMaterial::onGui("Mesh material settings", *emitter->getMaterialInst());
+
+                    ImGui::EndTabItem();
+                }
+            }
+            if (_node->is<Mesh>())
+                if (ImGui::BeginTabItem("Material"))
+                {
+                    const auto mesh = cast_sptr<Mesh>(_node);
+                    ImGuiDrawerMaterial::onGui("Mesh material settings", *mesh->getMaterialInst());
+
+                    ImGui::EndTabItem();
+                }
+            if (ImGui::BeginTabItem("Tween Builder"))
+            {
+                ND_Util::ImGuiTweens(_node);
+
+                ImGui::EndTabItem();
+            }
+        }
+        ImGui::EndTabBar();
 
         ImGui::TreePop();
         ImGui::Separator();
         ImGui::Spacing();
+        ImGui::Separator();
     }
-
 }
 
 void ND_ImGui::ImGuiUpdate(float dt)
@@ -468,10 +503,7 @@ void ND_ImGui::ImGuiUpdate(float dt)
         return;
 
     if (dt == 0.f)
-    {
-        m_editorCamera->onUpdate(0.03);
         dt = 0.01;
-    }
     m_imguiNode->onUpdate(dt);
 }
 
