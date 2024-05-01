@@ -438,24 +438,36 @@ namespace ND_Util
         //tween sample (settings container item) loader
         if (!TWEENCONTAINER.empty())
         {
-            const char* tween_names[TWEENCONTAINER.size()];
-            for (size_t i = 0; i < TWEENCONTAINER.size(); i++)
-            {
-                if (tweenRecord.transformType == TWEENCONTAINER[i].transformType)
-                    tween_names[i] = TWEENCONTAINER[i].tweenName.c_str();
-                else
-                    tween_names[i] = "!WRONG TWEEN TYPE!";
-            }
             ImGui::Columns(2);
-            ImGui::Combo("Samples", &lastSelectedTweenSample, tween_names, TWEENCONTAINER.size(), 6);
-            ImGui::NextColumn();
-            std::string buttonCaption = "Load ";
-            buttonCaption += tween_names[lastSelectedTweenSample];
-            if (tweenRecord.transformType == TWEENCONTAINER[lastSelectedTweenSample].transformType)
+            const char* selectedSample = "Select a sample";
+            if (lastSelectedTweenSample[tweenRecord.transformType] != -1)
+                selectedSample = TWEENCONTAINER[lastSelectedTweenSample[tweenRecord.transformType]].tweenName.c_str();
+
+            if (ImGui::BeginCombo("Samples", selectedSample))
             {
+                for (size_t i = 0; i < TWEENCONTAINER.size(); i++)
+                {
+                    if (tweenRecord.transformType == TWEENCONTAINER[i].transformType)
+                    {
+                        bool bSelected = i == lastSelectedTweenSample[tweenRecord.transformType];
+                        if (ImGui::Selectable(TWEENCONTAINER[i].tweenName.c_str(), &bSelected))
+                        {
+                            lastSelectedTweenSample[tweenRecord.transformType] = i;
+                        }
+                    }
+                }
+                
+                ImGui::EndCombo();
+            }
+
+            ImGui::NextColumn();
+            if (lastSelectedTweenSample[tweenRecord.transformType] != -1)
+            {
+                std::string buttonCaption = "Load ";
+                buttonCaption += TWEENCONTAINER[lastSelectedTweenSample[tweenRecord.transformType]].tweenName;
                 if (ImGui::Button(buttonCaption.c_str()))
                 {
-                    tweenRecord = TWEENCONTAINER[lastSelectedTweenSample];
+                    tweenRecord = TWEENCONTAINER[lastSelectedTweenSample[tweenRecord.transformType]];
                 }
             }
             ImGui::Separator();
@@ -508,63 +520,75 @@ namespace ND_Util
             tweenRecord.tweenStart = vec3FromJSString(cbText);
         }
         ImGui::Columns(1);
-        ImGui::DragVec3("Start point", tweenRecord.tweenStart, -500.f, 500.f, sliderSensivity);
 
-        //tween points settings UI render
-        if (!tweenRecord.tweenPoints.empty())
-            for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
+        float pointsScrollzoneSize = 0.1;
+        if (tweenRecord.tweenPoints.size() == 1)
+            pointsScrollzoneSize = 0.27;
+        else if(tweenRecord.tweenPoints.size() > 1)
+            pointsScrollzoneSize = 0.4;
+        if (ImGui::BeginChild("Tween points scroll zone", getSizeForChild(pointsScrollzoneSize)))
+        {
+            ImGui::DragVec3("Start point", tweenRecord.tweenStart, -500.f, 500.f, sliderSensivity);
+
+            //tween points settings UI render
+            if (!tweenRecord.tweenPoints.empty())
             {
-                ImGui::Text("Point %d", CastI(i + 1));
+                for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
+                {
+                    ImGui::Text("Point %d", CastI(i + 1));
 
-                //Point value setters
-                ImGui::Columns(2);
-                if (ImGui::Button(CSTR("Set point " + STR(i + 1) + " to current value")))
-                {
-                    tweenRecord.tweenPoints[i] = TweenContainer::nodeValueGetter(_node, tweenRecord);
-                }
-                ImGui::NextColumn();
-                if (ImGui::Button(CSTR("Set point " + STR(i + 1) + " to clipboard value(JSON string)"))) //Due to ImGui bug it copies correct CB data only on second push :(
-                {
-                    std::string cbText = ImGui::GetClipboardText();
-                    //info("Extracted string from CB: %s", cbText.c_str());
-                    tweenRecord.tweenPoints[i] = vec3FromJSString(cbText);
-                }
-                ImGui::Columns(1);
-
-                //vec, time selector
-                ImGui::DragVec3(CSTR("Vec " + STR(i + 1)), tweenRecord.tweenPoints[i], -500.f, 500.f, sliderSensivity);
-                ImGui::InputFloat(CSTR("Time " + STR(i + 1)), &tweenRecord.tweenDelays[i], 0.01, 0.1, "%.2f");
-                
-                //Easings selector
-                int intEasingType = CastI(tweenRecord.easingTypes[i]); //selected easing type
-                //one-time script to load easings' names
-                if (!loadedEasings)
-                {
-                    loadedEasings = true;
-                    int easingsCount;
-                    const auto* easings = nlohmann::adl_serializer<Easing>::getValues(easingsCount);
-                    for (size_t i = 0; i < easingsCount; i++)
+                    //Point value setters
+                    ImGui::Columns(2);
+                    if (ImGui::Button(CSTR("Set point " + STR(i + 1) + " to current value")))
                     {
-                        easingNames[i] = easings[i].second;
+                        tweenRecord.tweenPoints[i] = TweenContainer::nodeValueGetter(_node, tweenRecord);
                     }
-                }
-                //easings drop-down menu
-                if (ImGui::Combo(CSTR("Easing " + STR(i + 1)), &intEasingType, easingNames, 31))
-                {
-                    tweenRecord.easingTypes[i] = static_cast<Easing>(intEasingType);
-                }
-                ImGui::Separator();
-                ImGui::Spacing();
+                    ImGui::NextColumn();
+                    if (ImGui::Button(CSTR("Set point " + STR(i + 1) + " to clipboard value(JSON string)"))) //Due to ImGui bug it copies correct CB data only on second push :(
+                    {
+                        std::string cbText = ImGui::GetClipboardText();
+                        //info("Extracted string from CB: %s", cbText.c_str());
+                        tweenRecord.tweenPoints[i] = vec3FromJSString(cbText);
+                    }
+                    ImGui::Columns(1);
 
-                if (ImGui::Button(CSTR("Delete point" + STR(i + 1))))
-                {
-                    tweenRecord.tweenPoints.erase(tweenRecord.tweenPoints.begin() + i);
-                    tweenRecord.tweenDelays.erase(tweenRecord.tweenDelays.begin() + i);
-                    tweenRecord.easingTypes.erase(tweenRecord.easingTypes.begin() + i);
-                    break;
+                    //vec, time selector
+                    ImGui::DragVec3(CSTR("Vec " + STR(i + 1)), tweenRecord.tweenPoints[i], -500.f, 500.f, sliderSensivity);
+                    ImGui::InputFloat(CSTR("Time " + STR(i + 1)), &tweenRecord.tweenDelays[i], 0.01, 0.1, "%.2f");
+
+                    //Easings selector
+                    int intEasingType = CastI(tweenRecord.easingTypes[i]); //selected easing type
+                    //one-time script to load easings' names
+                    if (!loadedEasings)
+                    {
+                        loadedEasings = true;
+                        int easingsCount;
+                        const auto* easings = nlohmann::adl_serializer<Easing>::getValues(easingsCount);
+                        for (size_t i = 0; i < easingsCount; i++)
+                        {
+                            easingNames[i] = easings[i].second;
+                        }
+                    }
+                    //easings drop-down menu
+                    if (ImGui::Combo(CSTR("Easing " + STR(i + 1)), &intEasingType, easingNames, 31))
+                    {
+                        tweenRecord.easingTypes[i] = static_cast<Easing>(intEasingType);
+                    }
+                    ImGui::Separator();
+                    ImGui::Spacing();
+
+                    if (ImGui::Button(CSTR("Delete point" + STR(i + 1))))
+                    {
+                        tweenRecord.tweenPoints.erase(tweenRecord.tweenPoints.begin() + i);
+                        tweenRecord.tweenDelays.erase(tweenRecord.tweenDelays.begin() + i);
+                        tweenRecord.easingTypes.erase(tweenRecord.easingTypes.begin() + i);
+                        break;
+                    }
+                    ImGui::Separator();
                 }
-                ImGui::Separator();
             }
+        }
+        ImGui::EndChild();
 
         ImGui::Spacing();
         //generates new points for tween

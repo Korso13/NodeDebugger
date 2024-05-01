@@ -39,7 +39,14 @@ namespace ND_Util
 	static std::map<sptr<Node>, tweenDebugRecord> debugTweensMove;
 	static std::map<sptr<Node>, tweenDebugRecord> debugTweensScale;
 	static std::map<sptr<Node>, tweenDebugRecord> debugTweensRotate;
-	static int lastSelectedTweenSample = 0;
+
+	static std::map<tweenTransformType, int> lastSelectedTweenSample = 
+	{
+		{tweenTransformType::MOVE,	-1},
+		{tweenTransformType::SCALE, -1},
+		{tweenTransformType::ROTATE,-1},
+	};
+	//static int lastSelectedTweenSample = -1;
 
 	static bool loadedEasings = false;
 	static const char* easingNames[31];
