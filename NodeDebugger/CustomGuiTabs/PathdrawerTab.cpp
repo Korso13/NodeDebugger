@@ -557,6 +557,8 @@ void PathdrawerTab::onGuiPathSearchTab()
 				selectPathLine("__RESET_SELECTION__");
 			}
 
+			if (isSelected)
+				ImGui::SetItemDefaultFocus();
 		}
 		ImGui::EndCombo();
 	}
@@ -614,10 +616,15 @@ void PathdrawerTab::coloredPathCombo()
 				selectPathLine(m_pathsData.paths[m_selectedPathIndex].pathName);
 				renderPathLines(m_pathsData.paths[m_selectedPathIndex]);
 			}
+			if(isSelected)
+				ImGui::SetItemDefaultFocus();
 
 			if (needColorReset)
 				ImGui::PopStyleColor(3);
 		}
+
+		//ImGui::SetScrollX();
+
 		ImGui::EndCombo();
 	}
 }
