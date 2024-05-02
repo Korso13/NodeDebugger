@@ -38,6 +38,16 @@ void PathdrawerTab::onGuiCall()
 			onGuiPathEditorTab();
 			ImGui::EndTabItem();
 		}
+		if (ImGui::BeginTabItem("Search Node Paths"))
+		{
+			onGuiPathSearchTab();
+			ImGui::EndTabItem();
+		}
+		else
+		{
+			if (m_selectedSearchNode != "No Node Selected" && m_pathNodeRender[m_selectedSearchNode])
+				m_pathNodeRender[m_selectedSearchNode]->getMaterialInst()->setParam("color", vec4(1.f, 0.f, 0.f, 1.f));
+		}
 	}
 	ImGui::EndTabBar();
 }
@@ -166,7 +176,7 @@ void PathdrawerTab::onGuiPathNodesTab()
 
 void PathdrawerTab::onGuiPathEditorTab()
 {
-	//Path selector
+	//====Path selector====
 	if (m_pathsData.paths.empty())
 	{
 		int placeholderId = 0;
@@ -176,10 +186,20 @@ void PathdrawerTab::onGuiPathEditorTab()
 	else
 		coloredPathCombo(); //List of paths. Unfinished paths are colored red
 
+	if (m_pathsData.pathnodes.empty())
+	{
+		ImGui::Text("No path nodes created! \nCan't edit path without path nodes! \nCreate some in <Path Nodes> tab!");
+		return;
+	}
+
+	//====Editor for selected path====
+	selectedPathEditor();
+
+	//====New path adder====
+	ImGui::Separator();
 	ImGui::Spacing();
 	ImGui::Separator();
 
-	//New path adder
 	ImGui::Columns(2);
 	ImGui::InputText("<- New path name", &m_newPathNaming);
 	ImGui::NextColumn();
@@ -188,133 +208,24 @@ void PathdrawerTab::onGuiPathEditorTab()
 		plottedPath newPath{ .pathName = m_newPathNaming };
 		m_pathsData.paths.push_back(newPath);
 	}
-	//Path deleter
-	if (!m_pathsData.paths.empty() && m_selectedPathIndex != -1)
-	{
-		if (ImGui::Button(("Delete path [" + m_pathsData.paths[m_selectedPathIndex].pathName + "]").c_str()))
-		{
-			std::erase_if(m_pathsData.paths, [this](plottedPath path)
-				{
-					if (path.pathName == m_pathsData.paths[m_selectedPathIndex].pathName)
-					{
-						for (auto& mesh : m_pathLinesRender[path.pathName])
-						{
-							mesh->getParent()->removeChild(mesh);
-							mesh.reset();
-						}
-						m_pathLinesRender.erase(path.pathName);
-						m_lastSelectedPathName = "";
-						return true;
-					}
-					else
-						return false;
-				});
-			m_selectedPathIndex = -1;
-		}
-	}
 	ImGui::Columns(1);
 
-	//Path editor
-	ImGui::Spacing();
+	//====Paths auto generator====
 	ImGui::Separator();
-	if (m_pathsData.pathnodes.empty())
+	ImGui::Spacing();
+	ImGui::Columns(2);
+	if (ImGui::Button("Autogenerate paths"))
 	{
-		ImGui::Text("No path nodes created! \nCan't edit path without path nodes! \nCreate some in <Path Nodes> tab!");
-		return;
+		tryBuildDefaultPaths();
 	}
-
-	//pathname editor
-	if (m_selectedPathIndex == -1 || m_pathsData.paths.empty()) //no path selected or created. Nothing else to render
-		return;
-
-	ImGui::InputText("Path name", &m_pathsData.paths[m_selectedPathIndex].pathName);
-
-	//Path nodes names, indices and etc used in path editor
-	int pathNodesCount = m_pathsData.pathnodes.size();
-	const char* paths_nodes[pathNodesCount];
-	std::map<std::string, int> pathNodesIndices;
-	auto pathNodesIt = m_pathsData.pathnodes.begin();
-	for (size_t i = 0; i < pathNodesCount; i++)
+	ImGui::NextColumn();
+	ImGui::Separator();
+	if (ImGui::InputInt("Max paths per node", &m_autoPathPerNode, 1))
 	{
-		paths_nodes[i] = pathNodesIt->first.c_str();
-		pathNodesIndices.insert({ pathNodesIt->first, i });
-		pathNodesIt++;
+		if (m_autoPathPerNode < 1)
+			m_autoPathPerNode = 1;
 	}
-
-	//Start point selector
-	auto startPoint = m_pathsData.paths[m_selectedPathIndex].startPoint;
-	int startNodeSelectedIndex = -1;
-	if (startPoint != "" && pathNodesIndices.contains(startPoint))
-	{
-		startNodeSelectedIndex = pathNodesIndices[startPoint];
-	}
-
-	if (ImGui::Combo("Path start point", &startNodeSelectedIndex, paths_nodes, pathNodesCount))
-	{
-		m_pathsData.paths[m_selectedPathIndex].startPoint = paths_nodes[startNodeSelectedIndex];
-		renderPathLines(m_pathsData.paths[m_selectedPathIndex], true);
-		selectPathLine(m_pathsData.paths[m_selectedPathIndex].pathName);
-	}
-
-	//Midpoint selectors
-	{
-		int midIt = 0;
-		bool bNeedRemovePoint = false;
-		auto removeMidPointIt = m_pathsData.paths[m_selectedPathIndex].midPoints.end();
-		for (auto& midPoint : m_pathsData.paths[m_selectedPathIndex].midPoints)
-		{
-			int midpointNodeSelectedIndex = -1;
-			if (midPoint != "" && pathNodesIndices.contains(midPoint))
-			{
-				midpointNodeSelectedIndex = pathNodesIndices[midPoint];
-			}
-
-			std::string midPointID = "Path mid point " + STR(midIt);
-			if (ImGui::Combo(midPointID.c_str(), &midpointNodeSelectedIndex, paths_nodes, pathNodesCount))
-			{
-				midPoint = paths_nodes[midpointNodeSelectedIndex];
-				renderPathLines(m_pathsData.paths[m_selectedPathIndex], true);
-				selectPathLine(m_pathsData.paths[m_selectedPathIndex].pathName);
-			}
-			ImGui::SameLine();
-			ImGui::PushID(midIt);
-			if (ImGui::Button("x"))
-			{
-				bNeedRemovePoint = true;
-				removeMidPointIt = (m_pathsData.paths[m_selectedPathIndex].midPoints.begin() + midIt);
-			}
-			ImGui::PopID();
-			midIt++;
-		}
-		//removing midpoints
-		if (bNeedRemovePoint)
-		{
-			m_pathsData.paths[m_selectedPathIndex].midPoints.erase(removeMidPointIt);
-			renderPathLines(m_pathsData.paths[m_selectedPathIndex], true);
-			selectPathLine(m_pathsData.paths[m_selectedPathIndex].pathName);
-		}
-	}
-	
-	//End point selector
-	auto endPoint = m_pathsData.paths[m_selectedPathIndex].endPoint;
-	int endNodeSelectedIndex = -1;
-	if (endPoint != "" && pathNodesIndices.contains(endPoint))
-	{
-		endNodeSelectedIndex = pathNodesIndices[endPoint];
-	}
-
-	if (ImGui::Combo("Path end point", &endNodeSelectedIndex, paths_nodes, pathNodesCount))
-	{
-		m_pathsData.paths[m_selectedPathIndex].endPoint = paths_nodes[endNodeSelectedIndex];
-		renderPathLines(m_pathsData.paths[m_selectedPathIndex], true);
-		selectPathLine(m_pathsData.paths[m_selectedPathIndex].pathName);
-	}
-
-	//Midpoint adder
-	if (ImGui::Button("Insert new path mid point"))
-	{
-		m_pathsData.paths[m_selectedPathIndex].midPoints.push_back("");
-	}
+	ImGui::Columns(1);
 }
 
 void PathdrawerTab::renderPathLines(const plottedPath& pathRecordToRedraw, bool forceRedrawColor)
@@ -449,15 +360,21 @@ void PathdrawerTab::selectPathLine(const std::string& pathName)
 {
 	if (m_lastSelectedPathName != "")
 	{
-		for (auto& line : m_pathLinesRender[m_lastSelectedPathName])
+		for (auto& [name, lineMeshes] : m_pathLinesRender)
 		{
-			auto mat = RMat("sprite")->createInstance();
-			color _color = color(0.f, 0.f, 1.f, 1.f);
-			mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(_color));
-			line->setMaterialInst(mat);
-			line->setRenderOrder(10000 - 1);
+			for (auto& line : lineMeshes)
+			{
+				auto mat = RMat("sprite")->createInstance();
+				color _color = color(0.f, 0.f, 1.f, 1.f);
+				mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(_color));
+				line->setMaterialInst(mat);
+				line->setRenderOrder(10000 - 1);
+			}
 		}
 	}
+
+	if (!m_pathLinesRender.contains(pathName))
+		return;
 
 	m_lastSelectedPathName = pathName;
 	for (auto& line : m_pathLinesRender[pathName])
@@ -475,8 +392,9 @@ void PathdrawerTab::renderPathNode(const std::string name, const pathNode& nodeD
 	auto newPointName = name;
 	auto newPointMesh = Mesh::create::plane(vec2(0.25, 0.25));
 	auto mat = RMat("sprite")->createInstance();
-	color _color = color(1.f, 0.f, 0.f, 1.f);
+	color _color = color(1.f, 1.f, 1.f, 1.f);
 	mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(_color));
+	mat->setParam("color", vec4(1.f, 0.f, 0.f, 1.f));
 	newPointMesh->setMaterialInst(mat);
 	Render::getRoot()->addChild(newPointMesh);
 	newPointMesh->setRenderOrder(11000);
@@ -489,6 +407,187 @@ void PathdrawerTab::renderPathNode(const std::string name, const pathNode& nodeD
 	m_pathNodeRender[newPointName]->setWorldTranslation(vec3(nodeData.pos.x, nodeData.pos.y, -0.002f));
 }
 
+
+void PathdrawerTab::selectedPathEditor(int indexOverride)
+{
+	//========Path editor========
+	ImGui::Separator();
+	ImGui::Spacing();
+	ImGui::Separator();
+
+	int pathIndex = m_selectedPathIndex;
+	if (indexOverride != -1 && indexOverride < m_pathsData.paths.size())
+		pathIndex = indexOverride;
+
+	if (pathIndex == -1 || m_pathsData.paths.empty()) //no path selected or created. Nothing else to render
+		return;
+
+	//pathname editor
+	ImGui::InputText("Path name", &m_pathsData.paths[pathIndex].pathName);
+
+	//Path nodes names, indices and etc used in path editor
+	int pathNodesCount = m_pathsData.pathnodes.size();
+	const char* paths_nodes[pathNodesCount];
+	std::map<std::string, int> pathNodesIndices;
+	auto pathNodesIt = m_pathsData.pathnodes.begin();
+	for (size_t i = 0; i < pathNodesCount; i++)
+	{
+		paths_nodes[i] = pathNodesIt->first.c_str();
+		pathNodesIndices.insert({ pathNodesIt->first, i });
+		pathNodesIt++;
+	}
+
+	//Start point selector
+	auto startPoint = m_pathsData.paths[pathIndex].startPoint;
+	int startNodeSelectedIndex = -1;
+	if (startPoint != "" && pathNodesIndices.contains(startPoint))
+	{
+		startNodeSelectedIndex = pathNodesIndices[startPoint];
+	}
+
+	if (ImGui::Combo("Path start point", &startNodeSelectedIndex, paths_nodes, pathNodesCount))
+	{
+		m_pathsData.paths[pathIndex].startPoint = paths_nodes[startNodeSelectedIndex];
+		renderPathLines(m_pathsData.paths[pathIndex], true);
+		selectPathLine(m_pathsData.paths[pathIndex].pathName);
+	}
+
+	//Midpoint selectors
+	{
+		int midIt = 0;
+		bool bNeedRemovePoint = false;
+		auto removeMidPointIt = m_pathsData.paths[pathIndex].midPoints.end();
+		for (auto& midPoint : m_pathsData.paths[pathIndex].midPoints)
+		{
+			int midpointNodeSelectedIndex = -1;
+			if (midPoint != "" && pathNodesIndices.contains(midPoint))
+			{
+				midpointNodeSelectedIndex = pathNodesIndices[midPoint];
+			}
+
+			std::string midPointID = "Path mid point " + STR(midIt);
+			if (ImGui::Combo(midPointID.c_str(), &midpointNodeSelectedIndex, paths_nodes, pathNodesCount))
+			{
+				midPoint = paths_nodes[midpointNodeSelectedIndex];
+				renderPathLines(m_pathsData.paths[pathIndex], true);
+				selectPathLine(m_pathsData.paths[pathIndex].pathName);
+			}
+			ImGui::SameLine();
+			ImGui::PushID(midIt);
+			if (ImGui::Button("x"))
+			{
+				bNeedRemovePoint = true;
+				removeMidPointIt = (m_pathsData.paths[pathIndex].midPoints.begin() + midIt);
+			}
+			ImGui::PopID();
+			midIt++;
+		}
+		//removing midpoints
+		if (bNeedRemovePoint)
+		{
+			m_pathsData.paths[pathIndex].midPoints.erase(removeMidPointIt);
+			renderPathLines(m_pathsData.paths[pathIndex], true);
+			selectPathLine(m_pathsData.paths[pathIndex].pathName);
+		}
+	}
+
+	//End point selector
+	auto endPoint = m_pathsData.paths[pathIndex].endPoint;
+	int endNodeSelectedIndex = -1;
+	if (endPoint != "" && pathNodesIndices.contains(endPoint))
+	{
+		endNodeSelectedIndex = pathNodesIndices[endPoint];
+	}
+
+	if (ImGui::Combo("Path end point", &endNodeSelectedIndex, paths_nodes, pathNodesCount))
+	{
+		m_pathsData.paths[pathIndex].endPoint = paths_nodes[endNodeSelectedIndex];
+		renderPathLines(m_pathsData.paths[pathIndex], true);
+		selectPathLine(m_pathsData.paths[pathIndex].pathName);
+	}
+
+	//Midpoint adder
+	if (ImGui::Button("Insert new path mid point"))
+	{
+		m_pathsData.paths[pathIndex].midPoints.push_back("");
+	}
+
+	//====Path deleter====
+	if (!m_pathsData.paths.empty() && pathIndex != -1)
+	{
+		if (ImGui::Button(("Delete path [" + m_pathsData.paths[pathIndex].pathName + "]").c_str()))
+		{
+			std::erase_if(m_pathsData.paths, [this, pathIndex](plottedPath path)
+				{
+					if (path.pathName == m_pathsData.paths[pathIndex].pathName)
+					{
+						for (auto& mesh : m_pathLinesRender[path.pathName])
+						{
+							mesh->getParent()->removeChild(mesh);
+							mesh.reset();
+						}
+						m_pathLinesRender.erase(path.pathName);
+						m_lastSelectedPathName = "";
+						return true;
+					}
+					else
+						return false;
+				});
+			pathIndex = -1;
+		}
+	}
+}
+
+void PathdrawerTab::onGuiPathSearchTab()
+{
+	if (ImGui::BeginCombo("Select node", m_selectedSearchNode.c_str()))
+	{
+		for(auto& [nodeName, node] : m_pathsData.pathnodes)
+		{
+			bool isSelected = nodeName == m_selectedSearchNode;
+			if (ImGui::Selectable(nodeName.c_str(), &isSelected))
+			{
+				if(m_pathNodeRender[nodeName])
+					m_pathNodeRender[nodeName]->getMaterialInst()->setParam("color", vec4(1.f, 1.f, 0.f, 1.f));
+				if(m_selectedSearchNode != "No Node Selected" && m_pathNodeRender[m_selectedSearchNode])
+					m_pathNodeRender[m_selectedSearchNode]->getMaterialInst()->setParam("color", vec4(1.f, 0.f, 0.f, 1.f));
+				m_selectedSearchNode = nodeName;
+
+				m_selectedSearchResultIndex = -1;
+				selectPathLine("__RESET_SELECTION__");
+			}
+
+		}
+		ImGui::EndCombo();
+	}
+
+	int i = 0;
+	bool bOpenedPath = false;
+
+	if(ImGui::BeginListBox("Paths with selected Node", ND_Util::getSizeForChild(0.35)))
+	{
+		for (auto& path : m_pathsData.paths)
+		{
+			if (path.startPoint == m_selectedSearchNode || path.startPoint == m_selectedSearchNode || std::find(path.midPoints.begin(), path.midPoints.end(), m_selectedSearchNode) != path.midPoints.end())
+			{
+				bool isSelected = i == m_selectedSearchResultIndex;
+				if (ImGui::Selectable(path.pathName.c_str(), &isSelected))
+				{
+					m_selectedSearchResultIndex = i;
+					selectPathLine(path.pathName);
+				}
+			}
+
+			i++;
+		}
+	}
+	ImGui::EndListBox();
+
+	if (m_selectedSearchResultIndex != -1)
+	{
+		selectedPathEditor(m_selectedSearchResultIndex);
+	}
+}
 
 void PathdrawerTab::coloredPathCombo()
 {
@@ -532,6 +631,106 @@ bool PathdrawerTab::checkPathComplete(const plottedPath& pathRecord)
 			return false;
 
 	return true;
+}
+
+bool PathdrawerTab::lineIntersectChecker(const vec2& l1p1, const vec2& l1p2, const vec2& l2p1, const vec2& l2p2) const
+{
+	float q = (l1p1.y - l2p1.y) * (l2p2.x - l2p1.x) - (l1p1.x - l2p1.x) * (l2p2.y - l2p1.y);
+	float d = (l1p2.x - l1p1.x) * (l2p2.y - l2p1.y) - (l1p2.y - l1p1.y) * (l2p2.x - l2p1.x);
+
+	if (d == 0)
+	{
+		return false;
+	}
+
+	float r = q / d;
+
+	q = (l1p1.y - l2p1.y) * (l1p2.x - l1p1.x) - (l1p1.x - l2p1.x) * (l1p2.y - l1p1.y);
+	float s = q / d;
+
+	if (r < 0 || r > 1 || s < 0 || s > 1)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool PathdrawerTab::isBorderIntersect(const vec2& from, const vec2& to) const
+{
+	vec2 borderPointFrom = vec2::zero;
+	vec2 borderPointTo = vec2::zero;
+
+	for (const auto& border : m_borders.borders) {
+		bool isFirstPoint = true;
+		borderPointFrom = *(border.points.end() - 1);
+		for (const auto& line : border.points) {
+			borderPointTo = line;
+			if (lineIntersectChecker(from, to, borderPointFrom, borderPointTo)) {
+				//W4_LOG_DEBUG("Intersect");
+				return true;
+			}
+			borderPointFrom = borderPointTo;
+		}
+	}
+	return false;
+}
+
+void PathdrawerTab::tryBuildDefaultPaths()
+{
+	if (m_pathsData.pathnodes.empty())
+		return;
+	if (!w4::filesystem::isPathExists("config/staticIntersectBorderSettings.json"))
+	{
+		W4_LOG_WARNING("Couldn't find staticIntersectBorderSettings.json to build paths!");
+		return;
+	}
+
+	auto file = w4::filesystem::open("config/staticIntersectBorderSettings.json");
+	auto json = nlohmann::json::parse(file->data(), file->data() + file->size());
+	nlohmann::adl_serializer<BorderContainer>::from_json(json, m_borders);
+
+	int pathsIterator = 0;
+	std::map<std::string, std::string> generatedPathPairs;
+	//Iterating over all path nodes
+	for (auto& [nodeName, pathNode] : m_pathsData.pathnodes)
+	{
+		std::map<float, std::string> candidates;
+		//And for each node we iterate again and look for reachable nodes
+		for (auto& [otherName, otherPathNode] : m_pathsData.pathnodes)
+		{
+			if (nodeName == otherName)
+				continue;
+
+			if((generatedPathPairs.contains(otherName) && generatedPathPairs[otherName] == nodeName) || 
+				(generatedPathPairs.contains(nodeName) && generatedPathPairs[nodeName] == otherName))
+				continue;
+
+			if (!isBorderIntersect(otherPathNode.pos, pathNode.pos))
+			{
+				candidates.insert({ (otherPathNode.pos - pathNode.pos).length(), otherName });
+			}
+		}
+
+		//We go through first(nearest) %m_autoPathPerNode% nodes and plot a path to them
+		int pathsGenerated = 0;
+		for (auto& [length, otherNodeName] : candidates)
+		{
+			plottedPath generatedPath = {
+				.pathName = "AutoPath_" + std::to_string(pathsIterator++),
+				.startPoint = nodeName,
+				.endPoint = otherNodeName
+			};
+			generatedPathPairs.insert({ nodeName, otherNodeName});
+			generatedPathPairs.insert({ otherNodeName, nodeName });
+			m_pathsData.paths.push_back(generatedPath);
+			renderPathLines(m_pathsData.paths.back());
+
+			pathsGenerated++;
+			if (pathsGenerated == m_autoPathPerNode)
+				break;
+		}
+	}
 }
 
 #endif

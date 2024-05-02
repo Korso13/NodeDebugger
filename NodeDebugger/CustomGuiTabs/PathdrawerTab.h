@@ -19,6 +19,8 @@ private:
 
 	void onGuiPathNodesTab() NOCOMP;
 	void onGuiPathEditorTab() NOCOMP;
+	void onGuiPathSearchTab() NOCOMP;
+	void selectedPathEditor(int indexOverride = -1) NOCOMP;
 
 	void renderPathNode(const std::string name, const pathNode& nodeData) NOCOMP;
 	void renderPathLines(const plottedPath& pathRecordToRedraw, bool forceRedrawColor = false) NOCOMP;
@@ -32,11 +34,16 @@ private:
 
 	static void onJSONLoadCB(void* self, char* result)
 	{
-		std::string partSettings = result;
-		nlohmann::json importJson = nlohmann::json::parse(partSettings);
+		std::string loadedJson = result;
+		nlohmann::json importJson = nlohmann::json::parse(loadedJson);
 
 		if (m_onJsonLoaded) m_onJsonLoaded(importJson);
 	}
+
+	//Auto paths generator
+	void tryBuildDefaultPaths() NOCOMP;
+	bool lineIntersectChecker(const vec2& l1p1, const vec2& l1p2, const vec2& l2p1, const vec2& l2p2) const NOCOMP_B;
+	bool isBorderIntersect(const vec2& from, const vec2& to) const NOCOMP_B;
 
 private:
 
@@ -46,6 +53,8 @@ private:
 	std::string m_newPathNaming = "NewPathName";
 
 	int m_selectedPathIndex = -1;
+	std::string m_selectedSearchNode = "No Node Selected";
+	int m_selectedSearchResultIndex = -1;
 	float m_nodeDefaultSpeed = 2.f;
 	std::string m_lastSelectedPathName = "";
 
@@ -53,4 +62,8 @@ private:
 	std::map<std::string/*m_pathsData path name*/, std::vector<sptr<Mesh>>> m_pathLinesRender;
 
 	static std::function<void(nlohmann::json)> m_onJsonLoaded;
+
+	//for auto path generator:
+	BorderContainer m_borders;
+	int m_autoPathPerNode = 4;
 };
