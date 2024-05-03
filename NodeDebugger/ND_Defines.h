@@ -34,8 +34,8 @@ struct ImVec2 { ImVec2(float, float) {}; };
 //Switches for custom ImGui tabs
 #define NDSPINES
 #define NDVARIABLES
-#define NDBORDERS
-#define NDPATHDRAWER
+//#define NDBORDERS
+//#define NDPATHDRAWER
 //#define NDSPOTLIGHTS
 //#define NDCONSOLE
 

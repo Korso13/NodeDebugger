@@ -695,7 +695,7 @@ void PathdrawerTab::tryBuildDefaultPaths()
 
 	auto file = w4::filesystem::open("config/staticIntersectBorderSettings.json");
 	auto json = nlohmann::json::parse(file->data(), file->data() + file->size());
-	nlohmann::adl_serializer<BorderContainer>::from_json(json, m_borders);
+	nlohmann::adl_serializer<PF_BorderContainer>::from_json(json, m_borders);
 
 	int pathsIterator = 0;
 	std::map<std::string, std::string> generatedPathPairs;

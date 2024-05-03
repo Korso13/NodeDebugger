@@ -3,6 +3,39 @@
 #include "../ND_iGuiTab.h"
 #include "../PathsDeserializer.h"
 
+//Defines to separate from Borders class definitions and headers, as well as JSON deserializer for the containers
+struct PF_BorderLineData {
+	std::string borderName;
+	std::vector<vec2> points;
+};
+
+struct PF_BorderContainer {
+	std::vector<PF_BorderLineData> borders;
+};
+
+namespace nlohmann 
+{
+	template<>
+	struct adl_serializer<PF_BorderLineData>
+	{
+		static void from_json(const json& j, PF_BorderLineData& obj)
+		{
+			FIELD_DESERIALIZE(borderName);
+			FIELD_DESERIALIZE(points);
+		}
+	};
+
+	template<>
+	struct adl_serializer<PF_BorderContainer>
+	{
+		static void from_json(const json& j, PF_BorderContainer& obj)
+		{
+			FIELD_DESERIALIZE(borders);
+		}
+	};
+}
+//========
+
 class PathdrawerTab : public iGuiTab
 {
 public:
@@ -64,6 +97,6 @@ private:
 	static std::function<void(nlohmann::json)> m_onJsonLoaded;
 
 	//for auto path generator:
-	BorderContainer m_borders;
+	PF_BorderContainer m_borders;
 	int m_autoPathPerNode = 4;
 };
