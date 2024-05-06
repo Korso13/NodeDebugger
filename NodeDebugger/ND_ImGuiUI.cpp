@@ -239,6 +239,7 @@ void ND_ImGui::onGui(float dt)
         return;
 
     ND_Util::resetImGuiRepeatElemId();
+    ND_Util::resetPlotterWindowFlag();
 
     //start size-related code
     ImGui::SetNextWindowSize(IMG_STARTSIZE, ImGuiCond_FirstUseEver);
@@ -319,6 +320,8 @@ void ND_ImGui::onGui(float dt)
         m_foldImGuiMenu = true;
 
     ImGui::End();
+
+    ND_Util::plotterDockWindowWrapper();
 }
 
 void ND_ImGui::ImGuiNodes()

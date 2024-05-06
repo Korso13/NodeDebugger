@@ -414,6 +414,11 @@ namespace ND_Util
         repeatElemId = 0;
     }
 
+    void resetPlotterWindowFlag()
+    {
+        needDrawPlotterWindow = false;
+    }
+
     ImVec2 getSizeForChild(float windowHeightPercent)
     {
         ImVec2 size = ImGui::GetWindowSize();
@@ -524,8 +529,15 @@ namespace ND_Util
         }
         ImGui::Columns(1);
 
-        ImGuiTweenPlotter(_node, tweenRecord);
+        //tween plotter
+        separatePlotterWindow_node = _node;
+        separatePlotterWindow_recordType = tweenRecord.transformType;
+        if (!callSeparatePlotterWindow)
+            ImGuiTweenPlotter(_node, tweenRecord);
+        else if(!tweenRecord.tweenPoints.empty())
+            needDrawPlotterWindow = true;
 
+        //tween points scroll zone
         float pointsScrollzoneSize = 0.1;
         if (tweenRecord.tweenPoints.size() == 1)
             pointsScrollzoneSize = 0.27;
@@ -659,17 +671,49 @@ namespace ND_Util
         ImGui::Separator();
         ImGui::Spacing();
 
+        ImGui::Checkbox("Separate Plotter window", &callSeparatePlotterWindow);
         ImGui::Checkbox("Block points drag", &tweenPlotterInputBlocked);
         ImGui::PushID(repeatElemId++);
 
-        //if (ImGui::Begin("Tween plotter")) //stub for making plotter a separate window
-        //{
-        //}
-        if (ImPlot::BeginPlot("##tweenlines", getSizeForChild()))
+        if (ImPlot::BeginPlot("##tweenlines", !callSeparatePlotterWindow ? getSizeForChild(0.4) : ImVec2(-1, -1)))
         {
-            //TODO:: placeholder Axes limits. Rewrite to use actual min and max numbers
-            ImPlot::SetupAxesLimits(tweenRecord.tweenStart.x, tweenRecord.tweenPoints.back().x, tweenRecord.tweenStart.y, tweenRecord.tweenPoints.back().y);
-            
+            double minValXPositions = 0.f;
+            double minValYPositions = 0.f;
+            double maxValXPositions = -1000.f;            
+            double maxValYPositions = -1000.f;
+
+            vec3D startPoint(tweenRecord.tweenStart);
+            float tweenDuration = std::accumulate(tweenRecord.tweenDelays.begin(), tweenRecord.tweenDelays.end(), 0.f);
+
+            //min-max values need to be calculated before any points on teh graph
+            if (startPoint.x < minValXPositions)
+                minValXPositions = startPoint.x;
+            if (startPoint.y < minValYPositions)
+                minValYPositions = startPoint.y;
+            if (startPoint.x > maxValXPositions)
+                maxValXPositions = startPoint.x;
+            if (startPoint.y > maxValYPositions)
+                maxValYPositions = startPoint.y;
+
+            if (tweenDuration > maxValYPositions)
+                maxValYPositions = tweenDuration;
+
+            for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
+            {
+                vec3D nextPoint(tweenRecord.tweenPoints[i]);
+                if (nextPoint.x < minValXPositions)
+                    minValXPositions = nextPoint.x;
+                if (nextPoint.y < minValYPositions)
+                    minValYPositions = nextPoint.y;
+                if (nextPoint.x > maxValXPositions)
+                    maxValXPositions = nextPoint.x;
+                if (nextPoint.y > maxValYPositions)
+                    maxValYPositions = nextPoint.y;
+            }
+            ImPlot::SetupAxes("X / Now Time", "Y");
+            ImPlot::SetupAxesLimits(minValXPositions, maxValXPositions, minValYPositions, maxValYPositions);
+            ImPlot::SetupLegend(ImPlotLocation_North, ImPlotLegendFlags_Horizontal);
+
             if (_node)
             {
                 vec3D nodePoint(TweenContainer::nodeValueGetter(_node, tweenRecord));
@@ -678,52 +722,81 @@ namespace ND_Util
                     TweenContainer::nodeValueSetter(nodePoint.getVec3(), _node, tweenRecord);
                 }
             }
-
+            
             //tween to be used in plotting the line
             auto tween = make::sptr<Tween<vec3>>(tweenRecord.tweenStart);
             float nowTime = 0.f;
 
-            vec3D startPoint(tweenRecord.tweenStart);
             if (ImPlot::DragPoint(0, &startPoint.x, &startPoint.y, IMG_VIOLET, 4, PLOTTER_INPUTBLOCKCHECK))
             {
                 tweenRecord.tweenStart = startPoint.getVec3();
             }
+            ImPlot::Annotation(startPoint.x, startPoint.y, IMG_VIOLET, ImVec2(15, -15), false, "%s", "Start Point");
 
             for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
             {
+                float nowTimeStamp = nowTime; //to be used for timeline points altering
                 nowTime += tweenRecord.tweenDelays[i];
                 tween->add(tweenRecord.tweenPoints[i], nowTime, tweenRecord.easingTypes[i]);
                 
                 vec3D nextPoint(tweenRecord.tweenPoints[i]);
+                double xTime = static_cast<double>(nowTime);
+                double yTime = 1;
+                //vec3 points
                 if (ImPlot::DragPoint(i+1, &nextPoint.x, &nextPoint.y, IMG_VIOLET, 4, PLOTTER_INPUTBLOCKCHECK))
                 {
                     tweenRecord.tweenPoints[i] = nextPoint.getVec3();
                 }
+                ImPlot::Annotation(nextPoint.x, nextPoint.y, IMG_VIOLET, ImVec2(15, -15), false, "%s%d", "Point ", STR(i));
+
+                //timeline points
+                if (ImPlot::DragPoint(i+1+tweenRecord.tweenPoints.size(), &xTime, &yTime, IMG_ORANGE, 4, PLOTTER_INPUTBLOCKCHECK))
+                {
+                    //float nowTimeStamp = std::accumulate(tweenRecord.tweenDelays.begin(), tweenRecord.tweenDelays.begin() + i, 0.f);
+
+                    if (float delta = (static_cast<float>(xTime) - nowTimeStamp); delta > 0.f)
+                        tweenRecord.tweenDelays[i] = delta;
+                }
+                ImPlot::Annotation(xTime, yTime, IMG_ORANGE, ImVec2(-10, -20), false, "%s%d", "Point ", STR(i));
             }
             
-            float tweenDuration = std::accumulate(tweenRecord.tweenDelays.begin(), tweenRecord.tweenDelays.end(), 0.f);
+            //tween vec3 values line
             int linePoints = static_cast<int>(std::floor(tweenDuration / IMG_PLOTTERSTIMESTEP));
-            if (linePoints < 2 || !tween)
-            {
-                ImPlot::EndPlot();
-                return;
+            if (linePoints > 2 && tween)
+            { 
+                linePoints++;
+                double xs[linePoints], ys[linePoints];
+                nowTime = 0.f; //resetting, reusing the variable
+                xs[0] = startPoint.x;
+                ys[0] = startPoint.y;
+                for (int i = 1; i < linePoints; ++i) 
+                {
+                    nowTime += IMG_PLOTTERSTIMESTEP;
+                    if (nowTime > tweenDuration)
+                        nowTime = tweenDuration;
+                    vec3 nextValue = tween->getValue(nowTime);
+                    xs[i] = static_cast<double>(nextValue.x);
+                    ys[i] = static_cast<double>(nextValue.y);
+                }
+
+                ImPlot::PlotLine("Tween values line", xs, ys, linePoints);
             }
             
-            double xs[linePoints], ys[linePoints];
-            nowTime = 0.f; //resetting, reusing the variable
-            xs[0] = startPoint.x;
-            ys[0] = startPoint.y;
-            for (int i = 1; i < linePoints; ++i) 
+            //Timeline
+            if (!tweenRecord.tweenDelays.empty())
             {
-                nowTime += IMG_PLOTTERSTIMESTEP;
-                if (nowTime > tweenDuration)
-                    nowTime = tweenDuration;
-                vec3 nextValue = tween->getValue(nowTime);
-                xs[i] = static_cast<double>(nextValue.x);
-                ys[i] = static_cast<double>(nextValue.y);
+                double xTimes[tweenRecord.tweenDelays.size() + 1], yTimes[tweenRecord.tweenDelays.size() + 1];
+                xTimes[0] = 0;
+                yTimes[0] = 1;
+                nowTime = 0.f;
+                for (size_t i = 0; i < tweenRecord.tweenDelays.size(); i++)
+                {
+                    nowTime += tweenRecord.tweenDelays[i];
+                    xTimes[i + 1] = nowTime;
+                    yTimes[i + 1] = 1;
+                }
+                ImPlot::PlotLine("Tween timeline", xTimes, yTimes, tweenRecord.tweenDelays.size() + 1);
             }
-            ImPlot::PlotLine("Tween_line", xs, ys, linePoints);
-            //ImPlot::DragLineY(120482, &f, ImVec4(1, 0.5f, 1, 1), 1, flags);
 
             ImPlot::EndPlot();
         }
@@ -732,8 +805,34 @@ namespace ND_Util
         ImGui::Separator();
         ImGui::Spacing();
     }
-
 #undef PLOTTER_INPUTBLOCKCHECK
+
+    void plotterDockWindowWrapper()
+    {
+        if (!callSeparatePlotterWindow || !separatePlotterWindow_node || !needDrawPlotterWindow)
+            return;
+
+        if (ImGui::Begin("Tween plotter"))
+        {
+            switch (separatePlotterWindow_recordType)
+            {
+            case tweenTransformType::MOVE:
+                ImGuiTweenPlotter(separatePlotterWindow_node, debugTweensMove.at(separatePlotterWindow_node));
+                break;
+            case tweenTransformType::SCALE:
+                ImGuiTweenPlotter(separatePlotterWindow_node, debugTweensScale.at(separatePlotterWindow_node));
+                break;
+            case tweenTransformType::ROTATE:
+                ImGuiTweenPlotter(separatePlotterWindow_node, debugTweensRotate.at(separatePlotterWindow_node));
+                break;
+            default:
+                break;
+            }
+
+        }
+        ImGui::End();
+    }
+
 
     //reusable tween builder menu
     void ImGuiTweens(sptr<Node> _node)

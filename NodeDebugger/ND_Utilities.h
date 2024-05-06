@@ -26,6 +26,7 @@ namespace ND_Util
 	void ImGuiNodeSettings();
 	void ImGuiSettings();
 	void resetImGuiRepeatElemId();
+	void resetPlotterWindowFlag();
 
 	ImVec2 getSizeForChild(float windowHeightPercent = 0.5);
 
@@ -35,6 +36,7 @@ namespace ND_Util
 
 	void ImGuiTweensBody(sptr<Node> _node, tweenDebugRecord& tweenRecord);
 	void ImGuiTweenPlotter(sptr<Node> _node, tweenDebugRecord& tweenRecord);
+	void plotterDockWindowWrapper();
 	void ImGuiTweens(sptr<Node> _node);
 
 	static std::map<sptr<Node>, tweenDebugRecord> debugTweensMove;
@@ -48,6 +50,11 @@ namespace ND_Util
 		{tweenTransformType::ROTATE,-1},
 	};
 	//static int lastSelectedTweenSample = -1;
+
+	static bool callSeparatePlotterWindow = false;
+	static bool needDrawPlotterWindow = false;
+	static sptr<Node> separatePlotterWindow_node = nullptr;
+	static tweenTransformType separatePlotterWindow_recordType = tweenTransformType::MOVE;
 
 	static bool loadedEasings = false;
 	static const char* easingNames[31];
