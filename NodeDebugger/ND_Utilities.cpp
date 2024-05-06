@@ -6,6 +6,7 @@
 #include <regex>
 #include "TweenFactory.h"
 #include <utils/EditorCamera.h>
+#include "external/addonPlot/implot.h"
 
 #define TWEENCONTAINER TweenContainer::getTweenContainer()
 
@@ -505,6 +506,8 @@ namespace ND_Util
         }
         ImGui::Columns(1);
 
+
+
         //start point setter
         ImGui::Text("Tween start point");
         ImGui::Columns(2);
@@ -520,6 +523,8 @@ namespace ND_Util
             tweenRecord.tweenStart = vec3FromJSString(cbText);
         }
         ImGui::Columns(1);
+
+        ImGuiTweenPlotter(_node, tweenRecord);
 
         float pointsScrollzoneSize = 0.1;
         if (tweenRecord.tweenPoints.size() == 1)
@@ -623,6 +628,100 @@ namespace ND_Util
         }
         ImGui::Columns(1);
     }
+
+    struct vec3D
+    {
+        vec3D(vec3 inVec) { x = static_cast<double>(inVec.x); y = static_cast<double>(inVec.y); z = static_cast<double>(inVec.z); };
+        vec3 getVec3() const { return vec3(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)); }
+        double x;
+        double y;
+        double z;
+    };
+    static bool tweenPlotterInputBlocked = false;
+#define PLOTTER_INPUTBLOCKCHECK ((tweenPlotterInputBlocked) ? ImPlotDragToolFlags_NoInputs : 0)
+
+    void ImGuiTweenPlotter(sptr<Node> _node, tweenDebugRecord& tweenRecord)
+    {
+        if (tweenRecord.tweenPoints.empty())
+            return;
+
+        if(ImPlot::GetCurrentContext() == NULL)
+            ImPlot::CreateContext();
+
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::Checkbox("Block points drag", &tweenPlotterInputBlocked);
+        ImGui::PushID(repeatElemId++);
+        if (ImPlot::BeginPlot("##tweenlines", getSizeForChild()))
+        {
+            //TODO:: placeholder Axes limits. Rewrite to use actual min and max numbers
+            ImPlot::SetupAxesLimits(tweenRecord.tweenStart.x, tweenRecord.tweenPoints.back().x, tweenRecord.tweenStart.y, tweenRecord.tweenPoints.back().y);
+            
+            if (_node)
+            {
+                vec3D nodePoint(TweenContainer::nodeValueGetter(_node, tweenRecord));
+                if (ImPlot::DragPoint(-1, &nodePoint.x, &nodePoint.y, IMG_RED, 4, PLOTTER_INPUTBLOCKCHECK))
+                {
+                    TweenContainer::nodeValueSetter(nodePoint.getVec3(), _node, tweenRecord);
+                }
+            }
+
+            //tween to be used in plotting the line
+            auto tween = make::sptr<Tween<vec3>>(tweenRecord.tweenStart);
+            float nowTime = 0.f;
+
+            vec3D startPoint(tweenRecord.tweenStart);
+            if (ImPlot::DragPoint(0, &startPoint.x, &startPoint.y, IMG_VIOLET, 4, PLOTTER_INPUTBLOCKCHECK))
+            {
+                tweenRecord.tweenStart = startPoint.getVec3();
+            }
+
+            for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
+            {
+                nowTime += tweenRecord.tweenDelays[i];
+                tween->add(tweenRecord.tweenPoints[i], nowTime, tweenRecord.easingTypes[i]);
+                
+                vec3D nextPoint(tweenRecord.tweenPoints[i]);
+                if (ImPlot::DragPoint(i+1, &nextPoint.x, &nextPoint.y, IMG_VIOLET, 4, PLOTTER_INPUTBLOCKCHECK))
+                {
+                    tweenRecord.tweenPoints[i] = nextPoint.getVec3();
+                }
+            }
+            
+            float tweenDuration = std::accumulate(tweenRecord.tweenDelays.begin(), tweenRecord.tweenDelays.end(), 0.f);
+            int linePoints = static_cast<int>(std::floor(tweenDuration / IMG_PLOTTERSTIMESTEP));
+            if (linePoints < 2 || !tween)
+            {
+                ImPlot::EndPlot();
+                return;
+            }
+            
+            double xs[linePoints], ys[linePoints];
+            nowTime = 0.f; //resetting, reusing the variable
+            xs[0] = startPoint.x;
+            ys[0] = startPoint.y;
+            for (int i = 1; i < linePoints; ++i) 
+            {
+                nowTime += IMG_PLOTTERSTIMESTEP;
+                if (nowTime > tweenDuration)
+                    nowTime = tweenDuration;
+                vec3 nextValue = tween->getValue(nowTime);
+                xs[i] = static_cast<double>(nextValue.x);
+                ys[i] = static_cast<double>(nextValue.y);
+            }
+            ImPlot::PlotLine("Tween_line", xs, ys, linePoints);
+            //ImPlot::DragLineY(120482, &f, ImVec4(1, 0.5f, 1, 1), 1, flags);
+
+            ImPlot::EndPlot();
+        }
+        ImGui::PopID();
+
+        ImGui::Separator();
+        ImGui::Spacing();
+    }
+
+#undef PLOTTER_INPUTBLOCKCHECK
 
     //reusable tween builder menu
     void ImGuiTweens(sptr<Node> _node)

@@ -34,6 +34,7 @@ namespace ND_Util
 	bool checkFilterConditions(const std::string& itemName, const std::string& filter);
 
 	void ImGuiTweensBody(sptr<Node> _node, tweenDebugRecord& tweenRecord);
+	void ImGuiTweenPlotter(sptr<Node> _node, tweenDebugRecord& tweenRecord);
 	void ImGuiTweens(sptr<Node> _node);
 
 	static std::map<sptr<Node>, tweenDebugRecord> debugTweensMove;

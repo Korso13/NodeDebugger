@@ -74,6 +74,8 @@ static float	sliderSensivity = 0.01;
 #define IMG_ROTRANGE_DEG 360.f
 #define IMG_ROTRANGE_RAD TWO_PI
 #define IMG_SCALERANGE 30.f
+
+#define IMG_PLOTTERSTIMESTEP 0.03
 //=========================================================================================
 
 struct ImG_Node
