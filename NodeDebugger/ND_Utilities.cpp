@@ -579,9 +579,16 @@ namespace ND_Util
                     {
                         tweenRecord.easingTypes[i] = static_cast<Easing>(intEasingType);
                     }
-                    ImGui::Separator();
                     ImGui::Spacing();
 
+                    if (ImGui::Button(CSTR("Insert point before point " + STR(i + 1))))
+                    {
+                        tweenRecord.tweenPoints.insert(tweenRecord.tweenPoints.begin() + i, tweenRecord.tweenPoints[i]);
+                        tweenRecord.tweenDelays.insert(tweenRecord.tweenDelays.begin() + i, tweenRecord.tweenDelays[i]);
+                        tweenRecord.easingTypes.insert(tweenRecord.easingTypes.begin() + i, tweenRecord.easingTypes[i]);
+                        break;
+                    }
+                    ImGui::SameLine();
                     if (ImGui::Button(CSTR("Delete point" + STR(i + 1))))
                     {
                         tweenRecord.tweenPoints.erase(tweenRecord.tweenPoints.begin() + i);
@@ -589,6 +596,7 @@ namespace ND_Util
                         tweenRecord.easingTypes.erase(tweenRecord.easingTypes.begin() + i);
                         break;
                     }
+                    ImGui::Spacing();
                     ImGui::Separator();
                 }
             }
@@ -653,6 +661,10 @@ namespace ND_Util
 
         ImGui::Checkbox("Block points drag", &tweenPlotterInputBlocked);
         ImGui::PushID(repeatElemId++);
+
+        //if (ImGui::Begin("Tween plotter")) //stub for making plotter a separate window
+        //{
+        //}
         if (ImPlot::BeginPlot("##tweenlines", getSizeForChild()))
         {
             //TODO:: placeholder Axes limits. Rewrite to use actual min and max numbers
