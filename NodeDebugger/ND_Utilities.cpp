@@ -747,7 +747,7 @@ namespace ND_Util
                 {
                     tweenRecord.tweenPoints[i] = nextPoint.getVec3();
                 }
-                ImPlot::Annotation(nextPoint.x, nextPoint.y, IMG_VIOLET, ImVec2(15, -15), false, "%s%d", "Point ", STR(i));
+                ImPlot::Annotation(nextPoint.x, nextPoint.y, IMG_VIOLET, ImVec2(15, -15), false, "%s%i", "Point ", i);
 
                 //timeline points
                 if (ImPlot::DragPoint(i+1+tweenRecord.tweenPoints.size(), &xTime, &yTime, IMG_ORANGE, 4, PLOTTER_INPUTBLOCKCHECK))
@@ -757,7 +757,7 @@ namespace ND_Util
                     if (float delta = (static_cast<float>(xTime) - nowTimeStamp); delta > 0.f)
                         tweenRecord.tweenDelays[i] = delta;
                 }
-                ImPlot::Annotation(xTime, yTime, IMG_ORANGE, ImVec2(-10, -20), false, "%s%d", "Point ", STR(i));
+                ImPlot::Annotation(xTime, yTime, IMG_ORANGE, ImVec2(-10, -20), false, "%s%i", "Point ", i);
             }
             
             //tween vec3 values line
