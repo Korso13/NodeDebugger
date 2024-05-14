@@ -12,6 +12,7 @@ namespace TweenContainer
 	void addNewTweenSample(tweenDebugRecord tweenRecord);
 	void exportTweenContainerToJson();
 	const std::vector<tweenDebugRecord>& getTweenContainer();
+    void deleteTweenSample(const std::string& tweenSampleName, tweenTransformType type);
     vec3 getPercentModifyer(const vec3& startValue, const vec3& targetValue);
 
     //Pulls nessesary node transforms (translate, rotate, scale; world/local) based on tweenRecord
@@ -130,23 +131,38 @@ namespace TweenContainer
     node - node/mesh/spine affected by the tween
     changeValueOnUpdateCB - lambda that alters generated tween values on update (e.g. parabola function to add curve to the tween)
     onFinishCB - lambda to be called at the tween's end
+    useTweenSettingStartPoint - if true will set relevant transform to startPoint written in the tween sample
+    transformTypeSpecifyier - use it in case you have 2+ tweens with same names but different transforms (can leave default(MOVE) if all Samples have unique names)
     */
     static sptr<CustomTweens::Tween<vec3>> getTween(
         const std::string& tweenSetting, 
         sptr<Node> node, 
         std::function<void(vec3&)>&& changeValueOnUpdateCB = nullptr, 
         std::function<void()>&& onFinishCB = nullptr,
-        bool useTweenSettingStartPoint = false)
+        bool useTweenSettingStartPoint = false,
+        tweenTransformType transformTypeSpecifyier = tweenTransformType::MOVE)
     {
         if(getTweenContainer().empty())
             preloadTweenContainer();
         
+        tweenDebugRecord defaultSearchResult;
         for (auto& tweenRecord : getTweenContainer())
         {
-            if (tweenRecord.tweenName == tweenSetting)
+            if (tweenRecord.tweenName == tweenSetting && tweenRecord.transformType == transformTypeSpecifyier)
             {
                 return generateTween(tweenRecord, node, std::move(changeValueOnUpdateCB), std::move(onFinishCB), useTweenSettingStartPoint);
             }
+            //in case transformType was not specified
+            else if (tweenRecord.tweenName == tweenSetting && transformTypeSpecifyier == tweenTransformType::MOVE)
+            {
+                defaultSearchResult = tweenRecord;
+            }
+        }
+
+        //in case transformType was not specified
+        if (!defaultSearchResult.tweenName.empty())
+        {
+            return generateTween(defaultSearchResult, node, std::move(changeValueOnUpdateCB), std::move(onFinishCB), useTweenSettingStartPoint);
         }
 
         warn("Can't find %s tween setting! Returning null!", tweenSetting.c_str());
@@ -157,18 +173,32 @@ namespace TweenContainer
     Looped tween getter from JSON
     tweenSetting - name of the record from tweens.json;
     node - node / mesh / spine affected by the tween
+    useTweenSettingStartPoint - if true will set relevant transform to startPoint written in the tween sample
+    transformTypeSpecifyier - use it in case you have 2+ tweens with same names but different transforms (can leave default(MOVE) if all Samples have unique names)
     */
-    static sptr<CustomTweens::EndlessTween<vec3>> getLoopedTween(const std::string& tweenSetting, sptr<Node> node, bool useTweenSettingStartPoint = false)
+    static sptr<CustomTweens::EndlessTween<vec3>> getLoopedTween(const std::string& tweenSetting, sptr<Node> node, bool useTweenSettingStartPoint = false, tweenTransformType transformTypeSpecifyier = tweenTransformType::MOVE)
     {
         if (getTweenContainer().empty())
             preloadTweenContainer();
 
+        tweenDebugRecord defaultSearchResult;
         for (auto& tweenRecord : getTweenContainer())
         {
-            if (tweenRecord.tweenName == tweenSetting)
+            if (tweenRecord.tweenName == tweenSetting && tweenRecord.transformType == transformTypeSpecifyier)
             {
                 return generateEndlessTween(tweenRecord, node, useTweenSettingStartPoint);
             }
+            //in case transformType was not specified
+            else if (tweenRecord.tweenName == tweenSetting && transformTypeSpecifyier == tweenTransformType::MOVE)
+            {
+                defaultSearchResult = tweenRecord;
+            }
+        }
+
+        //in case transformType was not specified
+        if (!defaultSearchResult.tweenName.empty())
+        {
+            return generateEndlessTween(defaultSearchResult, node, useTweenSettingStartPoint);
         }
 
         warn("Can't find %s tween setting! Returning null!", tweenSetting.c_str());

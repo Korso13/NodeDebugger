@@ -14,7 +14,7 @@ void TweenContainer::addNewTweenSample(tweenDebugRecord tweenRecord)
     //replace mechanic
     for (auto& tweenSample : tweenSettingsContainer)
     {
-        if (tweenSample.tweenName == tweenRecord.tweenName)
+        if (tweenSample.tweenName == tweenRecord.tweenName && tweenSample.transformType == tweenRecord.transformType)
         {
             tweenSample = tweenRecord;
             return;
@@ -39,6 +39,13 @@ void TweenContainer::exportTweenContainerToJson()
 const std::vector<tweenDebugRecord>& TweenContainer::getTweenContainer()
 {
     return tweenSettingsContainer;
+}
+
+void TweenContainer::deleteTweenSample(const std::string& tweenSampleName, tweenTransformType type)
+{
+    std::erase_if(tweenSettingsContainer, [tweenSampleName, type](tweenDebugRecord item) {
+        return item.tweenName == tweenSampleName && item.transformType == type;
+        });
 }
 
 vec3 TweenContainer::getPercentModifyer(const vec3& startValue, const vec3& targetValue)

@@ -470,10 +470,19 @@ namespace ND_Util
             if (lastSelectedTweenSample[tweenRecord.transformType] != -1)
             {
                 std::string buttonCaption = "Load ";
-                buttonCaption += TWEENCONTAINER[lastSelectedTweenSample[tweenRecord.transformType]].tweenName;
+                std::string DelButtonCaption = "DELETE ";
+                std::string selectedTweenName = TWEENCONTAINER[lastSelectedTweenSample[tweenRecord.transformType]].tweenName;
+                buttonCaption += selectedTweenName;
+                DelButtonCaption += selectedTweenName;
                 if (ImGui::Button(buttonCaption.c_str()))
                 {
                     tweenRecord = TWEENCONTAINER[lastSelectedTweenSample[tweenRecord.transformType]];
+                }
+                ImGui::SameLine();
+                if (ImGui::Button(DelButtonCaption.c_str()))
+                {
+                    TweenContainer::deleteTweenSample(selectedTweenName, tweenRecord.transformType);
+                    lastSelectedTweenSample[tweenRecord.transformType] = -1;
                 }
             }
             ImGui::Separator();
@@ -747,7 +756,7 @@ namespace ND_Util
                 {
                     tweenRecord.tweenPoints[i] = nextPoint.getVec3();
                 }
-                ImPlot::Annotation(nextPoint.x, nextPoint.y, IMG_VIOLET, ImVec2(15, -15), false, "%s%i", "Point ", CastI(i));
+                ImPlot::Annotation(nextPoint.x, nextPoint.y, IMG_VIOLET, ImVec2(15, -15), false, "%s%i", "Point ", CastI(i+1));
 
                 //timeline points
                 if (ImPlot::DragPoint(i+1+tweenRecord.tweenPoints.size(), &xTime, &yTime, IMG_ORANGE, 4, PLOTTER_INPUTBLOCKCHECK))
@@ -757,7 +766,7 @@ namespace ND_Util
                     if (float delta = (static_cast<float>(xTime) - nowTimeStamp); delta > 0.f)
                         tweenRecord.tweenDelays[i] = delta;
                 }
-                ImPlot::Annotation(xTime, yTime, IMG_ORANGE, ImVec2(-10, -20), false, "%s%i", "Point ", CastI(i));
+                ImPlot::Annotation(xTime, yTime, IMG_ORANGE, ImVec2(-10, -20), false, "%s%i", "Point ", CastI(i+1));
             }
             
             //tween vec3 values line

@@ -49,7 +49,6 @@ namespace ND_Util
 		{tweenTransformType::SCALE, -1},
 		{tweenTransformType::ROTATE,-1},
 	};
-	//static int lastSelectedTweenSample = -1;
 
 	static bool callSeparatePlotterWindow = false;
 	static bool needDrawPlotterWindow = false;
