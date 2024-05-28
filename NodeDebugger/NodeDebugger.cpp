@@ -20,11 +20,30 @@ NodeDebugger::NodeDebugger() :
     m_clickMesh = Mesh::create::plane(vec2(1000.f, 1000.f));
     m_clickMesh->setName("clickMesh_debug");
     auto collider = m_clickMesh->addCollider<AABB>("clickMesh_debug", m_clickMesh);
-    collider->setReceiveRaycasts(true);
+    collider->setReceiveRaycasts(false);
     collider->setBlockRaycasts(false);
-    Render::getHudPass().getRoot()->addChild(m_clickMesh, true, Node::VisibilityPolice::Hidden);
+    collider->setScreencastCallback([this](const CollisionInfo& hit)
+        {
+            if (!ND_CASTALLOWED)
+                return;
 
-    event::Touch::Begin::subscribe(std::bind(&NodeDebugger::onClick, this, std::placeholders::_1));
+            if (m_nodeSwitchBoard[m_selectedNode])
+            {
+                vec3 local = hit.point - m_nodeSwitchBoard[m_selectedNode]->getWorldTranslation();
+                W4_LOG_INFO("Click worldPos \n%s\nlocalPos \n%s", jsprint(hit.point), jsprint(local));
+            }
+            else
+            {
+                W4_LOG_INFO("Click worldPos \n%s", jsprint(hit.point));
+            }
+
+            if (m_clickPlacementMode && m_nodeSwitchBoard[m_selectedNode])
+            {
+                m_nodeSwitchBoard[m_selectedNode]->setWorldTranslation(hit.point);
+                ND_Util::printDebugNodeInfo(m_nodeSwitchBoard[m_selectedNode]);
+            }
+        });
+    Render::getHudPass().getRoot()->addChild(m_clickMesh, true, Node::VisibilityPolice::Hidden);
 }
 
 void NodeDebugger::setFloatAccuracy(int accuracy)
@@ -50,48 +69,6 @@ void NodeDebugger::setClickMeshZ(float targetZ)
 {
     if (m_clickMesh)
         m_clickMesh->setWorldTranslation(vec3(0.f, 0.f, targetZ));
-}
-
-void NodeDebugger::onClick(const Touch::Begin& clickEvent)
-{
-    if (!isDebuggerOn)
-        return;
-
-    if (!ND_CASTALLOWED)
-        return;
-
-    auto ray = Render::getScreenCamera()->createRayFromScreen(clickEvent.point);
-    ray.length = 11;
-    auto hits = Render::raycastAll(ray);
-    for (auto& hit : hits)
-    {
-        if (hit.target != nullptr)
-        {
-            auto hitName = hit.target->getParent()->getName();
-            if (hitName == "clickMesh_debug")
-            {
-                if (m_nodeSwitchBoard[m_selectedNode])
-                {
-                    vec3 local = hit.point - m_nodeSwitchBoard[m_selectedNode]->getWorldTranslation();
-                    W4_LOG_INFO("Click worldPos \n%s\nlocalPos \n%s", jsprint(hit.point), jsprint(local));
-                }
-                else
-                {
-                    W4_LOG_INFO("Click worldPos \n%s", jsprint(hit.point));
-                }
-
-                if (m_clickPlacementMode && m_nodeSwitchBoard[m_selectedNode])
-                {
-                    m_nodeSwitchBoard[m_selectedNode]->setWorldTranslation(hit.point);
-                    ND_Util::printDebugNodeInfo(m_nodeSwitchBoard[m_selectedNode]);
-                }
-            }
-            //else
-            //{
-            //    W4_LOG_INFO("NODEDEBUG %s", hitName.c_str());
-            //}
-        }
-    }
 }
 
 void NodeDebugger::addNode(sptr<Node> inNode, const unsigned int assignButton)

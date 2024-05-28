@@ -115,7 +115,6 @@ public:
 	void setCallbackForButton(platform::KeyboardKey key, std::function<void()> cb) NOCOMP;
 
 	void setClickMeshZ(float targetZ) NOCOMP;
-	void onClick(const Touch::Begin& clickEvent) NOCOMP;
 
 private:
 
