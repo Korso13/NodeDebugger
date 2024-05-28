@@ -41,10 +41,26 @@ inline void VariablesTab::addItemTyped(const std::string& altName, float* item, 
 	m_debugFloats.insert({ altName, debugVar });
 }
 template<>
+inline void VariablesTab::addItemTyped(const std::string& altName, const float* item, std::function<void()> cb)
+{
+	debugVar<float> debugVar;
+	debugVar.var = const_cast<float*>(item);
+	debugVar.onChangeCb = cb;
+	m_debugFloats.insert({ altName, debugVar });
+}
+template<>
 inline void VariablesTab::addItemTyped(const std::string& altName, int* item, std::function<void()> cb)
 {
 	debugVar<int> debugVar;
 	debugVar.var = item;
+	debugVar.onChangeCb = cb;
+	m_debugInts.insert({ altName, debugVar });
+}
+template<>
+inline void VariablesTab::addItemTyped(const std::string& altName, const int* item, std::function<void()> cb)
+{
+	debugVar<int> debugVar;
+	debugVar.var = const_cast<int*>(item);
 	debugVar.onChangeCb = cb;
 	m_debugInts.insert({ altName, debugVar });
 }
@@ -57,10 +73,26 @@ inline void VariablesTab::addItemTyped(const std::string& altName, bool* item, s
 	m_debugBools.insert({ altName, debugVar });
 }
 template<>
+inline void VariablesTab::addItemTyped(const std::string& altName, const bool* item, std::function<void()> cb)
+{
+	debugVar<bool> debugVar;
+	debugVar.var = const_cast<bool*>(item);
+	debugVar.onChangeCb = cb;
+	m_debugBools.insert({ altName, debugVar });
+}
+template<>
 inline void VariablesTab::addItemTyped(const std::string& altName, vec2* item, std::function<void()> cb)
 {
 	debugVar<vec2> debugVar;
 	debugVar.var = item;
+	debugVar.onChangeCb = cb;
+	m_debugVec2.insert({ altName, debugVar });
+}
+template<>
+inline void VariablesTab::addItemTyped(const std::string& altName, const vec2* item, std::function<void()> cb)
+{
+	debugVar<vec2> debugVar;
+	debugVar.var = const_cast<vec2*>(item);
 	debugVar.onChangeCb = cb;
 	m_debugVec2.insert({ altName, debugVar });
 }
@@ -73,10 +105,27 @@ inline void VariablesTab::addItemTyped(const std::string& altName, vec3* item, s
 	m_debugVec3.insert({ altName, debugVar });
 }
 template<>
+inline void VariablesTab::addItemTyped(const std::string& altName, const vec3* item, std::function<void()> cb)
+{
+	debugVar<vec3> debugVar;
+	debugVar.var = const_cast<vec3*>(item);
+	debugVar.onChangeCb = cb;
+	m_debugVec3.insert({ altName, debugVar });
+}
+template<>
 inline void VariablesTab::addItemTyped(const std::string& altName, vec4* item, std::function<void()> cb)
 {
 	debugVar<vec4> debugVar;
 	debugVar.var = item;
+	debugVar.onChangeCb = cb;
+	m_debugVec4.insert({ altName, debugVar });
+}
+
+template<>
+inline void VariablesTab::addItemTyped(const std::string& altName, const vec4* item, std::function<void()> cb)
+{
+	debugVar<vec4> debugVar;
+	debugVar.var = const_cast<vec4*>(item);
 	debugVar.onChangeCb = cb;
 	m_debugVec4.insert({ altName, debugVar });
 }
