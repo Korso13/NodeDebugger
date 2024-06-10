@@ -121,5 +121,7 @@ static void loadPathsIntoPathfinder(
 			}
 		}
 	}
+
+	pathfinder->updateAdjacencyMatrix();
 }
 #endif
