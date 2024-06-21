@@ -112,9 +112,20 @@ void TweenContainer::nodeValueSetter(vec3 value, sptr<Node> _node, const tweenDe
     }
     else if (tweenRecord.transformType == tweenTransformType::ROTATE)
     {
-        if (tweenRecord.isWorldVec3)
-            _node->setWorldRotation(Rotator(value * DEG2RAD));
+        if (!tweenRecord.isLoopedTween)
+        {
+            if (tweenRecord.isWorldVec3)
+                _node->setWorldRotation(Rotator(value * DEG2RAD));
+            else
+                _node->setLocalRotation(Rotator(value * DEG2RAD));
+        }
         else
-            _node->setLocalRotation(Rotator(value * DEG2RAD));
+        {
+            if (tweenRecord.isWorldVec3)
+                _node->setWorldRotation(Rotator(value));
+            else
+                _node->setLocalRotation(Rotator(value));
+        }
+        
     }
 }
