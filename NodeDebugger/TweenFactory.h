@@ -88,8 +88,6 @@ namespace TweenContainer
 
         vec3 offset, tweenStart;
 
-
-
         if (!bSetNodeToStartPoint || tweenRecord.isRelativeValues) //default behavior
         {
             tweenStart = nodeValueGetter(_node, tweenRecord);
@@ -118,6 +116,8 @@ namespace TweenContainer
             {
                 nextValue = tweenRecord.tweenPoints[i] + offset;
             }
+            if (tweenRecord.transformType == tweenTransformType::ROTATE)
+                nextValue *= DEG2RAD;
             nowTime += tweenRecord.tweenDelays[i];
             tween->add(nextValue, nowTime, tweenRecord.easingTypes[i]);
         }

@@ -103,6 +103,13 @@ void ND_ImGui::removeImGuiNode(const std::string nodeName)
         return;
     }
 
+#ifdef NDSPINES
+    if (getCustomTabByName("Spines"))
+    {
+        getCustomTabByName("Spines")->removeItem(nodeName);
+    }
+#endif
+
     for (auto& [name, ImG_NodeStruct] : m_staticNodes)
     {
         if (!ImG_NodeStruct.node.expired() && ImG_NodeStruct.node.lock()->getName() == nodeName)

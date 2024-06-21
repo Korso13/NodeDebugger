@@ -306,4 +306,12 @@ void SpinesTab::addItem(std::any item, const std::string& altName)
     m_debugSpines.insert({ spineDebugRec.spineName, spineDebugRec });
 }
 
+void SpinesTab::removeItem(const std::string& itemName)
+{
+    if (m_debugSpines.contains(itemName))
+    {
+        m_debugSpines.erase(itemName);
+    }
+}
+
 #endif

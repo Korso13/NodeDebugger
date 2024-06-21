@@ -12,6 +12,7 @@ public:
 	bool isEmpty() override { return m_debugSpines.empty(); };
 
 	void addItem(std::any item, const std::string& altName = "default") override NOCOMP;
+	void removeItem(const std::string& itemName) override NOCOMP;
 	void purgeValues() override { m_debugSpines.clear(); }
 
 private:

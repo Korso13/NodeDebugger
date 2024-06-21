@@ -23,6 +23,7 @@ public:
 
 	//used to add new elements to the tab. Use any_cast<>() to cast item to desired type
 	virtual void addItem(std::any item, const std::string& altName = "default") = 0;
+	virtual void removeItem(const std::string& itemName) {};
 
 	//Not so convenient, need to cast iGuiTab to specific class to work and compile properly.
 	//template<typename T>
