@@ -87,7 +87,8 @@ static vec3 vec2toVec3(const vec2& invec) { return vec3(invec.x, invec.y, 0.f); 
 static void loadPathsIntoPathfinder(
 	sptr<Pathfinder> pathfinder, 
 	std::map<std::string, std::function<void(std::string)>> onPointCallbacks = std::map<std::string, std::function<void(std::string)>>(),
-	const std::string pathToConfig = "config/pathsContainerSettings.json")
+	const std::string pathToConfig = "config/pathsContainerSettings.json",
+	bool generateAjacencyMatrix = true)
 {
 	PathsData pathsData;
 	auto file = w4::filesystem::open(pathToConfig);
@@ -122,6 +123,7 @@ static void loadPathsIntoPathfinder(
 		}
 	}
 
-	pathfinder->updateAdjacencyMatrix();
+	if(generateAjacencyMatrix)
+		pathfinder->updateAdjacencyMatrix();
 }
 #endif
