@@ -11,6 +11,16 @@ void VariablesTab::onGuiCall()
 
 	if (ImGui::BeginChild("Variables scroll zone"))
 	{	
+		//collections
+		for (auto& [name_vectCol, vect] : m_debugVectors)
+		{
+			drawVectorCollection(name_vectCol, vect);
+		}
+		for (auto& [name_mapCol, map] : m_debugMaps)
+		{
+			drawMapCollection(name_mapCol, map);
+		}
+
 		for (auto& [name_f, var_f] : m_debugFloats)
 		{
 			if (!ND_Util::checkFilterConditions(name_f, m_variablesFilter))
@@ -75,6 +85,14 @@ void VariablesTab::onGuiCall()
 			if (ImGui::Checkbox(name_b.c_str(), var_b.var))
 				if (var_b.onChangeCb)var_b.onChangeCb();
 		}
+		for (auto& [name_b, var_b] : m_debugStrings)
+		{
+			if (!ND_Util::checkFilterConditions(name_b, m_variablesFilter))
+				continue; 
+		
+			if (ImGui::InputText(name_b.c_str(), var_b.var))
+				if (var_b.onChangeCb) var_b.onChangeCb();
+		}
 	}
 	ImGui::EndChild(); //ends variables scroll zone
 }
@@ -85,7 +103,10 @@ bool VariablesTab::isEmpty()
 			m_debugInts.empty() &&
 			m_debugBools.empty() &&
 			m_debugVec2.empty() &&
-			m_debugVec3.empty());
+			m_debugVec3.empty()&&
+			m_debugStrings.empty()&&
+			m_debugVectors.empty()&&
+			m_debugMaps.empty());
 }
 
 void VariablesTab::purgeValues()
@@ -95,6 +116,90 @@ void VariablesTab::purgeValues()
 	m_debugBools.clear();
 	m_debugVec2.clear();
 	m_debugVec3.clear();
+	m_debugStrings.clear();
+	m_debugVectors.clear();
+	m_debugMaps.clear();
+}
+
+void VariablesTab::drawVectorCollection(const std::string& name, debugVectors& collection)
+{
+	//if (!collection.bools->empty())
+	//	ImGui::Auto(name.c_str(), *collection.bools);  //for some reason - not supported
+	if (collection.ints)
+		ImGui::Auto(name.c_str(), *collection.ints);
+	if (collection.floats)
+		ImGui::Auto(name.c_str(), *collection.floats);
+	if (collection.strings)
+		ImGui::Auto(name.c_str(), *collection.strings);
+	if (collection.vec2s)
+		ImGui::Auto(name.c_str(), *collection.vec2s);
+	if (collection.vec3s)
+		ImGui::Auto(name.c_str(), *collection.vec3s);
+	if (collection.vec4s)
+		ImGui::Auto(name.c_str(), *collection.vec4s);
+}
+
+void VariablesTab::drawMapCollection(const std::string& name, debugMapCollection& collection)
+{
+	if (collection.int_maps.bools )
+		ImGui::Auto(name.c_str(), *collection.int_maps.bools);
+	if (collection.int_maps.ints )
+		ImGui::Auto(name.c_str(), *collection.int_maps.ints);
+	if (collection.int_maps.floats )
+		ImGui::Auto(name.c_str(), *collection.int_maps.floats);
+	if (collection.int_maps.strings )
+		ImGui::Auto(name.c_str(), *collection.int_maps.strings);
+	if (collection.int_maps.vec2s )
+		ImGui::Auto(name.c_str(), *collection.int_maps.vec2s);
+	if (collection.int_maps.vec3s )
+		ImGui::Auto(name.c_str(), *collection.int_maps.vec3s);
+	if (collection.int_maps.vec4s )
+		ImGui::Auto(name.c_str(), *collection.int_maps.vec4s);
+
+	if (collection.int_maps.um_bools )
+		ImGui::Auto(name.c_str(), *collection.int_maps.um_bools);
+	if (collection.int_maps.um_ints )
+		ImGui::Auto(name.c_str(), *collection.int_maps.um_ints);
+	if (collection.int_maps.um_floats )
+		ImGui::Auto(name.c_str(), *collection.int_maps.um_floats);
+	if (collection.int_maps.um_strings )
+		ImGui::Auto(name.c_str(), *collection.int_maps.um_strings);
+	if (collection.int_maps.um_vec2s )
+		ImGui::Auto(name.c_str(), *collection.int_maps.um_vec2s);
+	if (collection.int_maps.um_vec3s )
+		ImGui::Auto(name.c_str(), *collection.int_maps.um_vec3s);
+	if (collection.int_maps.um_vec4s )
+		ImGui::Auto(name.c_str(), *collection.int_maps.um_vec4s);
+
+	if (collection.str_maps.bools )
+		ImGui::Auto(name.c_str(), *collection.str_maps.bools);
+	if (collection.str_maps.ints )
+		ImGui::Auto(name.c_str(), *collection.str_maps.ints);
+	if (collection.str_maps.floats )
+		ImGui::Auto(name.c_str(), *collection.str_maps.floats);
+	if (collection.str_maps.strings )
+		ImGui::Auto(name.c_str(), *collection.str_maps.strings);
+	if (collection.str_maps.vec2s )
+		ImGui::Auto(name.c_str(), *collection.str_maps.vec2s);
+	if (collection.str_maps.vec3s )
+		ImGui::Auto(name.c_str(), *collection.str_maps.vec3s);
+	if (collection.str_maps.vec4s )
+		ImGui::Auto(name.c_str(), *collection.str_maps.vec4s);
+
+	if (collection.str_maps.um_bools)
+		ImGui::Auto(name.c_str(), *collection.str_maps.um_bools);
+	if (collection.str_maps.um_ints)
+		ImGui::Auto(name.c_str(), *collection.str_maps.um_ints);
+	if (collection.str_maps.um_floats)
+		ImGui::Auto(name.c_str(), *collection.str_maps.um_floats);
+	if (collection.str_maps.um_strings)
+		ImGui::Auto(name.c_str(), *collection.str_maps.um_strings);
+	if (collection.str_maps.um_vec2s)
+		ImGui::Auto(name.c_str(), *collection.str_maps.um_vec2s);
+	if (collection.str_maps.um_vec3s)
+		ImGui::Auto(name.c_str(), *collection.str_maps.um_vec3s);
+	if (collection.str_maps.um_vec4s)
+		ImGui::Auto(name.c_str(), *collection.str_maps.um_vec4s);
 }
 
 #endif

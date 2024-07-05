@@ -428,14 +428,49 @@ namespace ND_Util
         return size;
     }
 
-    void ImGuiNodeSettings()
+    void ImGuiNodeSettings(bool bNoGizmoSettings)
     {
         ImGui::DragFloat("Sliders sensivity", &sliderSensivity, 0.001, 0.001f, 10.0f, "%.4f");
+        ImGui::Columns(2);
         ImGui::Checkbox("Rotation in degrees", &degreesOutput);
+        ImGui::NextColumn();
         ImGui::Checkbox("Single scale value", &bindXYZScaling);
+        ImGui::Columns(1);
+        if(!bNoGizmoSettings)
+        {
+            ImGui::Checkbox("Gizmo Snapping", &ImGuiDrawerGizmo::m_snap);
+            if (ImGuiDrawerGizmo::m_currentGizmoOperation == ImGuizmo::TRANSLATE)
+            {
+                ImGui::DragVec3("Gizmo snapping step", ImGuiDrawerGizmo::m_snapTranslation, 0.f, 10.f, 0.01f);
+            }
+            else if (ImGuiDrawerGizmo::m_currentGizmoOperation == ImGuizmo::ROTATE)
+            {
+                ImGui::InputFloat("Gizmo snapping step", &ImGuiDrawerGizmo::m_snapRotation, 0.01, 0.1);
+            }
+            else if (ImGuiDrawerGizmo::m_currentGizmoOperation == ImGuizmo::SCALE)
+            {
+                ImGui::InputFloat("Gizmo snapping step", &ImGuiDrawerGizmo::m_snapScale, 0.001, 0.1);
+            }
+        }
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
+    }
+
+    void NoConflictGizmo(sptr<Node> _node, const std::string& name)
+    {
+        if (!ImGuizmo::IsUsing())
+        {
+            ImGuiDrawerGizmo::drawGizmosHandles(_node);
+            if (ImGuizmo::IsUsing())
+                m_lastGizmoNode = name;
+        }
+        else if (name == m_lastGizmoNode)
+        {
+            ImGuiDrawerGizmo::drawGizmosHandles(_node);
+            if (!ImGuizmo::IsUsing())
+                m_lastGizmoNode = "";
+        }
     }
 
     //reusable ImGui form for different types of vec3 tweens (used in ImGuiTweens)
@@ -519,8 +554,19 @@ namespace ND_Util
             ImGui::Checkbox("Relative values in %% ?", &tweenRecord.isPercentRelativeValues);
         }
         ImGui::Columns(1);
+        if(tweenRecord.transformType != tweenTransformType::ROTATE)
+            ImGui::Checkbox("Show tween plotter", &bShowPlotter);
 
-
+        //tween plotter
+        if(bShowPlotter && tweenRecord.transformType != tweenTransformType::ROTATE)
+        {
+            separatePlotterWindow_node = _node;
+            separatePlotterWindow_recordType = tweenRecord.transformType;
+            if (!callSeparatePlotterWindow)
+                ImGuiTweenPlotter(_node, tweenRecord);
+            else if (!tweenRecord.tweenPoints.empty())
+                needDrawPlotterWindow = true;
+        }
 
         //start point setter
         ImGui::Text("Tween start point");
@@ -537,14 +583,6 @@ namespace ND_Util
             tweenRecord.tweenStart = vec3FromJSString(cbText);
         }
         ImGui::Columns(1);
-
-        //tween plotter
-        separatePlotterWindow_node = _node;
-        separatePlotterWindow_recordType = tweenRecord.transformType;
-        if (!callSeparatePlotterWindow)
-            ImGuiTweenPlotter(_node, tweenRecord);
-        else if(!tweenRecord.tweenPoints.empty())
-            needDrawPlotterWindow = true;
 
         //tween points scroll zone
         float pointsScrollzoneSize = 0.1;

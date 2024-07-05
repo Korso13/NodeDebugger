@@ -32,6 +32,11 @@ public:
 	
 	template<typename T>
 	void addDebugVariable(std::string name, T* variablePtr, std::function<void()> cb) NOCOMP;
+	
+	template<typename Container, typename VT = typename Container::value_type>
+	void addDebugCollection(std::string name, Container& collection) NOCOMP;
+	template<typename VT>
+	void addDebugCollection(std::string name, std::vector<VT>& collection)NOCOMP;
 
 	void setMinimumImGuiLogLevel(LogLevel level) { minLoggingLevel = CastI(level); };
 	const bool checkRaycastCollision() const NOCOMP_B;
@@ -84,5 +89,23 @@ inline void ND_ImGui::addDebugVariable(std::string name, T* variablePtr, std::fu
     return;
 
     cast_sptr<VariablesTab>(getCustomTabByName("Variables"))->addItemTyped(name, variablePtr, cb);
+}
+
+template<typename VT>
+inline void ND_ImGui::addDebugCollection(std::string name, std::vector<VT>& collection)
+{
+	if (!getCustomTabByName("Variables"))
+		return;
+
+	cast_sptr<VariablesTab>(getCustomTabByName("Variables"))->addCollectionTyped<std::vector<VT>>(name, collection);
+}
+
+template<typename Container, typename VT>
+inline void ND_ImGui::addDebugCollection(std::string name, Container& collection)
+{
+	if (!getCustomTabByName("Variables"))
+		return;
+
+	cast_sptr<VariablesTab>(getCustomTabByName("Variables"))->addCollectionKeyTyped<Container>(name, collection);
 }
 #endif

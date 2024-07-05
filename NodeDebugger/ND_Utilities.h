@@ -23,7 +23,8 @@ namespace ND_Util
 
 	void ImGuiTransforms(sptr<Node> _node);
 	void ImGuiCopyVec3Btn(vec3 vec);
-	void ImGuiNodeSettings();
+	void ImGuiNodeSettings(bool bNoGizmoSettings = false);
+	void NoConflictGizmo(sptr<Node> _node, const std::string& name);
 	void ImGuiSettings();
 	void resetImGuiRepeatElemId();
 	void resetPlotterWindowFlag();
@@ -50,12 +51,15 @@ namespace ND_Util
 		{tweenTransformType::ROTATE,-1},
 	};
 
+	static bool bShowPlotter = false;
 	static bool callSeparatePlotterWindow = false;
 	static bool needDrawPlotterWindow = false;
 	static sptr<Node> separatePlotterWindow_node = nullptr;
 	static tweenTransformType separatePlotterWindow_recordType = tweenTransformType::MOVE;
 
 	static bool loadedEasings = false;
+
+	static std::string m_lastGizmoNode = "";
 	static const char* easingNames[31];
 }
 

@@ -13,8 +13,7 @@ void SpotlightTab::onGuiCall()
         if (ImGui::TreeNode(debugSpotLight.name.c_str()))
         {
             //Drag gizmo
-            ImGuizmo::BeginFrame();
-            ImGuiDrawerGizmo::drawGizmosHandles(debugSpotLight.light);
+            ND_Util::NoConflictGizmo(debugSpotLight.light, debugSpotLight.name);
 
             //visibility button
             if (ImGui::Button("Toggle visibility"))

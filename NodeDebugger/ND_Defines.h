@@ -34,8 +34,8 @@ struct ImVec2 { ImVec2(float, float) {}; };
 //Switches for custom ImGui tabs
 #define NDSPINES
 #define NDVARIABLES
-#define NDBORDERS
-#define NDPATHDRAWER
+//#define NDBORDERS
+//#define NDPATHDRAWER
 //#define NDSPOTLIGHTS
 //#define NDCONSOLE
 
@@ -138,6 +138,46 @@ struct debugVar
 {
 	T* var = nullptr;
 	std::function<void()> onChangeCb = nullptr;
+};
+
+//forced to use overload funcs here and in maps because std::is_same<>::value doesn't work properly for some reason((
+struct debugVectors
+{
+	//std::vector<bool>* bools;			void add(std::vector<bool>& collection) { bools = &collection; }  //for some reason - not supported
+	std::vector<int>* ints = nullptr;				void add(std::vector<int>& collection) { ints = &collection; }
+	std::vector<float>* floats = nullptr;			void add(std::vector<float>& collection) { floats = &collection; }
+	std::vector<std::string>* strings = nullptr;	void add(std::vector<std::string>& collection) { strings = &collection; }
+	std::vector<vec2>* vec2s = nullptr;				void add(std::vector<vec2>& collection) { vec2s = &collection; }
+	std::vector<vec3>* vec3s = nullptr;				void add(std::vector<vec3>& collection) { vec3s = &collection; }
+	std::vector<vec4>* vec4s = nullptr;				void add(std::vector<vec4>& collection) { vec4s = &collection; }
+};
+
+template<typename KT>
+struct debugMaps
+{
+	std::unordered_map<KT, bool>* um_bools = nullptr;			void add(std::unordered_map<KT, bool>& collection) { um_bools = &collection; }
+	std::unordered_map<KT, int>* um_ints = nullptr;				void add(std::unordered_map<KT, int>& collection) { um_ints = &collection; }
+	std::unordered_map<KT, float>* um_floats = nullptr;			void add(std::unordered_map<KT, float>& collection) { um_floats = &collection; }
+	std::unordered_map<KT, std::string>* um_strings = nullptr;	void add(std::unordered_map<KT, std::string>& collection) { um_strings = &collection; }
+	std::unordered_map<KT, vec2>* um_vec2s = nullptr;			void add(std::unordered_map<KT, vec2>& collection) { um_vec2s = &collection; }
+	std::unordered_map<KT, vec3>* um_vec3s = nullptr;			void add(std::unordered_map<KT, vec3>& collection) { um_vec3s = &collection; }
+	std::unordered_map<KT, vec4>* um_vec4s = nullptr;			void add(std::unordered_map<KT, vec4>& collection) { um_vec4s = &collection; }
+	
+	std::map<KT, bool>* bools = nullptr;						void add(std::map<KT, bool>& collection) { bools = &collection; }
+	std::map<KT, int>* ints = nullptr;							void add(std::map<KT, int>& collection) { ints = &collection; }
+	std::map<KT, float>* floats = nullptr;						void add(std::map<KT, float>& collection) { floats = &collection; }
+	std::map<KT, std::string>* strings = nullptr;				void add(std::map<KT, std::string>& collection) { strings = &collection; }
+	std::map<KT, vec2>* vec2s = nullptr;						void add(std::map<KT, vec2>& collection) { vec2s = &collection; }
+	std::map<KT, vec3>* vec3s = nullptr;						void add(std::map<KT, vec3>& collection) { vec3s = &collection; }
+	std::map<KT, vec4>* vec4s = nullptr;						void add(std::map<KT, vec4>& collection) { vec4s = &collection; }
+};
+
+struct debugMapCollection
+{
+	debugMapCollection(debugMaps<int>&& maps) : int_maps(maps) {};
+	debugMapCollection(debugMaps<std::string>&& maps) : str_maps(maps) {};
+	debugMaps<int> int_maps; 
+	debugMaps<std::string> str_maps; 
 };
 
 struct SpotLightDebugging

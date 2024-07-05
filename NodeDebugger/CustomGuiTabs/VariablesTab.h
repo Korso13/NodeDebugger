@@ -17,10 +17,25 @@ public:
 	template<typename T>
 	void addItemTyped(const std::string& altName, T item, std::function<void()> cb) NOCOMP;
 
+	template<typename Container, class VT = typename Container::mapped_type, class KT = typename Container::key_type>
+	void addCollectionKeyTyped(const std::string& altName, Container& collection) NOCOMP;
+
+	template<typename Container, class VT = typename Container::value_type>
+	void addCollectionTyped(const std::string& altName, Container& collection) NOCOMP;
+
 	void purgeValues() override NOCOMP;
 
 private:
 
+	void drawVectorCollection(const std::string& name, debugVectors& collection);
+	void drawMapCollection(const std::string& name, debugMapCollection& collection);
+
+private:
+
+	std::unordered_map<std::string, debugMapCollection> m_debugMaps;
+	std::unordered_map<std::string, debugVectors> m_debugVectors;
+
+	std::unordered_map<std::string, debugVar<std::string>> m_debugStrings;
 	std::unordered_map<std::string, debugVar<float>> m_debugFloats;
 	std::unordered_map<std::string, debugVar<int>  > m_debugInts;
 	std::unordered_map<std::string, debugVar<bool> > m_debugBools;
@@ -31,7 +46,41 @@ private:
 	std::string m_variablesFilter = "";
 };
 
+//Templated methods' impls:
 
+template<typename Container, class VT>
+inline void VariablesTab::addCollectionTyped(const std::string& altName, Container& collection)
+{
+	if (m_debugVectors.contains(altName))
+		return;
+
+	debugVectors newDebugRec;
+	newDebugRec.add(collection);
+
+	m_debugVectors.insert({ altName, newDebugRec});
+}
+
+template<typename Container, class VT, class KT>
+void VariablesTab::addCollectionKeyTyped(const std::string& altName, Container& collection)
+{
+	if (m_debugMaps.contains(altName))
+		return;
+
+	debugMaps<KT> newDebugRec;
+	newDebugRec.add(collection);
+	debugMapCollection maps(std::move(newDebugRec));
+
+	m_debugMaps.insert({ altName, maps });
+}
+
+template<>
+inline void VariablesTab::addItemTyped(const std::string& altName, std::string* item, std::function<void()> cb)
+{
+	debugVar<std::string> debugVar;
+	debugVar.var = item;
+	debugVar.onChangeCb = cb;
+	m_debugStrings.insert({ altName, debugVar });
+}
 template<>
 inline void VariablesTab::addItemTyped(const std::string& altName, float* item, std::function<void()> cb)
 {

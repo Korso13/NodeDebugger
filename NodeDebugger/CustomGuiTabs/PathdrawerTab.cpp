@@ -76,8 +76,7 @@ void PathdrawerTab::onGuiPathNodesTab()
 				if (m_pathNodeRender.contains(nodeName)
 					&& m_pathNodeRender[nodeName])
 				{
-					ImGuizmo::BeginFrame();
-					ImGuiDrawerGizmo::drawGizmosHandles(m_pathNodeRender[nodeName]);
+					ND_Util::NoConflictGizmo(m_pathNodeRender[nodeName], nodeName);
 					if (m_pathNodeRender[nodeName]->getWorldTranslation().withoutZ() != pathNode.pos)
 					{
 						pathNode.pos = m_pathNodeRender[nodeName]->getWorldTranslation().withoutZ();

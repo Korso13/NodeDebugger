@@ -27,8 +27,7 @@ void SpinesTab::onGuiCall()
             if (ImGui::TreeNode(debugSpine.spineName.c_str()))
             {
                 //Drag gizmo
-                ImGuizmo::BeginFrame();
-                ImGuiDrawerGizmo::drawGizmosHandles(debugSpine.spine);
+                ND_Util::NoConflictGizmo(debugSpine.spine, name);
 
                 if (ImGui::BeginTabBar("Spine tab bar"))
                 {

@@ -253,6 +253,8 @@ void ND_ImGui::onGui(float dt)
 
     if (ImGui::Begin("Node Debugger"))
     {
+        //Drag gizmo init
+        ImGuizmo::BeginFrame();
 
         if (m_foldImGuiMenu)
             m_foldImGuiMenu = false;
@@ -266,7 +268,7 @@ void ND_ImGui::onGui(float dt)
             //debug camera tab
             if (ImGui::BeginTabItem("Camera"))
             {
-                ND_Util::ImGuiNodeSettings();
+                ND_Util::ImGuiNodeSettings(true);
 
                 if (ImGui::BeginChild("Camera scrollable zone"))
                 {
@@ -441,9 +443,8 @@ void ND_ImGui::ImGNodeRender(sptr<Node> _node, const std::string& name)
             m_staticNodes[name].markedForDeletion = true;
         }
 
-        //Drag gizmo
-        ImGuizmo::BeginFrame();
-        ImGuiDrawerGizmo::drawGizmosHandles(_node);
+        //Gizmo
+        ND_Util::NoConflictGizmo(_node, name);
 
         //visibility button
         if (ImGui::Button("Toggle visibility"))

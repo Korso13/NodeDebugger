@@ -43,8 +43,9 @@ void BordersTab::onGuiCall()
 							if (m_borderRender.find(meshSearchName) != m_borderRender.end()
 								&& m_borderRender[meshSearchName])
 							{
-								ImGuizmo::BeginFrame();
-								ImGuiDrawerGizmo::drawGizmosHandles(m_borderRender[meshSearchName]);
+								//Gizmo
+								ND_Util::NoConflictGizmo(m_borderRender[meshSearchName], meshSearchName);
+								
 								if (m_borderRender[meshSearchName]->getWorldTranslation().withoutZ() != borderRecord->points[i])
 								{
 									borderRecord->points[i] = m_borderRender[meshSearchName]->getWorldTranslation().withoutZ();
