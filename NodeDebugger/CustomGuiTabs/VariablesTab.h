@@ -47,6 +47,7 @@ private:
 };
 
 //Templated methods' impls:
+#ifndef FORCENODEDEBUG_OFF
 
 template<typename Container, class VT>
 inline void VariablesTab::addCollectionTyped(const std::string& altName, Container& collection)
@@ -61,7 +62,7 @@ inline void VariablesTab::addCollectionTyped(const std::string& altName, Contain
 }
 
 template<typename Container, class VT, class KT>
-void VariablesTab::addCollectionKeyTyped(const std::string& altName, Container& collection)
+inline void VariablesTab::addCollectionKeyTyped(const std::string& altName, Container& collection)
 {
 	if (m_debugMaps.contains(altName))
 		return;
@@ -178,3 +179,5 @@ inline void VariablesTab::addItemTyped(const std::string& altName, const vec4* i
 	debugVar.onChangeCb = cb;
 	m_debugVec4.insert({ altName, debugVar });
 }
+
+#endif
