@@ -569,7 +569,7 @@ void PathdrawerTab::onGuiPathSearchTab()
 	{
 		for (auto& path : m_pathsData.paths)
 		{
-			if (path.startPoint == m_selectedSearchNode || path.startPoint == m_selectedSearchNode || std::find(path.midPoints.begin(), path.midPoints.end(), m_selectedSearchNode) != path.midPoints.end())
+			if (path.startPoint == m_selectedSearchNode || path.endPoint == m_selectedSearchNode || std::find(path.midPoints.begin(), path.midPoints.end(), m_selectedSearchNode) != path.midPoints.end())
 			{
 				bool isSelected = i == m_selectedSearchResultIndex;
 				if (ImGui::Selectable(path.pathName.c_str(), &isSelected))
@@ -697,27 +697,33 @@ void PathdrawerTab::tryBuildDefaultPaths()
 	nlohmann::adl_serializer<PF_BorderContainer>::from_json(json, m_borders);
 
 	int pathsIterator = 0;
-	std::map<std::string, std::string> generatedPathPairs;
+	std::set<std::pair<std::string, std::string>> generatedPathPairs;
 	//Iterating over all path nodes
 	for (auto& [nodeName, pathNode] : m_pathsData.pathnodes)
 	{
 		std::map<float, std::string> candidates;
+		std::string debugOutput = "\n Path generation for " + nodeName;
+
 		//And for each node we iterate again and look for reachable nodes
 		for (auto& [otherName, otherPathNode] : m_pathsData.pathnodes)
 		{
 			if (nodeName == otherName)
 				continue;
 
-			if((generatedPathPairs.contains(otherName) && generatedPathPairs[otherName] == nodeName) || 
-				(generatedPathPairs.contains(nodeName) && generatedPathPairs[nodeName] == otherName))
+			if (generatedPathPairs.contains({ nodeName, otherName }))
+				continue;
+			if (generatedPathPairs.contains({ otherName, nodeName }))
 				continue;
 
 			if (!isBorderIntersect(otherPathNode.pos, pathNode.pos))
 			{
 				candidates.insert({ (otherPathNode.pos - pathNode.pos).length(), otherName });
+				debugOutput = debugOutput + "\n Candidate pair: {" + nodeName + ", " + otherName + "}";
 			}
 		}
 
+		debugOutput += "\n==============";
+		debugOutput += "\nGenerated paths:";
 		//We go through first(nearest) %m_autoPathPerNode% nodes and plot a path to them
 		int pathsGenerated = 0;
 		for (auto& [length, otherNodeName] : candidates)
@@ -729,6 +735,9 @@ void PathdrawerTab::tryBuildDefaultPaths()
 			};
 			generatedPathPairs.insert({ nodeName, otherNodeName});
 			generatedPathPairs.insert({ otherNodeName, nodeName });
+			debugOutput = debugOutput + "\n Adding Path between: {" + nodeName + ", " + otherNodeName + "}";
+			debugOutput = debugOutput + "\n Adding Path between: {" + otherNodeName + ", " + nodeName + "}";
+
 			m_pathsData.paths.push_back(generatedPath);
 			renderPathLines(m_pathsData.paths.back());
 
@@ -736,6 +745,8 @@ void PathdrawerTab::tryBuildDefaultPaths()
 			if (pathsGenerated == m_autoPathPerNode)
 				break;
 		}
+
+		//info("%s", debugOutput.c_str()); //debug output
 	}
 }
 
