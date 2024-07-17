@@ -326,7 +326,10 @@ void ND_ImGui::onGui(float dt)
         }
     }
     else if (!m_foldImGuiMenu)
+    {
         m_foldImGuiMenu = true;
+        m_windowFocused = false;
+    }
 
     ImGui::End();
 
@@ -345,7 +348,12 @@ void ND_ImGui::ImGuiNodes()
     ImGui::SameLine();
     if (ImGui::Button("Add all existing nodes"))
     {
-        Render::getRoot()->traversalChildrenTyped<Node>([this](sptr<Node> _node)
+        Render::getRoot()->traversalTyped<Node>([this](sptr<Node> _node)
+            {
+                if (_node && _node != Render::getRoot() && _node != Render::getScreenCamera())
+                    addImGuiNode(_node);
+            });
+        Render::getHudPass().getRoot()->traversalTyped<Node>([this](sptr<Node> _node)
             {
                 if (_node && _node != Render::getRoot() && _node != Render::getScreenCamera())
                     addImGuiNode(_node);
