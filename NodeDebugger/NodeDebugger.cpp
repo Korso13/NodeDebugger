@@ -20,7 +20,7 @@ NodeDebugger::NodeDebugger() :
     m_clickMesh = Mesh::create::plane(vec2(1000.f, 1000.f));
     m_clickMesh->setName("clickMesh_debug");
     auto collider = m_clickMesh->addCollider<AABB>("clickMesh_debug", m_clickMesh);
-    collider->setReceiveRaycasts(false);
+    collider->setReceiveRaycasts(true);
     collider->setBlockRaycasts(false);
     collider->setScreencastCallback([this](const CollisionInfo& hit)
         {
@@ -324,7 +324,7 @@ void NodeDebugger::onKeyPressed(const event::Keyboard::Down& evt)
 
     if (!m_nodeSwitchBoard[m_selectedNode])
     {
-        W4_LOG_INFO("No debug move node selected!");
+        //W4_LOG_INFO("No debug move node selected!");
         return;
     }
 
