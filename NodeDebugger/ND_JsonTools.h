@@ -7,6 +7,7 @@
 #include "W4JSONCommon.h"
 #include "JsonHelpers.h"
 #include "ND_Defines.h"
+#include <regex>
 
 W4_USE_UNSTRICT_INTERFACE
 
@@ -71,7 +72,7 @@ void jsReadImage(void* self, JSStringCallback callback) {};
 void jsReadJson(void* self, JSStringCallback callback) {};
 #endif
 
-namespace nlohmann 
+namespace nlohmann
 {
 	//serializers and deserializers for tween settings container
 	template<>
@@ -131,10 +132,62 @@ namespace nlohmann
 		return tweenContainer;
 	}
 
+	static void setJsonFloatAccuracy(std::string& jsonDump, int floatAccuracy = 4)
+	{
+		info("Cutting float accuracy, please wait!");
+
+		std::smatch searchMatches;
+		std::regex regExSearch(R"(\.\d{7,25})");
+		std::string originalString = "";
+		std::string replacementString = "";
+
+		std::sregex_iterator searchIt(jsonDump.begin(), jsonDump.end(), regExSearch);
+		std::sregex_iterator endOfResult;
+
+		//size_t i = 0;
+		for (; searchIt != endOfResult; ++searchIt)
+		{
+			searchMatches = *searchIt;
+
+			if (searchMatches.size() > 0)
+			{
+				originalString.clear();
+				replacementString.clear();
+
+				originalString = searchMatches.str();
+				if (originalString.size() == 0)
+					continue;
+
+				originalString.erase(originalString.begin()); //removing comma in the begining
+				if (originalString.size() < floatAccuracy)
+					continue;
+
+				replacementString = originalString.substr(0, std::min(CastI(originalString.size()), floatAccuracy));
+				//info("Match {%s} and replacement {%s}", originalString.c_str(), replacementString.c_str());
+				if (!replacementString.empty() && !originalString.empty())
+					jsonDump = std::regex_replace(
+						jsonDump,
+						std::regex(originalString),
+						replacementString/*,
+						std::regex_constants::match_flag_type::format_first_only*/
+					);
+			}
+
+			//i++;
+		}
+
+		//info("[nlohmann::setJsonFloatAccuracy] Iterations %d", i);
+	}
+
 	//json unflattener that doesn't crash over vec2 and vec3
+	//Also limits floats precision by 4 digits if define JSON_FLOAT_OPTIMIZATION is enabled
 	static std::string jsonUnflatten(nlohmann::json& inJson)
 	{
 		std::string jsonString = inJson.dump();
+#ifdef JSON_FLOAT_OPTIMIZATION
+		setJsonFloatAccuracy(jsonString);
+#endif
+
 		int tabLevel = 0;
 		size_t stringSize = jsonString.size();
 		for (size_t i = 0; i < stringSize; i++)
@@ -160,7 +213,6 @@ namespace nlohmann
 
 			if ((symb == ']' || symb == '}') && jsonString[i+1] != ',')
 			{
-				//jsonString.erase(i - 1, 1);
 				tabLevel--; 
 				jsonString.insert(i, "\n");
 				stringSize++;
@@ -174,7 +226,6 @@ namespace nlohmann
 
 			if ((symb == ']' || symb == '}') && jsonString[i+1] == ',')
 			{
-				//jsonString.erase(i - 1, 1);
 				tabLevel--;
 				jsonString.insert(i, "\n");
 				stringSize++;
@@ -208,7 +259,7 @@ namespace nlohmann
 	{
 		nlohmann::json exportJson;
 		nlohmann::adl_serializer<tweenRecordsContainer>::to_json(exportJson, containerData);
-		
+
 		std::string flatJson = jsonUnflatten(exportJson);
 #ifndef FORCENODEDEBUG_OFF
 		ImGui::SetClipboardText(flatJson.c_str());
