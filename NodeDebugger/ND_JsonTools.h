@@ -137,14 +137,14 @@ namespace nlohmann
 		info("Cutting float accuracy, please wait!");
 
 		std::smatch searchMatches;
-		std::regex regExSearch(R"(\.\d{7,25})");
+		std::regex regExSearch(R"(\.\d{5,25})");
 		std::string originalString = "";
 		std::string replacementString = "";
 
 		std::sregex_iterator searchIt(jsonDump.begin(), jsonDump.end(), regExSearch);
 		std::sregex_iterator endOfResult;
 
-		//size_t i = 0;
+		size_t i = 0;
 		for (; searchIt != endOfResult; ++searchIt)
 		{
 			searchMatches = *searchIt;
@@ -173,10 +173,11 @@ namespace nlohmann
 					);
 			}
 
-			//i++;
+			i++;
 		}
 
 		//info("[nlohmann::setJsonFloatAccuracy] Iterations %d", i);
+		info("Finished cutting float accuracy!");
 	}
 
 	//json unflattener that doesn't crash over vec2 and vec3
@@ -184,10 +185,12 @@ namespace nlohmann
 	static std::string jsonUnflatten(nlohmann::json& inJson)
 	{
 		std::string jsonString = inJson.dump();
+
 #ifdef JSON_FLOAT_OPTIMIZATION
 		setJsonFloatAccuracy(jsonString);
 #endif
 
+		bool isInVecStruct = false;
 		int tabLevel = 0;
 		size_t stringSize = jsonString.size();
 		for (size_t i = 0; i < stringSize; i++)
@@ -199,45 +202,68 @@ namespace nlohmann
 			}
 
 			auto symb = jsonString[i];
+
 			if (symb == '{' || symb == '[')
 			{
-				tabLevel++;
-				jsonString.insert(i+1, "\n");
-				stringSize++;
-				for (size_t j = 0; j < tabLevel; j++)
+				if (!isInVecStruct && symb == '{' && jsonString[i + 2] == 'x')
 				{
-					jsonString.insert(i+2+j, "\t");
+					isInVecStruct = true;
+				}
+				else
+				{
+					tabLevel++;
+					jsonString.insert(i+1, "\n");
 					stringSize++;
+					for (size_t j = 0; j < tabLevel; j++)
+					{
+						jsonString.insert(i+2+j, "\t");
+						stringSize++;
+					}
 				}
 			}
 
 			if ((symb == ']' || symb == '}') && jsonString[i+1] != ',')
 			{
-				tabLevel--; 
-				jsonString.insert(i, "\n");
-				stringSize++;
-				for (size_t j = 0; j < tabLevel; j++)
+				if (isInVecStruct && symb == '}')
 				{
-					jsonString.insert(i + 1 + j, "\t");
-					stringSize++;
+					isInVecStruct = false;
 				}
-				i += tabLevel + 1;
+				else
+				{
+					tabLevel--; 
+					jsonString.insert(i, "\n");
+					stringSize++;
+					for (size_t j = 0; j < tabLevel; j++)
+					{
+						jsonString.insert(i + 1 + j, "\t");
+						stringSize++;
+					}
+					i += tabLevel + 1;
+
+				}
 			}
 
 			if ((symb == ']' || symb == '}') && jsonString[i+1] == ',')
 			{
-				tabLevel--;
-				jsonString.insert(i, "\n");
-				stringSize++;
-				for (size_t j = 0; j < tabLevel; j++)
+				if (isInVecStruct && symb == '}')
 				{
-					jsonString.insert(i+1+j, "\t");
-					stringSize++;
+					isInVecStruct = false;
 				}
-				i += tabLevel + 1;
+				else
+				{
+					tabLevel--;
+					jsonString.insert(i, "\n");
+					stringSize++;
+					for (size_t j = 0; j < tabLevel; j++)
+					{
+						jsonString.insert(i + 1 + j, "\t");
+						stringSize++;
+					}
+					i += tabLevel + 1;
+				}
 			}
 
-			if (symb == ',' /*&& jsonString[i + 1] != '"'*/)
+			if (symb == ',' && !isInVecStruct)
 			{
 				jsonString.insert(i+1, "\n");
 				stringSize++;
