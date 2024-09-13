@@ -40,7 +40,7 @@ struct ImVec2 { ImVec2(float, float) {}; };
 //#define NDCONSOLE
 
 //Other settings
-#define JSON_FLOAT_OPTIMIZATION
+#define JSON_FLOAT_ACCURACY 4
 
 //=========================================================================================
 // Node Debugger SETTINGS and Global Variables

@@ -132,52 +132,27 @@ namespace nlohmann
 		return tweenContainer;
 	}
 
-	static void setJsonFloatAccuracy(std::string& jsonDump, int floatAccuracy = 4)
+	static bool isDigit(char& symbol)
 	{
-		info("Cutting float accuracy, please wait!");
-
-		std::smatch searchMatches;
-		std::regex regExSearch(R"(\.\d{5,25})");
-		std::string originalString = "";
-		std::string replacementString = "";
-
-		std::sregex_iterator searchIt(jsonDump.begin(), jsonDump.end(), regExSearch);
-		std::sregex_iterator endOfResult;
-
-		size_t i = 0;
-		for (; searchIt != endOfResult; ++searchIt)
+		switch (symbol)
 		{
-			searchMatches = *searchIt;
-
-			if (searchMatches.size() > 0)
-			{
-				originalString.clear();
-				replacementString.clear();
-
-				originalString = searchMatches.str();
-				if (originalString.size() == 0)
-					continue;
-
-				originalString.erase(originalString.begin()); //removing comma in the begining
-				if (originalString.size() < floatAccuracy)
-					continue;
-
-				replacementString = originalString.substr(0, std::min(CastI(originalString.size()), floatAccuracy));
-				//info("Match {%s} and replacement {%s}", originalString.c_str(), replacementString.c_str());
-				if (!replacementString.empty() && !originalString.empty())
-					jsonDump = std::regex_replace(
-						jsonDump,
-						std::regex(originalString),
-						replacementString/*,
-						std::regex_constants::match_flag_type::format_first_only*/
-					);
-			}
-
-			i++;
+		case('0'):
+		case('1'):
+		case('2'):
+		case('3'):
+		case('4'):
+		case('5'):
+		case('6'):
+		case('7'):
+		case('8'):
+		case('9'):
+			return true;
+			break;
+		default:
+			break;
 		}
 
-		//info("[nlohmann::setJsonFloatAccuracy] Iterations %d", i);
-		info("Finished cutting float accuracy!");
+		return false;
 	}
 
 	//json unflattener that doesn't crash over vec2 and vec3
@@ -186,12 +161,10 @@ namespace nlohmann
 	{
 		std::string jsonString = inJson.dump();
 
-#ifdef JSON_FLOAT_OPTIMIZATION
-		setJsonFloatAccuracy(jsonString);
-#endif
-
 		bool isInVecStruct = false;
+		bool countFloatAccuracy = false;
 		int tabLevel = 0;
+		int floatingPointDigits = 0;
 		size_t stringSize = jsonString.size();
 		for (size_t i = 0; i < stringSize; i++)
 		{
@@ -202,6 +175,33 @@ namespace nlohmann
 			}
 
 			auto symb = jsonString[i];
+
+			//floating point accuracy reducer
+			if (!countFloatAccuracy && symb == '.' && isDigit(jsonString[i + 1]))
+			{
+				floatingPointDigits = 0;
+				countFloatAccuracy = true;
+			}
+			else if (countFloatAccuracy && isDigit(symb))
+			{
+				if (floatingPointDigits < JSON_FLOAT_ACCURACY)
+				{
+					floatingPointDigits++;
+				}
+				else
+				{
+					jsonString.erase(i, 1);
+					stringSize--;
+					i--;
+					continue;
+				}
+			}
+			else if (countFloatAccuracy)
+			{
+				countFloatAccuracy = false;
+			}
+
+			//unflattener for json structs
 
 			if (symb == '{' || symb == '[')
 			{
@@ -276,7 +276,7 @@ namespace nlohmann
 
 			//info("%c", symb);
 		}
-
+		
 		return jsonString;
 	}
 
