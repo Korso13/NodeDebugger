@@ -13,7 +13,7 @@ W4_USE_UNSTRICT_INTERFACE
 class iGuiTab
 {
 public:
-	iGuiTab(std::string tabName) : m_tabName(tabName) {};
+	iGuiTab(std::string tabName = "DefaultTabName") : m_tabName(tabName) {};
 
 	//called from onGui() method of ND_ImGui:
 	virtual void onGuiCall() = 0; //ImGui draw instructions to be called (no need to call BeginTabItem()!!!)

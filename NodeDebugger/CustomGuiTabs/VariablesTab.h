@@ -6,7 +6,7 @@ class VariablesTab : public iGuiTab
 {
 public:
 
-	VariablesTab() : iGuiTab("Variables") {};
+	VariablesTab();
 
 	void onGuiCall() override NOCOMP;
 	bool isEmpty() override NOCOMP_B;
@@ -29,6 +29,7 @@ private:
 
 	void drawVectorCollection(const std::string& name, debugVectors& collection);
 	void drawMapCollection(const std::string& name, debugMapCollection& collection);
+	void drawSettingsSubtab();
 
 private:
 
@@ -43,10 +44,20 @@ private:
 	std::unordered_map<std::string, debugVar<vec3> > m_debugVec3;
 	std::unordered_map<std::string, debugVar<vec4> > m_debugVec4;
 
+#ifdef ND_ACCESSENABLED
+	std::unordered_map<std::string, bool>&			m_boolSettings;
+	std::unordered_map<std::string, int>&			m_intSettings;
+	std::unordered_map<std::string, float>&			m_floatSettings;
+	std::unordered_map<std::string, std::string>&	m_stringSettings;
+	std::unordered_map<std::string, vec2>&			m_vec2Settings;
+	std::unordered_map<std::string, vec3>&			m_vec3Settings;
+	std::unordered_map<std::string, vec4>&			m_vec4Settings;
+#endif
+
 	std::string m_variablesFilter = "";
 };
 
-//Templated methods' impls:
+	//Templated methods' impls:
 #ifndef FORCENODEDEBUG_OFF
 
 template<typename Container, class VT>

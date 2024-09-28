@@ -162,6 +162,7 @@ namespace nlohmann
 		std::string jsonString = inJson.dump();
 
 		bool isInVecStruct = false;
+		bool isInKeyName = false;
 		bool countFloatAccuracy = false;
 		int tabLevel = 0;
 		int floatingPointDigits = 0;
@@ -175,6 +176,21 @@ namespace nlohmann
 			}
 
 			auto symb = jsonString[i];
+			
+			//detects key name or string. Requires no action until the next " (end of key or string)
+			if (symb == '"')
+			{
+				isInKeyName = !isInKeyName;
+			}
+			if (isInKeyName)
+				continue;
+
+			//adds space after colon and inside vec structs
+			if (symb == ':' || (isInVecStruct && symb == ','))
+			{
+				jsonString.insert(i + 1, " ");
+				stringSize++;
+			}
 
 			//floating point accuracy reducer
 			if (!countFloatAccuracy && symb == '.' && isDigit(jsonString[i + 1]))
@@ -201,11 +217,10 @@ namespace nlohmann
 				countFloatAccuracy = false;
 			}
 
-			//unflattener for json structs
-
+			//flattener for vec3 structs
 			if (symb == '{' || symb == '[')
 			{
-				if (!isInVecStruct && symb == '{' && jsonString[i + 2] == 'x')
+				if (!isInVecStruct && symb == '{' && (jsonString[i + 2] == 'x' || jsonString[i + 2] == 'w'))
 				{
 					isInVecStruct = true;
 				}
