@@ -27,9 +27,9 @@ public:
 
 private:
 
-	void drawVectorCollection(const std::string& name, debugVectors& collection);
-	void drawMapCollection(const std::string& name, debugMapCollection& collection);
-	void drawSettingsSubtab();
+	void drawVectorCollection(const std::string& name, debugVectors& collection) NOCOMP;
+	void drawMapCollection(const std::string& name, debugMapCollection& collection) NOCOMP;
+	void drawSettingsSubtab() NOCOMP;
 
 private:
 
@@ -55,6 +55,7 @@ private:
 #endif
 
 	std::string m_variablesFilter = "";
+	std::string m_settingsFilter = "";
 };
 
 	//Templated methods' impls:

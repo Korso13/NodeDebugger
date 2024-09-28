@@ -63,3 +63,35 @@ namespace ND_Util
 	static const char* easingNames[31];
 }
 
+#ifndef FORCENODEDEBUG_OFF
+
+#define NDS ND_Settings::get()
+
+class ND_Settings
+{
+public:
+
+	static ND_Settings* get()
+	{
+		if (!m_instance)
+		{
+			m_instance = new ND_Settings();
+		}
+
+		return m_instance;
+	}
+
+private:
+
+	ND_Settings() = default;
+
+public:
+
+	vec3 m_lastCopiedVec3 = vec3::zero;
+
+private: 
+
+	static ND_Settings* m_instance;
+};
+
+#endif

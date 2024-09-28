@@ -1,7 +1,8 @@
 #include "VariablesTab.h"
-#include "../ND_JsonTools.h"
 
 #ifndef FORCENODEDEBUG_OFF
+#include "../ND_JsonTools.h"
+#include <common/NodeDebugger/ND_ContainerTools.h>
 
 //json serializers for settings export
 namespace nlohmann
@@ -309,6 +310,7 @@ void VariablesTab::drawSettingsSubtab()
 	if (ImGui::BeginChild("Settings scroll zone"))
 	{
 #ifdef ND_ACCESSENABLED
+		//Settings export button
 		if (ImGui::Button("Export settings"))
 		{
 			nlohmann::json exportJson;
@@ -324,13 +326,17 @@ void VariablesTab::drawSettingsSubtab()
 			jsWriteEvent(flatJson.c_str(), "settings.json");
 		}
 
-		ImGui::Auto("Bools", m_boolSettings);
-		ImGui::Auto("Ints", m_intSettings);
-		ImGui::Auto("Floats", m_floatSettings);
-		ImGui::Auto("vec2", m_vec2Settings);
-		ImGui::Auto("vec3", m_vec3Settings);
-		ImGui::Auto("vec4", m_vec4Settings);
-		ImGui::Auto("Strings", m_stringSettings);
+		//settings filter
+		ND_Util::ImGuiSearchBar(m_settingsFilter);
+
+		//Settings list renderers
+		ND_ContainerTools::ContainerView("Bools", m_boolSettings, m_settingsFilter);
+		ND_ContainerTools::ContainerView("Ints", m_intSettings, m_settingsFilter);
+		ND_ContainerTools::ContainerView("Floats", m_floatSettings, m_settingsFilter);
+		ND_ContainerTools::ContainerView("vec2", m_vec2Settings, m_settingsFilter);
+		ND_ContainerTools::ContainerView("vec3", m_vec3Settings, m_settingsFilter);
+		ND_ContainerTools::ContainerView("vec4", m_vec4Settings, m_settingsFilter);
+		ND_ContainerTools::ContainerView("Strings", m_stringSettings, m_settingsFilter);
 #else
 		ImGui::Text("Settings import/export Not enabled!\n Update Settings and SettingsContainer.h!");
 #endif

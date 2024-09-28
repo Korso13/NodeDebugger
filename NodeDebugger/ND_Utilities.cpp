@@ -10,9 +10,10 @@
 
 #define TWEENCONTAINER TweenContainer::getTweenContainer()
 
+ND_Settings* ND_Settings::m_instance = nullptr;
+
 namespace ND_Util
 {
-
     std::string jsstring(vec3 vec)
     {
         std::string jstring;
@@ -238,6 +239,8 @@ namespace ND_Util
 
         if (ImGui::Button("Copy"))
         {
+            NDS->m_lastCopiedVec3 = vec;
+            warn("%s", CVEC(NDS->m_lastCopiedVec3));
             ImGui::SetClipboardText(jsprint(vec));
         }
         ImGui::SameLine();
@@ -247,11 +250,14 @@ namespace ND_Util
 
     void ImGuiTransforms(sptr<Node> _node)
     {
-        if (ImGui::Button("Center on camera"))
+        if (!_node->is<Camera>())
         {
-            vec3 target = Render::getScreenCamera()->getWorldTranslation();
-            target.z = 0.f;
-            _node->setWorldTranslation(target);
+            if (ImGui::Button("Center on camera"))
+            {
+                vec3 target = Render::getScreenCamera()->getWorldTranslation();
+                target.z = 0.f;
+                _node->setWorldTranslation(target);
+            }
         }
 
         //translation sliders
