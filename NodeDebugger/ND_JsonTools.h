@@ -222,7 +222,9 @@ namespace nlohmann
 			if (symb == '{' || symb == '[')
 			{
 				//flattener for vec3 structs
-				if (!isInVecStruct && symb == '{' && (jsonString[i + 2] == 'x' || jsonString[i + 2] == 'w'))
+				if (!isInVecStruct && symb == '{' &&
+					jsonString[i + 4] == ':' &&
+					(jsonString[i + 2] == 'x' || jsonString[i + 2] == 'w'))
 				{
 					isInVecStruct = true;
 					
