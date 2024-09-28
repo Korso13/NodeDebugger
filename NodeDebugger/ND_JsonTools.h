@@ -162,10 +162,12 @@ namespace nlohmann
 		std::string jsonString = inJson.dump();
 
 		bool isInVecStruct = false;
+		bool isInVec4Struct = false;
 		bool isInKeyName = false;
 		bool countFloatAccuracy = false;
 		int tabLevel = 0;
 		int floatingPointDigits = 0;
+		std::string vec4WFieldSubstr = "";
 		size_t stringSize = jsonString.size();
 		for (size_t i = 0; i < stringSize; i++)
 		{
@@ -217,13 +219,26 @@ namespace nlohmann
 				countFloatAccuracy = false;
 			}
 
-			//flattener for vec3 structs
 			if (symb == '{' || symb == '[')
 			{
+				//flattener for vec3 structs
 				if (!isInVecStruct && symb == '{' && (jsonString[i + 2] == 'x' || jsonString[i + 2] == 'w'))
 				{
 					isInVecStruct = true;
+					
+					//fixed vec4 fields order begining
+					if (jsonString[i + 2] == 'w')
+					{
+						isInVec4Struct = true;
+						int stride = (jsonString.find_first_of(",", i + 2) + 1) - (i + 1);
+						vec4WFieldSubstr = jsonString.substr(i + 1, stride);
+						jsonString.erase(i + 1, stride);
+						stringSize -= stride;
+						vec4WFieldSubstr.pop_back();
+						continue;
+					}
 				}
+				//other cases
 				else
 				{
 					tabLevel++;
@@ -239,6 +254,17 @@ namespace nlohmann
 
 			if ((symb == ']' || symb == '}') && jsonString[i+1] != ',')
 			{
+				//vec4 fields order fix end
+				if (isInVec4Struct)
+				{
+					isInVec4Struct = false;
+					jsonString.insert(i, ", ");
+					jsonString.insert(i + 2, vec4WFieldSubstr);
+					stringSize += vec4WFieldSubstr.size() + 2;
+					vec4WFieldSubstr.clear();
+					continue;
+				}
+
 				if (isInVecStruct && symb == '}')
 				{
 					isInVecStruct = false;
@@ -260,6 +286,17 @@ namespace nlohmann
 
 			if ((symb == ']' || symb == '}') && jsonString[i+1] == ',')
 			{
+				//vec4 fields order fix end
+				if (isInVec4Struct)
+				{
+					isInVec4Struct = false;
+					jsonString.insert(i, ", ");
+					jsonString.insert(i + 2, vec4WFieldSubstr);
+					stringSize += vec4WFieldSubstr.size() + 2;
+					vec4WFieldSubstr.clear();
+					continue;
+				}
+
 				if (isInVecStruct && symb == '}')
 				{
 					isInVecStruct = false;
