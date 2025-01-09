@@ -28,18 +28,22 @@ void PathdrawerTab::onGuiCall()
 
 	if (ImGui::BeginTabBar("Path editor tabbar"), ImGuiTabBarFlags_::ImGuiTabBarFlags_Reorderable)
 	{
+
 		if (ImGui::BeginTabItem("Path Nodes"))
 		{
+			m_activeSubtab = Subtab::PathNodes;
 			onGuiPathNodesTab();
 			ImGui::EndTabItem();
 		}
 		if (ImGui::BeginTabItem("Paths editor"))
 		{
+			m_activeSubtab = Subtab::PathBuilder;
 			onGuiPathEditorTab();
 			ImGui::EndTabItem();
 		}
 		if (ImGui::BeginTabItem("Search Node Paths"))
 		{
+			m_activeSubtab = Subtab::NodePathSearch;
 			onGuiPathSearchTab();
 			ImGui::EndTabItem();
 		}
@@ -109,40 +113,15 @@ void PathdrawerTab::onGuiPathNodesTab()
 	//removing deleted PathNode
 	if (bNeedRemovePoint)
 	{
-		m_pathsData.pathnodes.erase(removePointName);
-		for (auto& child : m_pathNodeRender[removePointName]->getAllChildren())
-		{
-			if (child)
-				m_pathNodeRender[removePointName]->removeChild(child);
-		}
-		m_pathNodeRender[removePointName]->getParent()->removeChild(m_pathNodeRender[removePointName]);
-		m_pathNodeRender[removePointName].reset();
-		m_pathNodeRender.erase(removePointName);
-		for (auto& path : m_pathsData.paths)
-		{
-			if (path.startPoint == removePointName)
-			{
-				path.startPoint = "";
-				renderPathLines(path, true);
-			}
-			if (path.endPoint == removePointName)
-			{
-				path.endPoint = "";
-				renderPathLines(path, true);
-			}
-			for(auto& midPoint : path.midPoints)
-				if (midPoint == removePointName)
-				{
-					midPoint = "";
-					renderPathLines(path, true);
-				}
-		}
+		removePathNode(removePointName);
 	}
 
 	//New path nodes adder
 	ImGui::Spacing();
 	ImGui::Separator();
 	ImGui::Columns(2);
+	//ImGui::SetKeyboardFocusHere();
+	//New node name input field. Creates new node upon hitting Enter
 	if(ImGui::InputText("Name", &m_newPathNodeNaming, ImGuiInputTextFlags_EnterReturnsTrue))
 	{
 		//Called on pressing enter
@@ -150,24 +129,17 @@ void PathdrawerTab::onGuiPathNodesTab()
 			return;
 
 		vec2 newPointPos = Render::getScreenCamera()->getWorldTranslation().withoutZ();
-		m_pathsData.pathnodes.insert({
-			m_newPathNodeNaming,
-			pathNode{newPointPos, m_nodeDefaultSpeed}
-			});
-		renderPathNode(m_newPathNodeNaming, m_pathsData.pathnodes[m_newPathNodeNaming]);
+		addPathNode(m_newPathNodeNaming, newPointPos, m_nodeDefaultSpeed);
 	}
 	ImGui::NextColumn();
+	//Button for adding new node
 	if (ImGui::Button("Add new path node"))
 	{
 		if (m_newPathNodeNaming == "" || m_newPathNodeNaming.empty() || m_pathsData.pathnodes.contains(m_newPathNodeNaming))
 			return;
 
 		vec2 newPointPos = Render::getScreenCamera()->getWorldTranslation().withoutZ();
-		m_pathsData.pathnodes.insert({
-			m_newPathNodeNaming,
-			pathNode{newPointPos, m_nodeDefaultSpeed}
-			});
-		renderPathNode(m_newPathNodeNaming , m_pathsData.pathnodes[m_newPathNodeNaming]);
+		addPathNode(m_newPathNodeNaming, newPointPos, m_nodeDefaultSpeed);
 	}
 	ImGui::Columns(1);
 	ImGui::DragFloat("Default node speed", &m_nodeDefaultSpeed, 0.1, 0.001);
@@ -230,7 +202,14 @@ void PathdrawerTab::onGuiPathEditorTab()
 void PathdrawerTab::renderPathLines(const plottedPath& pathRecordToRedraw, bool forceRedrawColor)
 {
 	if (pathRecordToRedraw.startPoint == "" || pathRecordToRedraw.endPoint == "")
+	{
+		for (auto& mesh : m_pathLinesRender[pathRecordToRedraw.pathName])
+		{
+			if (mesh)
+				mesh->getParent()->removeChild(mesh);
+		}
 		return;
+	}
 
 	bool reRenderSelectedPath = false;
 	if (m_selectedPathIndex != -1 && m_pathsData.paths[m_selectedPathIndex].pathName == pathRecordToRedraw.pathName)
@@ -238,7 +217,7 @@ void PathdrawerTab::renderPathLines(const plottedPath& pathRecordToRedraw, bool 
 	if (forceRedrawColor)
 		reRenderSelectedPath = false;
 
-	//clearing old render or borders
+	//clearing old render of path
 	for (auto& mesh : m_pathLinesRender[pathRecordToRedraw.pathName])
 	{
 		if (mesh)
@@ -290,17 +269,15 @@ void PathdrawerTab::renderPathLines(const plottedPath& pathRecordToRedraw, bool 
 
 		//debug("\nDrawing line [%d] from \n%s \nto \n%s", i, CSTR(prevPos), CSTR(nodePos));
 
-		//auto l = w4::render::Plotter::buildLine(prevPos, nodePos, color(color::Red));
-		//m_pathNodeRender[borderPointName]->addChild(l);
-
 		auto line = Mesh::create::plane();
 		line->setName("line_" + STR(i));
 		m_pathNodeRender[nodeName]->addChild(line);
 		auto mat = RMat("sprite")->createInstance();
-		color _color = color(0.f, 0.f, 1.f, 1.f);
+		color _color = color(0.f, 0.f, 1.f, 0.8);
 		if(reRenderSelectedPath)
-			_color = color(0.f, 1.f, 0.f, 1.f);
+			_color = color(0.f, 1.f, 0.f, 0.8);
 		mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(_color));
+		mat->enableBlending(true);
 		line->setMaterialInst(mat);
 		m_pathLinesRender[pathRecordToRedraw.pathName].push_back(line);
 
@@ -313,7 +290,7 @@ void PathdrawerTab::renderPathLines(const plottedPath& pathRecordToRedraw, bool 
 		auto scale = vec3((nodePos - prevPos).length(), 0.1f, 1.0f);
 
 		line->setWorldScale(scale);
-		line->setRenderOrder(10000 - 1 + (reRenderSelectedPath ? 100 : 0));
+		line->setRenderOrder(9000 - 1 + (reRenderSelectedPath ? 100 : 0));
 		line->setWorldTranslation(middle);
 		line->setWorldRotation(Rotator(vecRot));
 
@@ -367,7 +344,7 @@ void PathdrawerTab::selectPathLine(const std::string& pathName)
 				color _color = color(0.f, 0.f, 1.f, 1.f);
 				mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(_color));
 				line->setMaterialInst(mat);
-				line->setRenderOrder(10000 - 1);
+				line->setRenderOrder(9000 - 1);
 			}
 		}
 	}
@@ -382,28 +359,51 @@ void PathdrawerTab::selectPathLine(const std::string& pathName)
 		color _color = color(0.f, 1.f, 0.f, 1.f);
 		mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(_color));
 		line->setMaterialInst(mat);
-		line->setRenderOrder(10100);
+		line->setRenderOrder(9100);
 	}
 }
 
 void PathdrawerTab::renderPathNode(const std::string name, const pathNode& nodeData)
 {
+	//instansing and setting up new Path Node mesh
 	auto newPointName = name;
 	auto newPointMesh = Mesh::create::plane(vec2(0.25, 0.25));
+	newPointMesh->setName(name);
 	auto mat = RMat("sprite")->createInstance();
 	color _color = color(1.f, 1.f, 1.f, 1.f);
 	mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(_color));
-	mat->setParam("color", vec4(1.f, 0.f, 0.f, 1.f));
+	mat->setParam("color", vec4(1.f, 0.f, 0.f, 0.8));
+	mat->enableBlending(true);
 	newPointMesh->setMaterialInst(mat);
 	Render::getRoot()->addChild(newPointMesh);
-	newPointMesh->setRenderOrder(11000);
+	newPointMesh->setRenderOrder(9000);
 
+	//path node collider
+	auto collider = newPointMesh->addCollider<AABB>("node_collider", vec3(0.3, 0.3, 0.01));
+	collider->setBlockScreencasts(false);
+	collider->setBlockRaycasts(false);
+	collider->setRaycastCallback(std::bind(&PathdrawerTab::pathNodeRaycastHandler, this, std::placeholders::_1, name));
+
+	//adding new Path Node mesh
 	m_pathNodeRender.insert(
 		{
 			newPointName,
 			newPointMesh
 		});
 	m_pathNodeRender[newPointName]->setWorldTranslation(vec3(nodeData.pos.x, nodeData.pos.y, -0.002f));
+
+	//redraw paths related to the Path Node on its mesh transform
+	newPointMesh->subscribeToWorldTransformChanged(
+		[this, name](const Transform& trans)
+		{
+			for (auto& path : m_pathsData.paths)
+			{
+				if (path.startPoint == name || path.endPoint == name || std::find(path.midPoints.begin(), path.midPoints.end(), name) != path.midPoints.end())
+				{
+					renderPathLines(path);
+				}			
+			}
+		});
 }
 
 
@@ -637,6 +637,235 @@ bool PathdrawerTab::checkPathComplete(const plottedPath& pathRecord)
 			return false;
 
 	return true;
+}
+
+void PathdrawerTab::pathNodeRaycastHandler(const CollisionInfo& hit, const std::string nodeName)
+{
+	if (!isActiveTab() || m_activeSubtab != Subtab::PathBuilder)
+		return;
+
+	if (!m_pathDragBuildOn)
+	{
+		m_pathDragBuildStartPoint = nodeName;
+		m_pathDragBuildOn = true;
+	}
+	else if(m_pathDragBuildStartPoint != nodeName)
+	{
+		m_pathDragBuildEndPoint = nodeName;
+	}
+}
+
+void PathdrawerTab::addPathNode(std::string nodeName, vec2 nodePos, float nodeSpeed)
+{
+	if (nodeName.empty()) return;
+
+	//handle duplicate node names
+	if (m_pathsData.pathnodes.contains(nodeName))
+	{
+		std::string zeroes = "00"; //improves sorting
+		for (size_t i = 0; i < 500; i++)
+		{
+			if (i == 10 || i == 100) 
+				zeroes.pop_back();
+			if (!m_pathsData.pathnodes.contains(nodeName + "_" + zeroes + STR(i)))
+			{
+				nodeName += "_" + zeroes + STR(i);
+				break;
+			}
+		}
+	}
+	//adding node
+	m_pathsData.pathnodes.insert({
+			nodeName,
+			pathNode{nodePos, nodeSpeed}
+		});
+	//rendering node
+	renderPathNode(nodeName, m_pathsData.pathnodes[nodeName]);
+}
+
+void PathdrawerTab::removePathNode(const std::string& nodeName)
+{
+	m_pathsData.pathnodes.erase(nodeName);
+	//redraw paths
+	for (auto& path : m_pathsData.paths)
+	{
+		if (path.startPoint == nodeName)
+		{
+			path.startPoint = "";
+			renderPathLines(path, true);
+		}
+		if (path.endPoint == nodeName)
+		{
+			path.endPoint = "";
+			renderPathLines(path, true);
+		}
+		for (auto& midPoint : path.midPoints)
+		{
+			if (midPoint == nodeName)
+			{
+				midPoint = "";
+				renderPathLines(path, true);
+			}
+		}
+	}
+	//remove Path Node's mesh
+	for (auto& child : m_pathNodeRender[nodeName]->getAllChildren())
+	{
+		if (child)
+			m_pathNodeRender[nodeName]->removeChild(child);
+	}
+	m_pathNodeRender[nodeName]->removeCollider("node_collider");
+	m_pathNodeRender[nodeName]->getParent()->removeChild(m_pathNodeRender[nodeName]);
+	m_pathNodeRender[nodeName].reset();
+	m_pathNodeRender.erase(nodeName);
+}
+
+//helper macro for better code readability
+#define IS_UNIQUE_PATH_NAME(path_name) (std::find_if(m_pathsData.paths.begin(), m_pathsData.paths.end(),[this, path_name](auto plottedPath) { return plottedPath.pathName == path_name; }) == m_pathsData.paths.end())
+
+void PathdrawerTab::addPath(std::string pathName, const std::string& startNodeName, const std::string& endNodeName)
+{
+	if (pathName.empty() || startNodeName.empty() || endNodeName.empty())
+		return;
+
+	if (!m_pathsData.pathnodes.contains(startNodeName) || !m_pathsData.pathnodes.contains(endNodeName))
+		return;
+
+	//checking if path name is unique
+	if (!IS_UNIQUE_PATH_NAME(pathName))
+	{
+		std::string zeroes = "00"; //improves sorting
+		std::string testedName = ""; 
+		for (size_t i = 0; i < 500; i++)
+		{
+			if (i == 10 || i == 100)
+				zeroes.pop_back();
+			testedName = pathName + "_" + zeroes + STR(i);
+			if (IS_UNIQUE_PATH_NAME(testedName))
+			{
+				pathName = testedName;
+				break;
+			}
+		}
+	}
+
+	plottedPath newPath{ .pathName = pathName, .startPoint = startNodeName, .endPoint = endNodeName };
+	m_pathsData.paths.push_back(newPath);
+	renderPathLines(m_pathsData.paths.back(), true);
+}
+
+void PathdrawerTab::onKeyPressed(const event::Keyboard::Down& evt)
+{
+	if (!isActiveTab())
+		return;
+
+	if (evt.key == w4::platform::KeyboardKey::Control && !m_touchCtrOn)
+		m_touchCtrOn = true;
+}
+
+void PathdrawerTab::onKeyReleased(const event::Keyboard::Up& evt)
+{
+	if (evt.key == w4::platform::KeyboardKey::Control)
+		m_touchCtrOn = false;
+}
+
+void PathdrawerTab::onTouchBegin(const Touch::Begin& evt)
+{
+	if (!isActiveTab() || m_activeSubtab == Subtab::NodePathSearch)
+		return;
+
+	auto ray = Render::getScreenCamera()->createRayFromScreen(evt.point);
+	auto hits = Render::raycastAll(ray);
+
+	if (!m_touchCtrOn)
+		return;
+
+	for (auto& hit : hits)
+	{
+		std::string hitName = hit.target->getParent()->getName();
+
+		if (hit.target != nullptr)
+		{
+			auto hitName = hit.target->getParent()->getName();
+			if (hitName == "clickMesh_debug")
+			{
+				//click adding new path node
+				if (m_activeSubtab == Subtab::PathNodes)
+					addPathNode(m_newPathNodeNaming, hit.point.withoutZ(), m_nodeDefaultSpeed);
+			}
+		}
+	}
+}
+
+void PathdrawerTab::onTouchMove(const Touch::Move& evt)
+{
+	if (!m_pathDragBuildOn)
+		return;
+
+	if (m_activeSubtab == Subtab::PathBuilder && !m_pathDragBuildStartPoint.empty())
+	{
+		if (!m_pathsData.pathnodes.contains(m_pathDragBuildStartPoint))
+			return;
+
+		vec3 startNodePosPos; 
+		startNodePosPos.x = m_pathsData.pathnodes[m_pathDragBuildStartPoint].pos.x;
+		startNodePosPos.y = m_pathsData.pathnodes[m_pathDragBuildStartPoint].pos.y;
+		vec3 cursorPos = vec3::zero;
+
+		auto ray = Render::getScreenCamera()->createRayFromScreen(evt.point);
+		auto hits = Render::raycastAll(ray);
+		for (auto& hit : hits)
+		{
+			if (hit.target != nullptr)
+			{
+				auto hitName = hit.target->getParent()->getName();
+				if (hitName == "clickMesh_debug")
+				{
+					cursorPos = hit.point;
+				}
+			}
+		}
+
+		if (!m_pathDragBuildLine)
+		{
+			m_pathDragBuildLine = Mesh::create::plane();
+			m_pathDragBuildLine->setName("pathDragBuildLine");
+			Render::getRoot()->addChild(m_pathDragBuildLine);
+			auto mat = RMat("sprite")->createInstance();
+			color _color = color(1.f, 0.5, 0.f, 0.7);
+			mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(_color));
+			mat->enableBlending(true);
+			m_pathDragBuildLine->setMaterialInst(mat);
+			m_pathDragBuildLine->setRenderOrder(9150);
+		}
+
+		vec3 middle = (startNodePosPos + cursorPos) / 2;
+
+		auto vecRot = m_pathDragBuildLine->getWorldRotation().toVector();
+		vecRot.z = atan2(cursorPos.y - middle.y, cursorPos.x - middle.x);
+
+		vec3 scale = vec3((startNodePosPos - cursorPos).length(), 0.1f, 1.0f);
+
+		m_pathDragBuildLine->setWorldScale(scale);
+		m_pathDragBuildLine->setWorldTranslation(middle);
+		m_pathDragBuildLine->setWorldRotation(Rotator(vecRot));
+	}
+}
+
+void PathdrawerTab::onTouchEnd(const Touch::End& evt)
+{
+	if (!m_pathDragBuildOn || m_activeSubtab != Subtab::PathBuilder)
+		return;
+
+	auto ray = Render::getScreenCamera()->createRayFromScreen(evt.point);
+	auto hits = Render::raycastAll(ray);
+
+	addPath(m_newPathNaming, m_pathDragBuildStartPoint, m_pathDragBuildEndPoint);
+
+	m_pathDragBuildStartPoint = "";
+	m_pathDragBuildEndPoint = "";
+	m_pathDragBuildOn = false;
+	Render::getRoot()->removeChild(m_pathDragBuildLine); m_pathDragBuildLine = nullptr;
 }
 
 bool PathdrawerTab::lineIntersectChecker(const vec2& l1p1, const vec2& l1p2, const vec2& l2p1, const vec2& l2p2) const

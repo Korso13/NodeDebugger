@@ -58,6 +58,7 @@ void BordersTab::onGuiCall()
 			}
 		}
 	}
+
 	ImGui::EndChild(); //ends borders list scrollable zone
 
 	//Adding new set of borders
@@ -337,9 +338,11 @@ void BordersTab::removeBorderPoint(sptr<TabBorderLineData> borderRecord, size_t 
 
 void BordersTab::onKeyPressed(const event::Keyboard::Down& evt)
 {
+	if (!isActiveTab())
+		return;
+
 	if (evt.key == w4::platform::KeyboardKey::Control && !m_clickAddModeON)
 		m_clickAddModeON = true;
-
 }
 
 void BordersTab::onKeyReleased(const event::Keyboard::Up& evt)
@@ -350,6 +353,9 @@ void BordersTab::onKeyReleased(const event::Keyboard::Up& evt)
 
 void BordersTab::onTouchBegin(const Touch::Begin& evt)
 {
+	if (!isActiveTab())
+		return;
+
 	if (!m_clickAddModeON)
 		return;
 

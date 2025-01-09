@@ -2,10 +2,10 @@
 #pragma once
 
 #include "W4Framework.h"
+#include <any>
 #ifndef FORCENODEDEBUG_OFF
 #include "common/NodeDebugger/ND_Defines.h"
 #include "ND_Utilities.h"
-#include <any>
 #endif
 
 W4_USE_UNSTRICT_INTERFACE
@@ -18,6 +18,11 @@ public:
 	//called from onGui() method of ND_ImGui:
 	virtual void onGuiCall() = 0; //ImGui draw instructions to be called (no need to call BeginTabItem()!!!)
 	virtual bool isEmpty() = 0; //tab is not rendered if this returns true
+	
+	//marks tab active or inactive
+	virtual void markActive(bool isActive) { m_isActiveTab = isActive; }; 
+	//checks if tab is active
+	virtual bool isActiveTab() const { return m_isActiveTab; }; 
 
 	const char* getTabName() const { return m_tabName.c_str(); }
 
@@ -32,6 +37,9 @@ public:
 	//Clear all records, especially sptr and lambda's that capture sptr. Needed for restarts and NodeDebugger purge method
 	virtual void purgeValues() = 0;
 
+
 private:
+
+	bool m_isActiveTab = false;
 	std::string m_tabName;
 };

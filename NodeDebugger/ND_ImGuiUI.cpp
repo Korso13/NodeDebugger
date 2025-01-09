@@ -312,13 +312,19 @@ void ND_ImGui::onGui(float dt)
                     if (!tab)
                         continue;
                     if (tab->isEmpty())
+                    {
+                        tab->markActive(false);
                         continue;
+                    }
 
                     if (ImGui::BeginTabItem(tab->getTabName()))
                     {
+                        tab->markActive(true);
                         tab->onGuiCall();
                         ImGui::EndTabItem();
                     }
+                    else
+                        tab->markActive(false);
                 }
             }
 
