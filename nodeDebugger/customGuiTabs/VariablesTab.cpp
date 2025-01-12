@@ -2,7 +2,7 @@
 
 #ifndef FORCENODEDEBUG_OFF
 #include "../ND_JsonTools.h"
-#include <common/NodeDebugger/ND_ContainerTools.h>
+#include <common/nodeDebugger/ND_ContainerTools.h>
 
 //json serializers for settings export
 namespace nlohmann
@@ -116,7 +116,7 @@ void VariablesTab::onGuiCall()
 					if (!ND_Util::checkFilterConditions(name_f, m_variablesFilter))
 						continue;
 
-					if (ImGui::InputFloat(name_f.c_str(), var_f.var))
+					if (ImGui::InputFloat(name_f.c_str(), var_f.var, 0.f, 0.f, IMG_FLOATFORMAT))
 						if (var_f.onChangeCb)var_f.onChangeCb();
 				}
 				for (auto& [name_i, var_i] : m_debugInts)
@@ -134,7 +134,7 @@ void VariablesTab::onGuiCall()
 
 					bool valueChanged = false;
 					float vec2var[2] = { var_v2.var->x, var_v2.var->y };
-					valueChanged = ImGui::InputFloat2(name_v2.c_str(), vec2var, "%.4f");
+					valueChanged = ImGui::InputFloat2(name_v2.c_str(), vec2var, IMG_VECFORMAT);
 					if (valueChanged)
 					{
 						*var_v2.var = ND_Util::vec2FromGui(vec2var);
@@ -148,7 +148,7 @@ void VariablesTab::onGuiCall()
 
 					bool valueChanged = false;
 					float vec3var[3] = { var_v3.var->x, var_v3.var->y, var_v3.var->z };
-					valueChanged = ImGui::InputFloat3(name_v3.c_str(), vec3var, "%.4f");
+					valueChanged = ImGui::InputFloat3(name_v3.c_str(), vec3var, IMG_VECFORMAT);
 					if (valueChanged)
 					{
 						*var_v3.var = ND_Util::vec3FromGui(vec3var);
@@ -167,13 +167,18 @@ void VariablesTab::onGuiCall()
 							var_v4.onChangeCb();
 					}
 				}
-				for (auto& [name_b, var_b] : m_debugBools)
+				for (auto& [name_iv2, var_iv2] : m_debugIVec2)
 				{
-					if (!ND_Util::checkFilterConditions(name_b, m_variablesFilter))
+					if (!ND_Util::checkFilterConditions(name_iv2, m_variablesFilter))
 						continue;
 
-					if (ImGui::Checkbox(name_b.c_str(), var_b.var))
-						if (var_b.onChangeCb)var_b.onChangeCb();
+					bool valueChanged = false;
+					//TODO: very shittiy AUTO impl, make your own!!
+					if (ImGui::Auto(name_iv2.c_str(), *var_iv2.var))
+					{
+						if (var_iv2.onChangeCb)
+							var_iv2.onChangeCb();
+					}
 				}
 				for (auto& [name_b, var_b] : m_debugStrings)
 				{
@@ -182,6 +187,14 @@ void VariablesTab::onGuiCall()
 
 					if (ImGui::InputText(name_b.c_str(), var_b.var))
 						if (var_b.onChangeCb) var_b.onChangeCb();
+				}
+				for (auto& [name_b, var_b] : m_debugBools)
+				{
+					if (!ND_Util::checkFilterConditions(name_b, m_variablesFilter))
+						continue;
+
+					if (ImGui::Checkbox(name_b.c_str(), var_b.var))
+						if (var_b.onChangeCb)var_b.onChangeCb();
 				}
 			}
 			ImGui::EndChild(); //ends variables scroll zone

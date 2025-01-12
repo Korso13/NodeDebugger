@@ -1,0 +1,271 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NodeDebugger_Readme</title>
+  <link rel="stylesheet" href="https://stackedit.io/style.css" />
+</head>
+
+<body class="stackedit">
+  <div class="stackedit__html"><h1 id="readme">README</h1>
+<p>NodeDebugger by Tim Korso</p>
+<h2 id="что-такое-nodedebugger">Что такое NodeDebugger?</h2>
+<p><strong>NodeDebugger</strong> - дебаг-утилита для W4 проектов, которая также служит своеобразным редактором для уровней и настроек</p>
+<p>Включает следующий функционал:</p>
+<ul>
+<li>Редактирование трансформов нод и их наследников</li>
+<li>Редактирование свойств мешей, таких как RO и настройки материала</li>
+<li>Дебагинг спайнов (выбор скинов, проигрывание анимаций, изменение свойств материалов в слотах)</li>
+<li>Управление камерой (в том числе с клавиатуры)</li>
+<li>Управление скоростью геймплея (Timescale)</li>
+<li>Управление переменными большинства базовых С++ и W4 типов</li>
+<li>Управление значениями из файлов settings.json + экспорт изменённых настроек в (единый) json</li>
+<li>Вывод дебажных вызовов в виде кнопок (как UI так и на клавиатуре)</li>
+<li>Редактор твинов с экспортом в json</li>
+<li>Редактор файлов границ (для классов Border и StaticIntersectBorder) с рисованием через клики по карте (с нажатым Ctrl)</li>
+<li>Редактор путей для класса Pathfinder с добавлением Path Node через клики по карте (с нажатым Ctrl) и рисованием путей через соединение путевых нод левой кнопкой мыши</li>
+<li>Инструментарий для инстанциирования мешей, а также объектов произвольных классов с последующей возможностью редактирования их свойств и экспортом в файл json (для последующей подгрузки как файл с содержимым уровня)</li>
+<li>Редактор Spotlight нод</li>
+<li>UI для вывода дебаг-сообщений консоли (например на моб устройствах)</li>
+</ul>
+<h2 id="версия">Версия</h2>
+<ul>
+<li>Текущая версия <strong>5.0</strong></li>
+</ul>
+<h2 id="установка-и-настройка-nodedebugger">Установка и Настройка NodeDebugger</h2>
+<p>Для установки необходимо закинуть папку <strong>nodeDebugger</strong> в папку <strong>sources/common</strong> проекта, а также подкинуть дополнительные файлы из <strong>extra sources</strong> в папки <strong>js</strong> и <strong>sources/settings</strong></p>
+<p>В начале файла NodeDebugger.h можно подсмотреть большинство макросов для быстрого вызова функционала NodeDebugger (регистрация нод и спайнов в дебагере, добавление дебаг команд, вывод переменных в UI дебагера и т.д.), а также имеющихся клавиатурных команд.</p>
+<p>В файле <em>common/nodeDebugger/ND_Defines.h</em> также можно <strong>отключить некоторые вкладки</strong> закомментировав макросы</p>
+<ul>
+<li>NDSPINES - спайны</li>
+<li>NDVARIABLES - переменные</li>
+<li>NDBORDERS - редактор границ</li>
+<li>NDPATHDRAWER - редактор путей (требует Pathfinder.h!)</li>
+<li>NDSPOTLIGHTS - редактор SpotLight</li>
+<li>NDCONSOLE - вкладка с консолью<br>
+и отредактировать некоторые <strong>настройки</strong>:</li>
+<li>JSON_FLOAT_ACCURACY - точность чисел с плавающей точкой при экспорте в json</li>
+<li>IMG_STARTSIZE - размер окна дебагера по дефолту</li>
+<li>IMG_FONTSIZE - размер шрифта дебагера</li>
+<li>IMG_FLOATFORMAT - точность чисел с плавающей точкой на вкладке Variables</li>
+<li>IMG_VECFORMAT - точность значений x,y,z для векторов на вкладке Variables</li>
+</ul>
+<p>Для инстанциирования произвольных классов через <strong>Spawner</strong> потребуется дополнительная настройка из кода (о ней ниже).</p>
+<h2 id="использование-spawner">Использование Spawner</h2>
+<p>Вкладка <strong>Spawner</strong> позволяет создавать меши и объекты классов, настраивать уже созданные и экспортировать их в файл mapObjects.json. Этот файл (расположенный в <em>resources/config</em>) впоследствии Spawner будет подгружать и на его основе создавать и настраивать меши и прочие объекты. По сути это  своеобразный редактор уровня для W4.</p>
+<p>Создание мешей доступно из коробки. Для создания объектов произвольных классов потребуется настройка.</p>
+<p>Для доступа к фабрике объектов используется макрос <code>SPAWNER</code></p>
+<h3 id="загрузка-и-выгрузка-объектов-изв-json">Загрузка и выгрузка объектов из/в json</h3>
+<p>Добавляем</p>
+<pre class=" language-cpp"><code class="prism  language-cpp"><span class="token macro property">#<span class="token directive keyword">include</span> <span class="token string">&lt;common/nodeDebugger/spawner/SpawnerFactory.h&gt;</span></span>
+</code></pre>
+<p>Чтобы выгрузить созданные меши и объекты в json, перейдите на подвкладку <strong>Spawned Objects</strong> и нажмите кнопку <strong>Export All</strong>. Настоятельно советую не сохранять файл напрямую в <em>resources/config</em>, т.к. в большинстве случаев движок закэширует намертво старый файл и придётся зачищать кэш и пересобирать проект! Лучше выгрузить отдельно и потом перезаписать файл через Проводник или любой другой файловый менеджер.</p>
+<p>Чтобы загрузить объекты из файла mapObjects.json достаточно вызвать <code>SPAWNER.SpawnObjects();</code><br>
+Однако этот вызов должен идти строго после всех команд, связанных с регистрацией инстанциируемых классов (<code>registerSpawnableClass()</code> - об этом см. ниже)!</p>
+<p>В общем и целом, интеграция ваших классов в Spawner состоит из 3+ шагов:</p>
+<ol>
+<li>Регистрация класса в Spawner фабрике с настройкой колбэка при создании объекта (как правило происходит в классе LevelGame)</li>
+<li>Регистрация корневой ноды класса + вывод переменных и дебаг методов в UI созданных объектов (делается в коде самого класса)</li>
+<li>(Делается 1 раз) Удалить ваше определение структуры MapObjectsData или перенести нужные поля в его определение в файле <em>common/nodeDebugger/spawner/SpawnerStructs.h</em> (подробнее см. ниже)</li>
+<li>(Опционально) Изменение структуры MapObjectsData, которая используется для импорта и экспорта настроек объектов на карте</li>
+<li>(Опционально) сериализация нужных вам (экспортируемых и/или выводимых в UI) enum и структур.</li>
+</ol>
+<p>Первоначально, регистрация уже имеющихся классов у вас может занять несколько часов, но т.к. большинство классов кочуют из проекта в проект, временные расходы в последующих проектах будут минимальными.</p>
+<h3 id="регистрация-классов-в-spawner">Регистрация классов в Spawner</h3>
+<p>Для регистрации классов в Spawner требуется отнаследовать эти классы от <strong>класса Spawnable</strong> (<em>common/nodeDebugger/spawner/Spawnable.h</em>) или же написать обёрточный класс, который наследуется от Spawnable, инстанциирует его и вас класс (пример можно найти в <em>common/nodeDebugger/spawner/SpawnerWrappers.h</em>, туда же можно дописывать ваши обёртки).<br>
+Учтите, что <strong>конструктор Spawnable</strong> в обязательном порядке <strong>требует ссылку на MapObjectsData</strong> - структуру, которая хранит все настройки конкретного объекта из файла mapObjects.json!</p>
+<p>Далее вашего <strong>наследника Spawnable нужно зарегистрировать в фабрике SPAWNER</strong> (увы, на данный момент это приходится делать в рантайме вместо compile time). Сделать это нужно до загрузки объектов из файла json ( <code>SPAWNER.SpawnObjects()</code> )!<br>
+Делается это через такой <strong>синтаксис</strong>:</p>
+<pre class=" language-cpp"><code class="prism  language-cpp">SPAWNER<span class="token punctuation">.</span>registerSpawnableClass<span class="token operator">&lt;</span>Ваш_Класс<span class="token punctuation">,</span> Тип_Аргумента_Констурктора_1<span class="token punctuation">,</span> Тип_Аргумента_Констурктора_2 <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token operator">&gt;</span>
+	<span class="token punctuation">(</span>
+		<span class="token function">CLASS2STR</span><span class="token punctuation">(</span>Ваш_Класс<span class="token punctuation">)</span><span class="token punctuation">,</span>
+		<span class="token punctuation">{</span> <span class="token string">"Название аргумента 1 для UI"</span><span class="token punctuation">,</span> Аргумент_Констурктора_1<span class="token punctuation">}</span><span class="token punctuation">,</span>
+		<span class="token punctuation">{</span> <span class="token string">"Название аргумента 2 для UI"</span><span class="token punctuation">,</span> Аргумент_Констурктора_2 <span class="token punctuation">}</span>
+		<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+	<span class="token punctuation">)</span>
+</code></pre>
+<p>Все аргументы будут выведены на палетке с классами (подвкладка <strong>Class Palette</strong>) и будут доступны для редактирования с рядом оговорок:</p>
+<ul>
+<li>Ноды будут отображены в виде селектора любой ноды (все наследники Node) из иерархии нод</li>
+<li>sptr не поддерживаются, кроме <code>sptr&lt;Node&gt;</code></li>
+<li>Для отображения своих <strong>структур и enum</strong> требуется их <strong>сериализовать</strong> (макросы <code>JSTRUCT_DEFINITION</code>, <code>SERIALIZE_ENUM</code> и <code>MAKE_SERIALIZED_ENUM_CLASS</code>, о них отдельно будет сказано ниже)</li>
+<li>Т.к. любые наследники Spawnable должны иметь в конструкторе <strong>ссылку на <code>MapObjectsData</code></strong>, перед вызовом <code>registerSpawnableClass</code> следует создать эту структуру в локальном скоупе. Заполнив поля этой структуры вы также можете задать свои дефолтные значения этих полей, чтобы их не пришлось потом заполнять в UI дебагера, например дефолтное положение точек взаимодействия.</li>
+</ul>
+<p>Формально, класс уже можно инстанциировать с вкладки <strong>Spawner-Class Palette</strong> - Открываете вкладку, раскрываете пункт с нужным вам классом, заполняете все нужные поля (значения аргументов конструктора), нажимаете кнопку <strong>Spawn</strong>. Новый объект будет создан, причём перед камерой в нулевом z (при условии что вы корректно настроили класс внутри - об этом будет инфа ниже).</p>
+<h4 id="вызовы-при-создании-объекта-и-пример-регистрации-класса">Вызовы при создании объекта и пример регистрации класса</h4>
+<p>Spawner поддерживает ряд дополнительных настроек, чтобы сделать его использование и использование загруженных объектов более удобным.<br>
+<code>registerSpawnableClass</code> возвращает ссылку на структуру с настройками создания объекта фабрикой, у которой есть ряд полезных функций:</p>
+<ul>
+<li><strong><code>setOnSpawnCallback()</code></strong> принимает лямбду формата <code>[this](sptr&lt;Spawnable&gt; newEntity)</code>, которая вызывается сразу после создания объекта и принимает аргументом указатель на этот объект (который можно кастить до вашего класса через <code>cast_sptr&lt;Ваш_Класс&gt;(newEntity)</code>). Позволяет сразу добавлять новый объект в нужные контейнеры, регистрировать на апдейты, вызывать отложенную инициализацию (если такая есть). Этот метод зовётся как при создании объекта из вкладки дебагера, так и при загрузке объекта фабрикой Spawner из файла json!</li>
+<li><strong><code>setOnDeleteCallback()</code></strong> принимает лямбду формата <code>[this](sptr&lt;Spawnable&gt; newEntity)</code>, которая вызывается при удалении созданного объекта из списка созданных объектов (подвкладка <strong>Spawned Objects</strong>). Позволяет вычистить объект из всех контейнеров и переменных, где лежат указатель на него. Если написать лямбду корректно, удаление из Spawned Objects будет вызывать <strong>деструктор объекта</strong>.</li>
+<li><strong><code>setObjNameList()</code></strong> принимает вектор строк и выводит его в виде выпадающего списка в верху UI создания объекта класса в Class Palette. Выбранный пункт из этого списка автоматически будет записан в поле <code>objName</code> аргумента-структуры <code>MapObjectsData</code>. Например, передав в <code>setObjNameList</code> список ваших спайнов из spineContainerSettings.json и используя поле <code>objName</code> в конструкторе Enemy как название создаваемого спайна, можно упростить выбор типа создаваемого Enemy.</li>
+</ul>
+<p>Все указанные выше методы, также как и  <code>registerSpawnableClass</code> возвращают ссылку на структуру с настройками фабрики класса, что позволяет делать последовательные вызовы этих методов через оператор <code>.</code>. Таким образом все вызовы для одного класса сворачиваются в читаемую структуру кода (на примере <code>BonusItemNoSprite</code>):</p>
+<pre class=" language-cpp"><code class="prism  language-cpp">	SPAWNER<span class="token punctuation">.</span>registerSpawnableClass<span class="token operator">&lt;</span>BonusItemNoSprite<span class="token punctuation">,</span> sptr<span class="token operator">&lt;</span>Node<span class="token operator">&gt;</span><span class="token punctuation">,</span> MapObjectsData<span class="token operator">&amp;</span><span class="token operator">&gt;</span> 
+		<span class="token punctuation">(</span>
+			<span class="token function">CLASS2STR</span><span class="token punctuation">(</span>BonusItemNoSprite<span class="token punctuation">)</span><span class="token punctuation">,</span>
+			<span class="token punctuation">{</span> <span class="token string">"Parent Node"</span><span class="token punctuation">,</span> m_view <span class="token punctuation">}</span><span class="token punctuation">,</span>
+			<span class="token punctuation">{</span> <span class="token string">"Spawn Data"</span><span class="token punctuation">,</span> spawnBonusData <span class="token punctuation">}</span>
+		<span class="token punctuation">)</span><span class="token punctuation">.</span>
+		<span class="token function">setObjNameList</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">"loot_armor_angelic"</span><span class="token punctuation">,</span> <span class="token string">"loot_armor_nephrite"</span><span class="token punctuation">,</span> <span class="token string">"loot_champion_armor"</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>
+		<span class="token function">setOnSpawnCallback</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token keyword">this</span><span class="token punctuation">]</span><span class="token punctuation">(</span>sptr<span class="token operator">&lt;</span>Spawnable<span class="token operator">&gt;</span> newEntity<span class="token punctuation">)</span>
+			<span class="token punctuation">{</span>
+				sptr<span class="token operator">&lt;</span>BonusItemNoSprite<span class="token operator">&gt;</span> bonus <span class="token operator">=</span> cast_sptr<span class="token operator">&lt;</span>BonusItemNoSprite<span class="token operator">&gt;</span><span class="token punctuation">(</span>newEntity<span class="token punctuation">)</span><span class="token punctuation">;</span>
+				<span class="token keyword">auto</span><span class="token operator">&amp;</span> obj <span class="token operator">=</span> newEntity<span class="token operator">-</span><span class="token operator">&gt;</span><span class="token function">getMapObjectsData</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+				bonus<span class="token operator">-</span><span class="token operator">&gt;</span><span class="token function">init</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+				<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>bonus<span class="token operator">-</span><span class="token operator">&gt;</span>isSpawned<span class="token punctuation">)</span>
+				<span class="token punctuation">{</span>
+					bonus<span class="token operator">-</span><span class="token operator">&gt;</span><span class="token function">setWorldPos</span><span class="token punctuation">(</span>obj<span class="token punctuation">.</span>pos<span class="token punctuation">)</span><span class="token punctuation">;</span>
+				<span class="token punctuation">}</span>
+				m_playerController<span class="token operator">-</span><span class="token operator">&gt;</span><span class="token function">setItemClickCBs</span><span class="token punctuation">(</span>bonus<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+				m_levelItems<span class="token punctuation">.</span><span class="token function">push_back</span><span class="token punctuation">(</span>bonus<span class="token punctuation">)</span><span class="token punctuation">;</span>
+				m_updateList<span class="token punctuation">.</span><span class="token function">push_back</span><span class="token punctuation">(</span>bonus<span class="token punctuation">)</span><span class="token punctuation">;</span>
+			<span class="token punctuation">}</span>
+		<span class="token punctuation">)</span><span class="token punctuation">.</span>
+		<span class="token function">setOnDeleteCallback</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token keyword">this</span><span class="token punctuation">]</span><span class="token punctuation">(</span>sptr<span class="token operator">&lt;</span>Spawnable<span class="token operator">&gt;</span> newEntity<span class="token punctuation">)</span> 
+			<span class="token punctuation">{</span>
+				sptr<span class="token operator">&lt;</span>LevelItem<span class="token operator">&gt;</span> item <span class="token operator">=</span> cast_sptr<span class="token operator">&lt;</span>LevelItem<span class="token operator">&gt;</span><span class="token punctuation">(</span>newEntity<span class="token punctuation">)</span><span class="token punctuation">;</span>
+				<span class="token keyword">auto</span><span class="token operator">&amp;</span> obj <span class="token operator">=</span> newEntity<span class="token operator">-</span><span class="token operator">&gt;</span><span class="token function">getMapObjectsData</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+				<span class="token comment">//удаляем указатель на объект из вкладки Nodes</span>
+				NODEDEBUG<span class="token operator">-</span><span class="token operator">&gt;</span><span class="token function">removeImGuiNode</span><span class="token punctuation">(</span>item<span class="token operator">-</span><span class="token operator">&gt;</span><span class="token function">getRoot</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-</span><span class="token operator">&gt;</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+				<span class="token comment">//Вычищаем указатели на объект из колбэков</span>
+				item<span class="token operator">-</span><span class="token operator">&gt;</span><span class="token function">setClickCb</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token keyword">this</span><span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+				item<span class="token operator">-</span><span class="token operator">&gt;</span><span class="token function">setOnActivateCB</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token keyword">this</span><span class="token punctuation">]</span><span class="token punctuation">(</span>sptr<span class="token operator">&lt;</span>Player<span class="token operator">&gt;</span> playerRef<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+				<span class="token comment">//Вычищаем указатели на объект из контейнеров</span>
+				std<span class="token operator">::</span><span class="token function">erase_if</span><span class="token punctuation">(</span>m_levelItems<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token keyword">this</span><span class="token punctuation">,</span> item<span class="token punctuation">]</span><span class="token punctuation">(</span>sptr<span class="token operator">&lt;</span>LevelItem<span class="token operator">&gt;</span> levelItem<span class="token punctuation">)</span> 
+					<span class="token punctuation">{</span><span class="token keyword">return</span> levelItem <span class="token operator">==</span> item<span class="token punctuation">;</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+				std<span class="token operator">::</span><span class="token function">erase_if</span><span class="token punctuation">(</span>m_updateList<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token keyword">this</span><span class="token punctuation">,</span> item<span class="token punctuation">]</span><span class="token punctuation">(</span>sptr<span class="token operator">&lt;</span>Updatable<span class="token operator">&gt;</span> updatable<span class="token punctuation">)</span> 
+					<span class="token punctuation">{</span><span class="token keyword">return</span> updatable <span class="token operator">==</span> item<span class="token punctuation">;</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+			<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>В примере выше упомянут публичный флаг <code>isSpawned</code> из класса Spawnable. Он ставится в <code>true</code> при инстанциировании объекта с вкладки <strong>Class Palette</strong> и остаётся <code>false</code> при загрузке из файла json.</p>
+<h3 id="настройка-spawnable-классов">Настройка Spawnable классов</h3>
+<p>Для полноценной работы фабрики объектов в самих классах, которые мы наследуем от Spawnable крайне желательно вызвать один метод родительского класса (именно родительского!) - <code>initSpawnable()</code>, передав в него ноду, которая будет считаться корневой для объекта. Это позволит:</p>
+<ol>
+<li>Получить <strong>меню и гизмо трансформации ноды</strong> в настройках объекта (подвкладка <strong>Spawned Objects</strong>)</li>
+<li><strong>Экспортировать и импортировать</strong> (кроме самых тяжёлых случаев плохого кода) <strong>расположение корневой ноды объекта в иерархии нод</strong>, а также её расположение в мировых координатах (происходит автоматически).</li>
+<li>В рантайме менять родителя корневой ноды объекта</li>
+</ol>
+<p><code>initSpawnable()</code> нужно вызывать в самом конце конструктора объекта или, если ваш объект инициализируется отложено, то в конце вашего метода инициализации объекта!</p>
+<p>Т.к. <code>initSpawnable()</code> виртуальная функция, её удобно использовать для ещё одного слоя настройки Spawner - вывода полей объекта <strong>для редактирования в подвкладке Spawned Objects</strong> (но не забываем в любом случае вызывать родительский <code>Spawnable::initSpawnable()</code>!!).<br>
+Для вывода полей и прочего дебагинга отдельных объектов класса существуют две функции:</p>
+<ol>
+<li><strong><code>addSpawnableSetting()</code></strong> принимает структуру типа <code>SpawnSetting</code>(о ней ниже) и выводит редактируемую переменную в окно объекта класса в <strong>Spawned Objects</strong></li>
+<li><strong><code>addSpawnableBtn()</code></strong> принимает строку (название) и лямбду (или ссылку на функцию через std::bind) и создаёт кнопку, вызывающую указанную логику,  в окне объекта класса в <strong>Spawned Objects</strong></li>
+</ol>
+<p><strong>Конструктор</strong> <code>SpawnSetting</code> принимает :</p>
+<ol>
+<li>std::string - название переменной, которое будет отображаться в UI</li>
+<li>Саму переменную (базовые и движковые типы, контейнеры с ними, сериализованные enum (багованы), enum class и структуры, <code>sptr&lt;Node&gt;</code>). Поддерживается как rvalue (&amp;&amp;) так и lvalue ссылки(&amp;), однако с последним есть один нюанс - при изменении переменной через UI переменная по ссылке изменится, но при изменении переменной в самом коде, переменная в UI не обновится.</li>
+<li>Опциональный колбэк, вызываемый при изменении переменной через UI. Принимает лямбду формата <code>[this](ваш_тип_переменной&amp; var){}</code>(для переменных по ссылке) или <code>[this](ваш_тип_переменной var){}</code>(для остальных).</li>
+</ol>
+<p>Поскольку <code>addSpawnableSetting()</code> позволяет редактировать любые переменные, в том числе отдельные поля структур, для отдельных объектов, имеет смысл <strong>вывести через этот метод нужные вам поля<code>MapObjectsData</code></strong>. Вы можете дополнить нужными вам полями содержимое MapObjectsData, затем задать нужные значения этих полей через UI отдельных объектов (например положения точек атаки для врагов) и экспортировать их в mapObjects.json (туда попадает содержимое структуры MapObjectsData, хранимой каждым Spawnable).</p>
+<p>При загрузке объекта из json, он получит в свой конструктор ссылку на <code>MapObjectsData</code> со своими данными и сможет <strong>использовать значения её полей для настройки объекта</strong>. Доступ к своему <code>MapObjectsData</code> любой наследник Spawnable может получить через метод <strong><code>getMapObjectsData()</code></strong></p>
+<p>Пара нюансов:</p>
+<ul>
+<li>Изменение массивов (независимо от того, как их передали)  не вызывает колбэков (3ий аргумент)! Если вам нужен колбэк на изменение эл-ов массива, можно вместо добавления массивом добавить его содержимое отдельными эл-ми (тогда колбэк будет срабатывать) через <strong>вызов addSpawnableSetting() в цикле по размеру массива</strong>.</li>
+<li>Если вы передаёте переменную как rvalue (movable копия), обязательно пропишите колбэк, иначе у вас ничего не будет меняться в вашем объекте или изменённое значение не попадёт в экспорт <code>MapObjectsData</code> (впрочем его поля по-хорошему должны передаваться по lvalue)!</li>
+<li>Сеттинг типа <code>sptr&lt;Node&gt;</code> будет отображаться как меню трансформа + гизмо + будет подменю смены родительской ноды. В экспорт автоматом пишется родительская нода только для корневой ноды объекта, поэтому если вам нужно сохранять адрес какой-то вторичной ноды, создайте в  <code>MapObjectsData</code> дополнительное <code>std::string</code> поле, и через колбэк к сеттингу пишите туда нужный адрес (функции для парсинга адреса см в разделе “Прочие функции Spawner”).</li>
+</ul>
+<h3 id="сериализация-struct-и-enum">Сериализация struct и enum</h3>
+<p>Как уже писалось выше, для экспорта любого enum или struct в json или для вывода его в UI дебагера требуется для начала их сериализовать. Сразу оговорюсь, что в движке забагован вывод обычных enum (c enum class всё в порядке) в UI, по возможности избегайте их использования.</p>
+<p>Для сериализации структур их необходимо объявить через макрос <code>JSTRUCT_DEFINITION</code>. Делать это желательно в файле <em>common/nodeDebugger/spawner/SpawnerStructs.h</em> (так он точно будет известен фабрике и всем наследникам Spawnable). Синтаксис у этого макроса специфичный:</p>
+<pre class=" language-cpp"><code class="prism  language-cpp"><span class="token function">JSTRUCT_DEFINITION</span><span class="token punctuation">(</span>MapMeshData<span class="token punctuation">,</span>
+	<span class="token punctuation">(</span><span class="token punctuation">(</span>std<span class="token operator">::</span>string<span class="token punctuation">,</span> meshName<span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+	<span class="token punctuation">(</span><span class="token punctuation">(</span>std<span class="token operator">::</span>string<span class="token punctuation">,</span> material<span class="token punctuation">,</span> <span class="token string">"sprite"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+	<span class="token punctuation">(</span><span class="token punctuation">(</span>std<span class="token operator">::</span>string<span class="token punctuation">,</span> node<span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+	<span class="token punctuation">(</span><span class="token punctuation">(</span>int32_t<span class="token punctuation">,</span> renderOrder<span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+	<span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token keyword">bool</span><span class="token punctuation">,</span> useWorldPos<span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+	<span class="token punctuation">(</span><span class="token punctuation">(</span>vec3<span class="token punctuation">,</span> position_world<span class="token punctuation">,</span> vec3<span class="token operator">::</span>zero<span class="token punctuation">)</span><span class="token punctuation">)</span>
+	<span class="token punctuation">(</span><span class="token punctuation">(</span>vec3<span class="token punctuation">,</span> position_local<span class="token punctuation">,</span> vec3<span class="token operator">::</span>zero<span class="token punctuation">)</span><span class="token punctuation">)</span>
+	<span class="token punctuation">(</span><span class="token punctuation">(</span>vec3<span class="token punctuation">,</span> scale_local<span class="token punctuation">,</span> vec3<span class="token operator">::</span>one<span class="token punctuation">)</span><span class="token punctuation">)</span>
+	<span class="token punctuation">(</span><span class="token punctuation">(</span>vec3<span class="token punctuation">,</span> rotation_local<span class="token punctuation">,</span> vec3<span class="token operator">::</span>zero<span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>Первым аргументом передаётся <em>название вашей структуры</em> (в примере выше MapMeshData), затем после запятой указывается <strong>список кортежей</strong>. Каждая запись отделена через двойные скобки, запятые между кортежами не используются!! Содержимое двойных скобок задаётся следующим образом:<br>
+<strong><code>((тип_данных, название_поля, значение_поля_по-умолчанию))</code></strong><br>
+<strong>Все три значения обязательны!</strong> Если у вас имеются поля типа struct или enum их тоже нужно сериализовать!<br>
+Структуры объявленные через JSTRUCT_DEFINITION:</p>
+<ul>
+<li>Автоматически поддерживают выгрузку в/из json.</li>
+<li>Причём в файл json попадут только поля, значения которых отличается от значения по умолчанию</li>
+<li>При загрузке из json движок не крашится, если не находит какого-то из объявленных полей, а просто инициализирует его дефолтным значением</li>
+<li>Эти структуры можно выводить в UI дебагера (как через <code>addSpawnableSetting()</code>, так и через <code>registerSpawnableClass()</code>)</li>
+<li>Имеют дополнительное поле <code>class</code>, которое не выводится в UI Class Palette - class (требуется для корректной работы фабрики)</li>
+</ul>
+<p>Для сериализации enum их нужно</p>
+<ul>
+<li>либо объявить через макрос <code>MAKE_SERIALIZED_ENUM_CLASS</code> (это будет enum class)</li>
+<li>либо сериализовать уже существующий enum макросом <code>SERIALIZE_ENUM</code></li>
+</ul>
+<p>Делать это всё желательно в файле <em>common/nodeDebugger/spawner/SpawnerEnums.h</em> (так он точно будет известен фабрике и всем наследникам Spawnable). Синтаксис у этих двух макросов одинаков, отличается только то, что у <code>MAKE_SERIALIZED_ENUM_CLASS</code> мы указываем название вашего нового  enum class, а в <code>SERIALIZE_ENUM</code> - уже существующего.</p>
+<p>Пример для <code>MAKE_SERIALIZED_ENUM_CLASS</code>:</p>
+<pre class=" language-cpp"><code class="prism  language-cpp"><span class="token function">MAKE_SERIALIZED_ENUM_CLASS</span><span class="token punctuation">(</span>SPK_MATERIAL<span class="token punctuation">,</span>
+	<span class="token punctuation">(</span>ADDALPHA<span class="token punctuation">)</span>
+	<span class="token punctuation">(</span>ALPHA<span class="token punctuation">)</span>
+	<span class="token punctuation">(</span>ADD<span class="token punctuation">)</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>Пример для <code>SERIALIZE_ENUM</code>:</p>
+<pre class=" language-cpp"><code class="prism  language-cpp"><span class="token function">SERIALIZE_ENUM</span><span class="token punctuation">(</span>ViewDirection<span class="token punctuation">,</span>
+	<span class="token punctuation">(</span>LEFT<span class="token punctuation">)</span>
+	<span class="token punctuation">(</span>RIGHT<span class="token punctuation">)</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="о-модификации-mapobjectsdata">О модификации MapObjectsData</h3>
+<p>Для работы Spawner использует активно структуру <code>MapObjectsData</code>, поэтому вам придётся удалить/перенести свою версию этой структуры в  <em>common/nodeDebugger/spawner/SpawnerStructs.h</em></p>
+<p>В SpawnerStructs.h <code>MapObjectsData</code> определена через отдельный макрос <code>MOD_DEFINITION</code>, но синтаксис почти идентичен <code>JSTRUCT_DEFINITION</code>.<br>
+Этот макрос делает то же самое, но задаёт фиксированное название этой структуре.</p>
+<p>Вы вольны менять содержимое структуры, объявленное в макросе <code>MOD_DEFINITION</code>, как вам удобно, но сохраните 2 важных поля:</p>
+<ul>
+<li><code>objName</code></li>
+<li><code>node</code></li>
+<li><code>SPARK_Materials</code>(или сначала закоментите обёрточный класс для Spark эммитеров из <em>common/nodeDebugger/spawner/SpawnerWrappers.h</em>)</li>
+</ul>
+<h3 id="меню-создания-мешей-mesh-spawner">Меню создания мешей (Mesh Spawner)</h3>
+<p>Позволяет размещать меши на уровне на любой существующей ноде, выгружать информацию о размещённых мешах в json и загружать меши из файла, сохраняя большинство настроек.<br>
+В верхней части подвкладки <strong>Mesh Spawner</strong> выбирается родительская нода.</p>
+<p>Затем в <strong>Mesh Name</strong> выбирается меш из списка составленного по meshesContainerSettings.json (требуется наличие модифицированных классов <code>Settings</code> и <code>SettingsContainer</code>!!)</p>
+<p>В <strong>Material</strong> указывается материал меша. На данный момент доступны не-шейдерные материалы. Если при внедрении nodeDebugger вы не забыли подкинуть изменённый MaterialContainer.h, то список материалов будет автоматически составляться из доступных нешейдерных материалов. В противном случае список будет фиксированным/зашитым через хардкод.</p>
+<p>Также можно задать сразу <strong>RO, поворот и скейл меша</strong>. Положение указывать смысла нет т.к. меш будет создан по центру камеры на нулевом z.<br>
+После создания мешем можно управлять через подвкладку <strong>Spawned Objects</strong>.<br>
+На данный момент при экспорте меша сохраняется:</p>
+<ul>
+<li>Тип материала (но не его настройки!)</li>
+<li>Родительская нода (автоматически определяется при выгрузке)</li>
+<li>RO</li>
+<li>Положение в глобальных или локальных координатах (или-или)</li>
+<li>локальный масштаб</li>
+<li>локальный поворот</li>
+</ul>
+<p><strong>Получить меш</strong> после его загрузки (<code>SPAWNER.SpawnObjects()</code>) можно по методу <strong><code>SPAWNER.getMeshByName()</code></strong>, который принимает название меша (то, как он отображается в подвкладке Spawned Objects!!). При создании меша ему даётся либо название настройки из meshesContainerSettings, либо, если такой меш уже создан, название настройки + уникальный суффикс формата “_XXX” где XXX - порядковый номер.</p>
+<h3 id="меню-управления-объектами-и-мешами-spawned-objects">Меню управления объектами и мешами (Spawned Objects)</h3>
+<p>В подвкладке <strong>Spawned Objects</strong> отображаются все объекты классов и меши созданные через Spawner или загруженные из mapObjects.json. Каждый объект/меш имеет уникальное имя и при раскрытии записи появится <strong>UI редактирования настроек объекта</strong> (если использовались <code>addSpawnableSetting()</code>, <code>addSpawnableBtn</code> или <code>Spawnable::initSpawnable()</code>) или меша.</p>
+<p>Изменения внесённые через этот UI (при отсутствии ошибок в логике) будут <strong>успешно выгружаться в json и подгружаться назад</strong> (кроме оговорённых нюансов, типа настроек материала).</p>
+<p>Меню созданных мешей, помимо стандартных опций для нод/мешей bp одноимённой вкладки дебагера, имеют ряд  дополнительных:</p>
+<ul>
+<li>Меню смены материала (в рантайме, попадёт в экспорт)</li>
+<li>Ползунок Render Order (он дублируется ниже, но использовать лучше тот что выше; из-за недочёта в движке, при использовании нижнего ползунка RO в экспорт может не попасть корректное его значение)</li>
+<li>Переключатель определяющий то, в каких координатах размещать меш при загрузке - локальных или глобальных</li>
+<li>Селектор родительской ноды  (в рантайме, попадёт в экспорт)</li>
+</ul>
+<h3 id="прочие-функции-spawner">Прочие функции Spawner</h3>
+<ul>
+<li><strong><code>std::string SPAWNER.getNodeHierarchyAddress(sptr&lt;Node&gt; node)</code></strong> - парсит положение ноды в иерархии в строку, которую можно экспортировать</li>
+<li><strong><code>sptr&lt;Node&gt; SPAWNER.findNodeByHierarchyAddress(std::string adress)</code></strong> - находит ноду в иерархии нод по переданному адресу формата <code>название_ноды_0||название_ноды_1 ...</code></li>
+<li><strong><code>MAP_DATA</code></strong> - контейнер с mapObjectsData структурами всех объектов из mapObjects.json</li>
+<li><strong><code>MAP_MESH_DATA</code></strong> - контейнер с MapMeshData структурами всех мешей из mapObjects.json</li>
+</ul>
+<h2 id="contribution-guidelines">Contribution guidelines</h2>
+<p>Also includes code by:</p>
+<ul>
+<li>Petr Volkov</li>
+</ul>
+</div>
+</body>
+
+</html>

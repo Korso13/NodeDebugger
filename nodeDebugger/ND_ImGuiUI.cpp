@@ -5,14 +5,14 @@
 #include <others/spineAnimation/SpineAnimationBase.h>
 #include "ND_Utilities.h"
 #include "TweenFactory.h"
-#include "ND_ParticleEmitterEditor.h"
-#include <sources/common/NodeDebugger/ND_iGuiTab.h>
-#include <sources/common/NodeDebugger/CustomGuiTabs/SpotlightTab.h>
-#include <sources/common/NodeDebugger/CustomGuiTabs/SpinesTab.h>
-#include <sources/common/NodeDebugger/CustomGuiTabs/VariablesTab.h>
-#include <sources/common/NodeDebugger/CustomGuiTabs/ConsoleTab.h>
-#include <sources/common/NodeDebugger/CustomGuiTabs/BordersTab.h>
-#include "CustomGuiTabs/PathdrawerTab.h"
+#include <sources/common/nodeDebugger/ND_iGuiTab.h>
+#include <sources/common/nodeDebugger/customGuiTabs/SpotlightTab.h>
+#include <sources/common/nodeDebugger/customGuiTabs/SpinesTab.h>
+#include <sources/common/nodeDebugger/customGuiTabs/VariablesTab.h>
+#include <sources/common/nodeDebugger/customGuiTabs/ConsoleTab.h>
+#include <sources/common/nodeDebugger/customGuiTabs/BordersTab.h>
+#include "customGuiTabs/PathdrawerTab.h"
+#include "customGuiTabs/SpawnerTab.h"
 
 ND_ImGui::ND_ImGui()
 {
@@ -60,6 +60,7 @@ void ND_ImGui::addImGuiNode(sptr<Node> inNode, std::string name)
 
     if (name == "default")
         name = inNode->getName();
+    m_needUpdateNodesFilter = true;
 
     //prevents duplicate names
     std::string zeroes = "00"; //for better sorting
@@ -154,6 +155,7 @@ void ND_ImGui::initCustomTabs()
 {
     //Order of adding determines order of ImGui tabs!
     
+    m_extraTabs.push_back(make::sptr<SpawnerTab>());
     //Spines tab
 #ifdef NDSPINES
     m_extraTabs.push_back(make::sptr<SpinesTab>());
@@ -347,9 +349,11 @@ void ND_ImGui::ImGuiNodes()
     ND_Util::ImGuiNodeSettings();
     bool isFilterChanged = false;
     if (m_staticNodes.size() > 6)
-        isFilterChanged = ND_Util::ImGuiSearchBar(m_nodesFilter);
+        isFilterChanged = (ND_Util::ImGuiSearchBar(m_nodesFilter) || m_needUpdateNodesFilter);
     else if (!m_nodesFilter.empty())
         m_nodesFilter.clear();
+
+    if (m_needUpdateNodesFilter) m_needUpdateNodesFilter = false;
 
     ImGui::SameLine();
     if (ImGui::Button("Add all existing nodes"))
@@ -383,7 +387,18 @@ void ND_ImGui::ImGuiNodes()
                 if (!ImG_NodeStruct.node.expired() && !ImG_NodeStruct.markedForDeletion)
                 {
                     //Node item render code
-                    ImGNodeRender(ImG_NodeStruct.node.lock(), name);
+                    if (ImGui::TreeNode(name.c_str()))
+                    {
+                        ImGui::SameLine();
+                        if (ImGui::Button("x"))
+                        {
+                            m_staticNodes[name].markedForDeletion = true;
+                        }
+
+                        ND_Util::ImGuiNodeRender(ImG_NodeStruct.node.lock(), name);
+
+                        ImGui::TreePop();
+                    }
 
                     m_nodeFilterItems++;
                 }
@@ -405,7 +420,18 @@ void ND_ImGui::ImGuiNodes()
                         if (ND_Util::checkFilterConditions(name, m_nodesFilter))
                         {
                             //Node item render code
-                            ImGNodeRender(ImG_NodeStruct.node.lock(), name);
+                            if (ImGui::TreeNode(name.c_str()))
+                            {
+                                ImGui::SameLine();
+                                if (ImGui::Button("x"))
+                                {
+                                    m_staticNodes[name].markedForDeletion = true;
+                                }
+
+                                ND_Util::ImGuiNodeRender(ImG_NodeStruct.node.lock(), name);
+
+                                ImGui::TreePop();
+                            }
 
                             m_lastNodeFilterList.insert(name);
                             m_nodeFilterItems++;
@@ -427,7 +453,21 @@ void ND_ImGui::ImGuiNodes()
                         )
                     {
                         //Node item render code
-                        ImGNodeRender(ImG_NodeStruct.node.lock(), name);
+                        if (ImGui::TreeNode(name.c_str()))
+                        {
+                            ImGui::SameLine();
+                            if (ImGui::Button("x"))
+                            {
+                                m_staticNodes[name].markedForDeletion = true;
+                            }
+
+                            ND_Util::ImGuiNodeRender(ImG_NodeStruct.node.lock(), name);
+                            
+                            ImGui::TreePop();
+                        }
+                        ImGui::Separator();
+                        ImGui::Spacing();
+                        //ImGui::Separator();
                     }
                     else if (ImG_NodeStruct.node.expired())
                         ImG_NodeStruct.markedForDeletion = true;
@@ -442,98 +482,6 @@ void ND_ImGui::ImGuiNodes()
         {
             return record.second.markedForDeletion;
         });
-}
-
-void ND_ImGui::ImGNodeRender(sptr<Node> _node, const std::string& name)
-{
-    if (!m_imguiNode || !_node)
-        return;
-
-    if (ImGui::TreeNode(name.c_str()))
-    {
-        ImGui::SameLine();
-        if (ImGui::Button("x"))
-        {
-            m_staticNodes[name].markedForDeletion = true;
-        }
-
-        //Gizmo
-        ND_Util::NoConflictGizmo(_node, name);
-
-        //visibility button
-        if (ImGui::Button("Toggle visibility"))
-        {
-            _node->setEnabled(!_node->isEnabled());
-        }
-
-        if (_node->is<Mesh>())
-        {
-            ImGui::Separator();
-            int meshRO = _node->as<Mesh>()->getRenderOrder();
-            bool roChanged = false;
-            roChanged = ImGui::DragInt("Render order", &meshRO, sliderSensivity, 0, 10000);
-            if (roChanged)
-                _node->as<Mesh>()->setRenderOrder(meshRO);
-        }
-        else if (_node->is<ParticlesEmitter>())
-        {
-            ImGui::Separator();
-            int emitterRO = _node->as<ParticlesEmitter>()->getRenderOrder();
-            if(ImGui::DragInt("Render order", &emitterRO, sliderSensivity, 0, 10000))
-                _node->as<ParticlesEmitter>()->setRenderOrder(emitterRO);
-        }
-
-        if (ImGui::BeginTabBar("Node tab bar"))
-        {
-            if (ImGui::BeginTabItem("Transforms"))
-            {
-                ND_Util::ImGuiTransforms(_node);
-                //printing info to console
-                if (ImGui::Button("Print node info"))
-                {
-                    ND_Util::printDebugNodeInfo(_node);
-                }
-
-                ImGui::EndTabItem();
-            }
-            if (_node->is<ParticlesEmitter>())
-            {
-                if (ImGui::BeginTabItem("Emitter settings"))
-                {
-                    ND_Util::imGuiEmitterEditor(_node->as<ParticlesEmitter>());
-
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem("Material"))
-                {
-                    const auto emitter = cast_sptr<ParticlesEmitter>(_node);
-                    ImGuiDrawerMaterial::onGui("Mesh material settings", *emitter->getMaterialInst());
-
-                    ImGui::EndTabItem();
-                }
-            }
-            if (_node->is<Mesh>())
-                if (ImGui::BeginTabItem("Material"))
-                {
-                    const auto mesh = cast_sptr<Mesh>(_node);
-                    ImGuiDrawerMaterial::onGui("Mesh material settings", *mesh->getMaterialInst());
-
-                    ImGui::EndTabItem();
-                }
-            if (ImGui::BeginTabItem("Tween Builder"))
-            {
-                ND_Util::ImGuiTweens(_node);
-
-                ImGui::EndTabItem();
-            }
-        }
-        ImGui::EndTabBar();
-
-        ImGui::TreePop();
-        ImGui::Separator();
-        ImGui::Spacing();
-        ImGui::Separator();
-    }
 }
 
 void ND_ImGui::ImGuiUpdate(float dt)

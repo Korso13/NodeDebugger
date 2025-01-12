@@ -43,6 +43,7 @@ private:
 	std::unordered_map<std::string, debugVar<vec2> > m_debugVec2;
 	std::unordered_map<std::string, debugVar<vec3> > m_debugVec3;
 	std::unordered_map<std::string, debugVar<vec4> > m_debugVec4;
+	std::unordered_map<std::string, debugVar<ivec2> > m_debugIVec2;
 
 #ifdef ND_ACCESSENABLED
 	std::unordered_map<std::string, bool>&			m_boolSettings;
@@ -190,6 +191,23 @@ inline void VariablesTab::addItemTyped(const std::string& altName, const vec4* i
 	debugVar.var = const_cast<vec4*>(item);
 	debugVar.onChangeCb = cb;
 	m_debugVec4.insert({ altName, debugVar });
+}
+template<>
+inline void VariablesTab::addItemTyped(const std::string& altName, ivec2* item, std::function<void()> cb)
+{
+	debugVar<ivec2> debugVar;
+	debugVar.var = item;
+	debugVar.onChangeCb = cb;
+	m_debugIVec2.insert({ altName, debugVar });
+}
+
+template<>
+inline void VariablesTab::addItemTyped(const std::string& altName, const ivec2* item, std::function<void()> cb)
+{
+	debugVar<ivec2> debugVar;
+	debugVar.var = const_cast<ivec2*>(item);
+	debugVar.onChangeCb = cb;
+	m_debugIVec2.insert({ altName, debugVar });
 }
 
 #endif

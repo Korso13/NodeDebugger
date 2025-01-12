@@ -7,8 +7,8 @@
 #include <array>
 #include "OnUpdateProvider.h"
 
-#include "common/NodeDebugger/ND_Defines.h"
-#include "common/NodeDebugger/ND_ImGuiUI.h"
+#include "common/nodeDebugger/ND_Defines.h"
+#include "common/nodeDebugger/ND_ImGuiUI.h"
 
 W4_USE_UNSTRICT_INTERFACE
 
@@ -34,15 +34,24 @@ W4_USE_UNSTRICT_INTERFACE
 
 //Controlls map:
 /*
-	C - camera debug mode
-	L - directional light debug mode
+	Spacebar - collapse/show debugger window
+	F2 - enable/disable debug camera
+	Shift (when debug camera is on) - speed up camera movement
+
+	C - standard camera keyboard-debug mode
+	L - directional light keyboard-debug mode
 	R - switch rotation output mode (radians|degrees)
 	P - switch on/off click placement mode
 
-	For camera mode:
+	For standard camera mode:
 	A-D - move camera by X
 	W-S - move camera by Y
 	Q-E - move camera by Z
+
+	For debug camera mode:
+	A-D - move camera by X
+	W-S - move camera by Z
+	Q-E - move camera by Y
 
 	For light mode:
 	A-D - change directional light direction vector by X
@@ -83,7 +92,7 @@ W4_USE_UNSTRICT_INTERFACE
 
 class EditorCamera;
 
-class NodeDebugger : public ND_ImGui, public OnUpdateProvider
+class NodeDebugger : public ND_ImGui, protected OnUpdateProvider
 {
 public:
 
@@ -96,9 +105,6 @@ public:
 
 		return m_instance;
 	}
-
-	//DO NOT CALL THIS METHOD!!! NodeDebugger is self-updating class!
-	void onUpdate(float dt) override NOCOMP;
 
 	void addNode(sptr<Node> inNode, const unsigned int assignButton) NOCOMP;
 	void purgeDebugger() NOCOMP;
@@ -116,6 +122,10 @@ public:
 	void setCallbackForButton(platform::KeyboardKey key, std::function<void()> cb) NOCOMP;
 
 	void setClickMeshZ(float targetZ) NOCOMP;
+	
+protected:
+
+	void onUpdate(float dt) override NOCOMP;
 
 private:
 

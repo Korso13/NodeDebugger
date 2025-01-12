@@ -81,7 +81,7 @@ namespace TweenContainer
 	}
 
     //Looped tween generator
-    static sptr<CustomTweens::EndlessTween<vec3>> generateEndlessTween(const tweenDebugRecord& tweenRecord, sptr<Node> _node, bool bSetNodeToStartPoint = false)
+    static sptr<CustomTweens::EndlessTween<vec3>> generateEndlessTween(const tweenDebugRecord& tweenRecord, sptr<Node> _node, std::function<void(vec3)> onUpdateCb = nullptr, bool bSetNodeToStartPoint = false)
     {
         if (tweenRecord.tweenDelays.empty() || tweenRecord.tweenPoints.empty())
             return nullptr;
@@ -103,7 +103,7 @@ namespace TweenContainer
         else
             offset = tweenStart - tweenRecord.tweenStart;
 
-        sptr<CustomTweens::EndlessTween<vec3>> tween = make::sptr<CustomTweens::EndlessTween<vec3>>(tweenStart, "new_tween");
+        sptr<CustomTweens::EndlessTween<vec3>> tween = make::sptr<CustomTweens::EndlessTween<vec3>>(tweenStart, onUpdateCb);
         float nowTime = 0.f;
         for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
         {
@@ -123,6 +123,11 @@ namespace TweenContainer
         }
 
         return tween;
+    }
+    //Legacy compatibility call
+    static sptr<CustomTweens::EndlessTween<vec3>> generateEndlessTween(const tweenDebugRecord& tweenRecord, sptr<Node> _node, bool bSetNodeToStartPoint = false)
+    {
+        return generateEndlessTween(tweenRecord, _node, nullptr, bSetNodeToStartPoint);
     }
 
     /*
@@ -176,7 +181,7 @@ namespace TweenContainer
     useTweenSettingStartPoint - if true will set relevant transform to startPoint written in the tween sample
     transformTypeSpecifyier - use it in case you have 2+ tweens with same names but different transforms (can leave default(MOVE) if all Samples have unique names)
     */
-    static sptr<CustomTweens::EndlessTween<vec3>> getLoopedTween(const std::string& tweenSetting, sptr<Node> node, bool useTweenSettingStartPoint = false, tweenTransformType transformTypeSpecifyier = tweenTransformType::MOVE)
+    static sptr<CustomTweens::EndlessTween<vec3>> getLoopedTween(const std::string& tweenSetting, sptr<Node> node, bool useTweenSettingStartPoint = false, std::function<void(vec3)> onUpdateCb = nullptr, tweenTransformType transformTypeSpecifyier = tweenTransformType::MOVE)
     {
         if (getTweenContainer().empty())
             preloadTweenContainer();
@@ -186,7 +191,7 @@ namespace TweenContainer
         {
             if (tweenRecord.tweenName == tweenSetting && tweenRecord.transformType == transformTypeSpecifyier)
             {
-                return generateEndlessTween(tweenRecord, node, useTweenSettingStartPoint);
+                return generateEndlessTween(tweenRecord, node, onUpdateCb, useTweenSettingStartPoint);
             }
             //in case transformType was not specified
             else if (tweenRecord.tweenName == tweenSetting && transformTypeSpecifyier == tweenTransformType::MOVE)
@@ -198,7 +203,7 @@ namespace TweenContainer
         //in case transformType was not specified
         if (!defaultSearchResult.tweenName.empty())
         {
-            return generateEndlessTween(defaultSearchResult, node, useTweenSettingStartPoint);
+            return generateEndlessTween(defaultSearchResult, node, onUpdateCb, useTweenSettingStartPoint);
         }
 
         warn("Can't find %s tween setting! Returning null!", tweenSetting.c_str());

@@ -6,7 +6,7 @@ NodeDebugger* NodeDebugger::m_instance = nullptr;
 #ifndef FORCENODEDEBUG_OFF
 #include "ND_Utilities.h"
 #include "utils/EditorCamera.h"
-#include <sources/common/NodeDebugger/ND_iGuiTab.h>
+#include <sources/common/nodeDebugger/ND_iGuiTab.h>
 
 NodeDebugger::NodeDebugger() :
     ND_ImGui(),
@@ -171,12 +171,12 @@ void NodeDebugger::onKeyPressed(const event::Keyboard::Down& evt)
         printConnectedNodes();
         return;
         break;
-    case platform::KeyboardKey::Space:
+    case platform::KeyboardKey::F2:
         m_foldImGuiMenu = !m_foldImGuiMenu;
         ImGui::SetWindowCollapsed("Node Debugger", m_foldImGuiMenu);
         return;
         break;
-    case platform::KeyboardKey::Shift:
+    case platform::KeyboardKey::Alt:
         if (camControlOn)
         {
             m_editorCamera->toggleCameraEnabled();

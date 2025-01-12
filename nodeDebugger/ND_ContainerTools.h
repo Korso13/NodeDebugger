@@ -2,8 +2,8 @@
 #pragma once
 
 #include "W4Framework.h"
-#include "common/NodeDebugger/ND_Defines.h"
-#include "common/NodeDebugger/ND_Utilities.h"
+#include "common/nodeDebugger/ND_Defines.h"
+#include "common/nodeDebugger/ND_Utilities.h"
 
 #ifndef FORCENODEDEBUG_OFF
 #include <internal/ImGuiAutoCommon.h>

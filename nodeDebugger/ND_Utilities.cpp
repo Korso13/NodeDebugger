@@ -1,16 +1,55 @@
 #include "ND_Utilities.h"
 
 #ifndef FORCENODEDEBUG_OFF
-#include <sources/common/NodeDebugger/ND_JsonTools.h>
+#include <sources/common/nodeDebugger/ND_JsonTools.h>
 #include "external/imgui_stdlib.h"
 #include <regex>
 #include "TweenFactory.h"
 #include <utils/EditorCamera.h>
 #include "external/addonPlot/implot.h"
+#include "ND_ParticleEmitterEditor.h"
+#include "settings/materialSystem/materialContainer/MaterialContainer.h"
 
 #define TWEENCONTAINER TweenContainer::getTweenContainer()
 
 ND_Settings* ND_Settings::m_instance = nullptr;
+
+//helper struct for ImGuiTweenPlotter()
+struct vec3D
+{
+    vec3D() = default;
+    vec3D(vec3 inVec) { x = static_cast<double>(inVec.x); y = static_cast<double>(inVec.y); z = static_cast<double>(inVec.z); };
+    vec3 getVec3() const { return vec3(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)); }
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+
+};
+//for std::unordered_map<vec3D, std::set<ImVec2>> support
+template<>
+struct std::hash<vec3D>
+{
+    size_t operator()(const vec3D& v) const noexcept
+    {
+        size_t h1 = std::hash<double>{}(v.x);  size_t h2 = std::hash<double>{}(v.y);
+        return h1 ^ (h2 << 1); //honest lifting from cppreference :)
+    }
+};
+static bool operator==(const vec3D& lsValue, const vec3D& rsValue)
+{
+    bool xEqual = neAbs(lsValue.x - rsValue.x) < 0.01;
+    bool yEqual = neAbs(lsValue.y - rsValue.y) < 0.01;;
+    bool zEqual = neAbs(lsValue.z - rsValue.z) < 0.01;;
+    return xEqual && yEqual && zEqual;
+};
+static bool operator<(const ImVec2& lsValue, const ImVec2& rsValue)
+{
+    bool xIsLess = (lsValue.x - rsValue.x) < -0.01;
+    bool yIsLess = (lsValue.y - rsValue.y) < -0.01;
+
+    return xIsLess || yIsLess;
+};
+
 
 namespace ND_Util
 {
@@ -240,7 +279,6 @@ namespace ND_Util
         if (ImGui::Button("Copy"))
         {
             NDS->m_lastCopiedVec3 = vec;
-            warn("%s", CVEC(NDS->m_lastCopiedVec3));
             ImGui::SetClipboardText(jsprint(vec));
         }
         ImGui::SameLine();
@@ -248,7 +286,92 @@ namespace ND_Util
         ImGui::PopID();
     }
 
-    void ImGuiTransforms(sptr<Node> _node)
+    void ImGuiNodeRender(sptr<Node> _node, const std::string& name)
+    {
+        if (!_node)
+            return;
+
+        //Gizmo
+        ND_Util::NoConflictGizmo(_node, name);
+
+        //visibility button
+        if (ImGui::Button("Toggle visibility"))
+        {
+            _node->setEnabled(!_node->isEnabled());
+        }
+
+        if (_node->is<Mesh>())
+        {
+            ImGui::Separator();
+            int meshRO = _node->as<Mesh>()->getRenderOrder();
+            bool roChanged = false;
+            roChanged = ImGui::DragInt("Render order", &meshRO, sliderSensivity, 0, 10000);
+            if (roChanged)
+                _node->as<Mesh>()->setRenderOrder(meshRO);
+        }
+        else if (_node->is<ParticlesEmitter>())
+        {
+            ImGui::Separator();
+            int emitterRO = _node->as<ParticlesEmitter>()->getRenderOrder();
+            if (ImGui::DragInt("Render order", &emitterRO, sliderSensivity, 0, 10000))
+                _node->as<ParticlesEmitter>()->setRenderOrder(emitterRO);
+        }
+
+        if (ImGui::BeginTabBar("Node tab bar"))
+        {
+            if (ImGui::BeginTabItem("Transforms"))
+            {
+                ND_Util::ImGuiTransforms(_node);
+                //printing info to console
+                if (ImGui::Button("Print node info"))
+                {
+                    ND_Util::printDebugNodeInfo(_node);
+                }
+
+                ImGui::EndTabItem();
+            }
+            if (_node->is<ParticlesEmitter>())
+            {
+                if (ImGui::BeginTabItem("Emitter settings"))
+                {
+                    ND_Util::imGuiEmitterEditor(_node->as<ParticlesEmitter>());
+
+                    ImGui::EndTabItem();
+                }
+                if (ImGui::BeginTabItem("Material"))
+                {
+                    const auto emitter = cast_sptr<ParticlesEmitter>(_node);
+                    ImGuiDrawerMaterial::onGui("Mesh material settings", *emitter->getMaterialInst());
+
+                    ImGui::EndTabItem();
+                }
+            }
+            if (_node->is<Mesh>())
+                if (ImGui::BeginTabItem("Material"))
+                {
+                    const auto mesh = cast_sptr<Mesh>(_node);
+                    auto materialSelectorResult = ND_Util::ImGuiMaterialSelector(mesh->getMaterialInst()->getMaterial()->getName());
+                    if (materialSelectorResult.first)
+                    {
+                        auto newMat = RMat(materialSelectorResult.second)->createInstance();
+                        newMat->setTexture(TextureId::TEXTURE_0, mesh->getMaterialInst()->getTexture(TextureId::TEXTURE_0));
+                        mesh->setMaterialInst(newMat);
+                    }
+                    ImGuiDrawerMaterial::onGui("Mesh material settings", *mesh->getMaterialInst());
+
+                    ImGui::EndTabItem();
+                }
+            if (ImGui::BeginTabItem("Tween Builder"))
+            {
+                ND_Util::ImGuiTweens(_node);
+
+                ImGui::EndTabItem();
+            }
+        }
+        ImGui::EndTabBar();
+    }
+
+    bool ImGuiTransforms(sptr<Node> _node)
     {
         if (!_node->is<Camera>())
         {
@@ -304,12 +427,12 @@ namespace ND_Util
             _node->setLocalRotation(Rotator(newValL));
         }
 
+        bool scaleChangedW = false;
+        bool scaleChangedL = false;
         if (!_node->is<Camera>() && !_node->is<EditorCamera>())
         {
             //scale sliders
             ImGui::Separator();
-            bool scaleChangedW = false;
-            bool scaleChangedL = false;
             vec3 scaleWorld = _node->getWorldScale();
             vec3 scaleLocal = _node->getLocalScale();
             float scaleW[3] = { scaleWorld.x, scaleWorld.y, scaleWorld.z };
@@ -371,6 +494,8 @@ namespace ND_Util
                     _node->setLocalScale(vec3FromGui(scaleL));
             }
         }
+
+        return posChangedL || posChangedW || rotChangedL || rotChangedW || scaleChangedL || scaleChangedW;
     }
 
     void ImGuiSettings()
@@ -388,6 +513,118 @@ namespace ND_Util
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
+    }
+
+    bool recursiveNodePicker(sptr<Node> _nodeRoot, sptr<Node>& _nodeToSet)
+    {
+        bool changed = false;//tracks if new node was selected
+
+        ImGui::PushID(repeatElemId++);
+        if (_nodeRoot->getChildren().empty())
+        {
+            if (ImGui::MenuItem(_nodeRoot->getName().c_str()))
+            {
+                _nodeToSet = _nodeRoot;
+                changed = true;
+            }
+        }
+        else
+        {
+            if (ImGui::BeginMenu(_nodeRoot->getName().c_str()))
+            {
+                if (ImGui::Button(CSTR("Pick " + _nodeRoot->getName())))
+                {
+                    _nodeToSet = _nodeRoot;
+                    changed = true;
+                }
+
+                ImGui::Separator();
+                ImGui::Separator();
+
+                for (auto& child : _nodeRoot->getChildren())
+                {
+                    if (child)
+                    {
+                        changed = changed || recursiveNodePicker(child, _nodeToSet);
+                    }
+                }
+
+                ImGui::EndMenu();
+            }
+        }
+        ImGui::PopID();
+        return changed;
+    }
+
+    bool ImGuiNodeHierarchy(sptr<Node>& _nodeToSet, const std::string nodePickerLabel)
+    {
+        bool changed = false; //tracks if new node was selected
+
+        ImGui::Separator();
+        ImGui::Columns(2);
+        ImGui::Text("%s", nodePickerLabel.c_str());
+        ImGui::Text("%s", ((_nodeToSet != nullptr) ? _nodeToSet->getName().c_str() : "None"));
+        
+        ImGui::NextColumn();
+        sptr<Node> root = Render::getRoot();
+        sptr<Node> rootHud = Render::getHudPass().getRoot();
+
+        ImGui::PushID(repeatElemId++);
+
+        if (ImGui::BeginMenu("Root"))
+        {
+            if (ImGui::Button("Pick Root"))
+            {
+                _nodeToSet = root;
+            }
+
+            if(!root->getChildren().empty())
+            {
+                ImGui::Separator();
+                ImGui::Separator();
+
+                for (auto& child : root->getChildren())
+                {
+                    if (child)
+                    {
+                        changed = changed || recursiveNodePicker(child, _nodeToSet);
+                    }
+                }
+            }
+
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("HUD Root"))
+        {
+            if (ImGui::Button("Pick HUD Root"))
+            {
+                _nodeToSet = rootHud;
+            }
+
+            if(!rootHud->getChildren().empty())
+            {
+                ImGui::Separator();
+                ImGui::Separator();
+
+                for (auto& child : rootHud->getChildren())
+                {
+                    if (child)
+                    {
+                        changed = changed || recursiveNodePicker(child, _nodeToSet);
+                    }
+                }
+            }
+
+            ImGui::EndMenu();
+        }
+
+        ImGui::PopID();
+
+        ImGui::Columns(1);
+        ImGui::Separator();
+
+        return changed;
     }
 
     bool ImGuiSearchBar(std::string& lastSearchVal)
@@ -477,6 +714,17 @@ namespace ND_Util
             if (!ImGuizmo::IsUsing())
                 m_lastGizmoNode = "";
         }
+    }
+
+    std::map<std::string, std::string> materials = { {"alpha_anim", "alpha_anim"},{"animated", "animated"},{"animated_mirror", "animated_mirror"},{"animated_mirrored", "animated_mirrored"},{"bump", "bump"},{"defaultShader", "defaultShader"},{"digits", "digits"},{"ocean_water", "ocean_water"},{"point_light_color", "point_light_color"},{"point_light_tex", "point_light_tex"},{"point_light_tex_nm", "point_light_tex_nm"},{"progress_bar", "progress_bar"},{"progress_bar_radial", "progress_bar_radial"},{"simple", "simple"},{"sprite", "sprite"},{"sprite_mirrored", "sprite_mirrored"},{"sprite_repeat", "sprite_repeat"},{"masked_sprite", "masked_sprite"},{"unlit", "unlit"} };
+
+    std::pair<bool, std::string> ImGuiMaterialSelector(const std::string& currentMaterial)
+    {
+#ifdef MS_MATERIAL_LIST
+        return ND_Util::ImGuiComboList("Material", MS_MATERIAL_LIST, currentMaterial);
+#else
+        return ND_Util::ImGuiComboList("Material", materials, currentMaterial);
+#endif // MS_MATERIAL_LIST
     }
 
     //reusable ImGui form for different types of vec3 tweens (used in ImGuiTweens)
@@ -702,16 +950,15 @@ namespace ND_Util
         ImGui::Columns(1);
     }
 
-    struct vec3D
-    {
-        vec3D(vec3 inVec) { x = static_cast<double>(inVec.x); y = static_cast<double>(inVec.y); z = static_cast<double>(inVec.z); };
-        vec3 getVec3() const { return vec3(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)); }
-        double x;
-        double y;
-        double z;
-    };
+//helper variable and macros for ImGuiTweenPlotter()
     static bool tweenPlotterInputBlocked = false;
+
 #define PLOTTER_INPUTBLOCKCHECK ((tweenPlotterInputBlocked) ? ImPlotDragToolFlags_NoInputs : 0)
+#define ANNOTATION_TOPRIGHT ImVec2(15, -15)
+#define ANNOTATION_BOTTOMRIGHT ImVec2(15, 15)
+#define ANNOTATION_TOPLEFT ImVec2(-15, -15)
+#define ANNOTATION_BOTTOMLEFT ImVec2(-15, 15)
+    //===
 
     void ImGuiTweenPlotter(sptr<Node> _node, tweenDebugRecord& tweenRecord)
     {
@@ -730,15 +977,25 @@ namespace ND_Util
 
         if (ImPlot::BeginPlot("##tweenlines", !callSeparatePlotterWindow ? getSizeForChild(0.4) : ImVec2(-1, -1)))
         {
-            double minValXPositions = 0.f;
-            double minValYPositions = 0.f;
+            double minValXPositions = 1000.000000;
+            double minValYPositions = 1000.000000;
             double maxValXPositions = -1000.f;            
             double maxValYPositions = -1000.f;
 
             vec3D startPoint(tweenRecord.tweenStart);
             float tweenDuration = std::accumulate(tweenRecord.tweenDelays.begin(), tweenRecord.tweenDelays.end(), 0.f);
+            vec3 lastPoint = tweenRecord.tweenStart;
+            float totalDistance = 0.f;
+            std::for_each(tweenRecord.tweenPoints.begin(), tweenRecord.tweenPoints.end(),
+                [&lastPoint, totalDistance](const vec3& newPoint) mutable
+                {
+                    totalDistance += (newPoint - lastPoint).length();
+                    lastPoint = newPoint;
+                });
+            float tweenAvgSpeed = totalDistance / tweenDuration;
 
-            //min-max values need to be calculated before any points on teh graph
+            //calculating axis X and Y limits
+            //min-max values need to be calculated before any points on the graph
             if (startPoint.x < minValXPositions)
                 minValXPositions = startPoint.x;
             if (startPoint.y < minValYPositions)
@@ -748,8 +1005,10 @@ namespace ND_Util
             if (startPoint.y > maxValYPositions)
                 maxValYPositions = startPoint.y;
 
-            if (tweenDuration > maxValYPositions)
-                maxValYPositions = tweenDuration;
+            if (tweenAvgSpeed * 2.f > maxValYPositions)
+                maxValYPositions = tweenAvgSpeed * 2.f;
+            if (tweenDuration > maxValXPositions)
+                maxValXPositions = tweenDuration;
 
             for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
             {
@@ -763,10 +1022,12 @@ namespace ND_Util
                 if (nextPoint.y > maxValYPositions)
                     maxValYPositions = nextPoint.y;
             }
-            ImPlot::SetupAxes("X / Now Time", "Y");
+            //Y axis also used to measure speed at certain time (X axis) of the tween
+            ImPlot::SetupAxes("X / Now Time", "Y / Speed");
             ImPlot::SetupAxesLimits(minValXPositions, maxValXPositions, minValYPositions, maxValYPositions);
             ImPlot::SetupLegend(ImPlotLocation_North, ImPlotLegendFlags_Horizontal);
 
+            //placing node's current transform value on the graph as a dot
             if (_node)
             {
                 vec3D nodePoint(TweenContainer::nodeValueGetter(_node, tweenRecord));
@@ -776,6 +1037,37 @@ namespace ND_Util
                 }
             }
             
+            //small helper lambda to avoid point annotations collisions (e.g. when we have 2+ repeating values in tween points)
+            std::unordered_map<vec3D, std::set<ImVec2>> annotationPlacements;
+            auto getAnnotationPlacement = [&annotationPlacements](vec3D& newPoint) -> ImVec2
+                {
+                    if (!annotationPlacements.contains(newPoint))
+                    {
+                        annotationPlacements[newPoint].insert(ANNOTATION_TOPRIGHT);
+                        return ANNOTATION_TOPRIGHT;
+                    }
+                    else
+                    {
+                        if (!annotationPlacements[newPoint].contains(ANNOTATION_BOTTOMRIGHT))
+                        {
+                            annotationPlacements[newPoint].insert(ANNOTATION_BOTTOMRIGHT);
+                            return ANNOTATION_BOTTOMRIGHT;
+                        }
+                        else if (!annotationPlacements[newPoint].contains(ANNOTATION_TOPLEFT))
+                        {
+                            annotationPlacements[newPoint].insert(ANNOTATION_TOPLEFT);
+                            return ANNOTATION_TOPLEFT;
+                        }
+                        else if (!annotationPlacements[newPoint].contains(ANNOTATION_BOTTOMLEFT))
+                        {
+                            annotationPlacements[newPoint].insert(ANNOTATION_BOTTOMLEFT);
+                            return ANNOTATION_BOTTOMLEFT;
+                        }
+                        else //exhausted all options for avoiding collisions
+                            return ANNOTATION_TOPRIGHT;
+                    }
+                };
+            
             //tween to be used in plotting the line
             auto tween = make::sptr<Tween<vec3>>(tweenRecord.tweenStart);
             float nowTime = 0.f;
@@ -784,7 +1076,10 @@ namespace ND_Util
             {
                 tweenRecord.tweenStart = startPoint.getVec3();
             }
-            ImPlot::Annotation(startPoint.x, startPoint.y, IMG_VIOLET, ImVec2(15, -15), false, "%s", "Start Point");
+            ImPlot::Annotation(startPoint.x, startPoint.y, IMG_VIOLET, getAnnotationPlacement(startPoint), false, "%s", "Start Point");
+
+            //for placing timeline points on the graph based on speed
+            lastPoint = tweenRecord.tweenStart; 
 
             for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
             {
@@ -794,62 +1089,69 @@ namespace ND_Util
                 
                 vec3D nextPoint(tweenRecord.tweenPoints[i]);
                 double xTime = static_cast<double>(nowTime);
-                double yTime = 1;
+                double yTime = static_cast<double>(
+                    neAbs((tweenRecord.tweenPoints[i] - tween->getValue(nowTime - IMG_PLOTTERSTIMESTEP)).length()) / IMG_PLOTTERSTIMESTEP); //avg speed for the last IMG_PLOTTERSTIMESTEP
+
                 //vec3 points
                 if (ImPlot::DragPoint(i+1, &nextPoint.x, &nextPoint.y, IMG_VIOLET, 4, PLOTTER_INPUTBLOCKCHECK))
                 {
                     tweenRecord.tweenPoints[i] = nextPoint.getVec3();
                 }
-                ImPlot::Annotation(nextPoint.x, nextPoint.y, IMG_VIOLET, ImVec2(15, -15), false, "%s%i", "Point ", CastI(i+1));
+                ImPlot::Annotation(nextPoint.x, nextPoint.y, IMG_VIOLET, getAnnotationPlacement(nextPoint), false, "%s%i", "Point ", CastI(i+1));
 
-                //timeline points
+                //speed-time graph points(first arg is just id, uses tweenPoints.size for reliable offset from vec3 points ids)
                 if (ImPlot::DragPoint(i+1+tweenRecord.tweenPoints.size(), &xTime, &yTime, IMG_ORANGE, 4, PLOTTER_INPUTBLOCKCHECK))
                 {
-                    //float nowTimeStamp = std::accumulate(tweenRecord.tweenDelays.begin(), tweenRecord.tweenDelays.begin() + i, 0.f);
-
                     if (float delta = (static_cast<float>(xTime) - nowTimeStamp); delta > 0.f)
                         tweenRecord.tweenDelays[i] = delta;
                 }
                 ImPlot::Annotation(xTime, yTime, IMG_ORANGE, ImVec2(-10, -20), false, "%s%i", "Point ", CastI(i+1));
             }
             
-            //tween vec3 values line
-            int linePoints = static_cast<int>(std::floor(tweenDuration / IMG_PLOTTERSTIMESTEP));
+            //resetting, reusing the variables used in graph calculations
+            lastPoint = tweenRecord.tweenStart; 
+            float lastNowTime = 0.f;
+            nowTime = 0.f;
+
+            //Plotting graph lines between points
+            int linePoints = static_cast<int>(std::floor(tweenDuration / IMG_PLOTTERSTIMESTEP)); //amount of points on tween to be evaluated for the graph
             if (linePoints > 2 && tween)
             { 
                 linePoints++;
+                //for tween's vec3 values graph
                 double xs[linePoints], ys[linePoints];
-                nowTime = 0.f; //resetting, reusing the variable
                 xs[0] = startPoint.x;
                 ys[0] = startPoint.y;
+
+                //for Speed-Time graph
+                double xTimes[linePoints], yTimes[linePoints];
+                xTimes[0] = 0; //tween's now time (start)
+                yTimes[0] = 0; //tween's now speed (start)
+
+                //iterating over the tween values. Start from 1 because 0 is a start point, which we've already added
                 for (int i = 1; i < linePoints; ++i) 
                 {
                     nowTime += IMG_PLOTTERSTIMESTEP;
-                    if (nowTime > tweenDuration)
+                    if (nowTime > tweenDuration) //reached the end of the tween
                         nowTime = tweenDuration;
                     vec3 nextValue = tween->getValue(nowTime);
+
+                    //for tween's vec3 values graph
                     xs[i] = static_cast<double>(nextValue.x);
                     ys[i] = static_cast<double>(nextValue.y);
+                    
+                    //for Speed-Time graph
+                    xTimes[i] = nowTime;
+                    yTimes[i] = neAbs((nextValue - lastPoint).length()) / (nowTime - lastNowTime);
+                    lastPoint = nextValue;
+                    lastNowTime = nowTime;
                 }
 
+                //plotting both graphs after calculating their points
                 ImPlot::PlotLine("Tween values line", xs, ys, linePoints);
+                ImPlot::PlotLine("Tween speed", xTimes, yTimes, linePoints);
             }
             
-            //Timeline
-            if (!tweenRecord.tweenDelays.empty())
-            {
-                double xTimes[tweenRecord.tweenDelays.size() + 1], yTimes[tweenRecord.tweenDelays.size() + 1];
-                xTimes[0] = 0;
-                yTimes[0] = 1;
-                nowTime = 0.f;
-                for (size_t i = 0; i < tweenRecord.tweenDelays.size(); i++)
-                {
-                    nowTime += tweenRecord.tweenDelays[i];
-                    xTimes[i + 1] = nowTime;
-                    yTimes[i + 1] = 1;
-                }
-                ImPlot::PlotLine("Tween timeline", xTimes, yTimes, tweenRecord.tweenDelays.size() + 1);
-            }
 
             ImPlot::EndPlot();
         }
@@ -858,7 +1160,6 @@ namespace ND_Util
         ImGui::Separator();
         ImGui::Spacing();
     }
-#undef PLOTTER_INPUTBLOCKCHECK
 
     void plotterDockWindowWrapper()
     {

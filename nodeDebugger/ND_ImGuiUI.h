@@ -2,7 +2,7 @@
 #pragma once
 
 #include "W4Framework.h"
-#include "common/NodeDebugger/ND_Defines.h"
+#include "common/nodeDebugger/ND_Defines.h"
 
 W4_USE_UNSTRICT_INTERFACE
 
@@ -52,7 +52,6 @@ private:
 	void ImGuiCamera() NOCOMP;
 	void ImGuiConsole() NOCOMP;
 	void ImGuiNodes() NOCOMP;
-	void ImGNodeRender(sptr<Node> _node, const std::string& name) NOCOMP;
 
 protected:
 
@@ -61,6 +60,7 @@ protected:
 
 	bool m_foldImGuiMenu = false;
 	bool m_windowFocused = false;
+	bool m_needUpdateNodesFilter = false;
 
 	float m_imGuiFontSize = IMG_FONTSIZE; 
 
@@ -80,7 +80,7 @@ protected:
 };
 
 #ifndef FORCENODEDEBUG_OFF
-#include <sources/common/NodeDebugger/CustomGuiTabs/VariablesTab.h>
+#include <sources/common/nodeDebugger/customGuiTabs/VariablesTab.h>
 
 template<typename T>
 inline void ND_ImGui::addDebugVariable(std::string name, T* variablePtr, std::function<void()> cb)

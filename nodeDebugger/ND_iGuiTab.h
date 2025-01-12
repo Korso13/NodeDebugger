@@ -4,7 +4,7 @@
 #include "W4Framework.h"
 #include <any>
 #ifndef FORCENODEDEBUG_OFF
-#include "common/NodeDebugger/ND_Defines.h"
+#include "common/nodeDebugger/ND_Defines.h"
 #include "ND_Utilities.h"
 #endif
 

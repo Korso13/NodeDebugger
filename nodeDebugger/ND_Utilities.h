@@ -2,7 +2,7 @@
 #pragma once
 
 #include "W4Framework.h"
-#include "common/NodeDebugger/ND_Defines.h"
+#include "common/nodeDebugger/ND_Defines.h"
 
 W4_USE_UNSTRICT_INTERFACE
 
@@ -21,11 +21,14 @@ namespace ND_Util
 	void setSkin(sptr<Spine> spine, const std::string& name);
 	void addSkin(sptr<Spine> spine, const std::string& name);
 
-	void ImGuiTransforms(sptr<Node> _node);
+	void ImGuiNodeRender(sptr<Node> _node, const std::string& name);
+	bool ImGuiTransforms(sptr<Node> _node);
 	void ImGuiCopyVec3Btn(vec3 vec);
 	void ImGuiNodeSettings(bool bNoGizmoSettings = false);
 	void NoConflictGizmo(sptr<Node> _node, const std::string& name);
 	void ImGuiSettings();
+	bool ImGuiNodeHierarchy(sptr<Node>& _nodeToSet, const std::string nodePickerLabel = "Node");
+
 	void resetImGuiRepeatElemId();
 	void resetPlotterWindowFlag();
 
@@ -34,6 +37,12 @@ namespace ND_Util
 	bool ImGuiSearchBar(std::string& lastSearchVal);
 	//use to filter which items to show after getting filter from searchbar. Returns true if no filter is set or filter string found in itemName(case non-sensitive!)
 	bool checkFilterConditions(const std::string& itemName, const std::string& filter);
+	
+	//Templated combolist renderer. 
+	//Returns pair: bool - set to true if new item was selected this frame; T - new selected value (if no new item selected, returns value by listCurrentValue key or random if key not found)
+	template<typename T>
+	std::pair<bool, T> ImGuiComboList(const std::string& listName, const std::map<std::string, T>& list, const std::string& listCurrentValue);
+	std::pair<bool, std::string> ImGuiMaterialSelector(const std::string& currentMaterial);
 
 	void ImGuiTweensBody(sptr<Node> _node, tweenDebugRecord& tweenRecord);
 	void ImGuiTweenPlotter(sptr<Node> _node, tweenDebugRecord& tweenRecord);
@@ -61,6 +70,39 @@ namespace ND_Util
 
 	static std::string m_lastGizmoNode = "";
 	static const char* easingNames[31];
+
+	//template method impls:
+	template<typename T>
+	std::pair<bool, T> ImGuiComboList(const std::string& listName, const std::map<std::string, T>& list, const std::string& listCurrentValue)
+	{
+		std::pair<bool, T> result;
+		result.first = false;
+#ifndef FORCENODEDEBUG_OFF
+		if (!list.empty())
+		{
+			if (ImGui::BeginCombo(listName.c_str(), listCurrentValue.c_str()))
+			{
+				for (auto& [listKey, listValue] : list)
+				{
+					bool isSelected = listKey == listCurrentValue;
+					if (isSelected)
+						ImGui::SetItemDefaultFocus();
+
+					if (ImGui::Selectable(listKey.c_str(), &isSelected))
+					{
+						result.first = true;
+						result.second = listValue;
+					}
+					if(!result.first && isSelected)
+						result.second = listValue;
+				}
+
+				ImGui::EndCombo();
+			}
+		}
+#endif
+		return result;
+	};
 }
 
 #ifndef FORCENODEDEBUG_OFF

@@ -80,7 +80,7 @@ namespace nlohmann {
 }
 
 #ifdef NDPATHDRAWER
-#include <game/levelSystem/Pathfinder/Pathfinder.h>
+#include <game/level/Pathfinder/Pathfinder.h>
 
 static vec3 vec2toVec3(const vec2& invec) { return vec3(invec.x, invec.y, 0.f); }
 

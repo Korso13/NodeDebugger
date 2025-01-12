@@ -27,6 +27,7 @@ struct ImVec2 { ImVec2(float, float) {}; };
 #include "ImGuiHelpers.h"
 #include "internal/ImGuiFontRoboto.h"
 #include "internal/ImGuiDrawerGizmo.h"
+#include "internal/ImGuiAuto.h"
 #endif
 
 #define jsprint(vec) ND_Util::jsstring(vec).c_str()
@@ -65,6 +66,8 @@ static float	sliderSensivity = 0.01;
 //ImGui settings:
 #define IMG_STARTSIZE ImVec2(550, 470)	//ImGui window start size
 #define IMG_FONTSIZE 28.f				//font size for all ImGui text
+#define IMG_FLOATFORMAT "%.5f"			//float precision format for variables tab
+#define IMG_VECFORMAT "%.4f"			//vec2 and vec3 precision format for variables tab
 
 //console messages colors:
 #define IMG_RED		ImVec4(1.f, 0.f, 0.f, 1.f)
@@ -78,8 +81,12 @@ static float	sliderSensivity = 0.01;
 #define IMG_ROTRANGE_RAD TWO_PI
 #define IMG_SCALERANGE 30.f
 
-#define IMG_PLOTTERSTIMESTEP 0.03
+#define IMG_PLOTTERSTIMESTEP 0.01
 //=========================================================================================
+
+//pair of parameter name and its default value
+template<typename T>
+using ParamPair = std::pair<std::string, T>;
 
 struct ImG_Node
 {
