@@ -11,6 +11,15 @@
 #include "external/boost/preprocessor/tuple/elem.hpp"
 #include "external/boost/preprocessor/tuple/eat.hpp"
 
+//interface struct for spawnables
+struct SpawnableStr
+{
+	//override this method to expose struct variables to ImGui (consider using IMGUI_AUTO macro passing your field to it)
+	//It's good practice to wrap all code of your onGui override in this structure:
+	//if(ImGui::TreeNode(label)){ /*your_imgui_calls_here*/ ImGui::TreePop();}
+	virtual bool onGui(const char* label) { return false; };
+};
+
 //========================================
 // Enum declaration & serialization macros
 //========================================
@@ -73,7 +82,7 @@
    if(obj.field != default_val)																						\
 		j[name] = obj.field;                                                                                         \
 }
-
+  																					
 //type - field name - default  tuple unpackers. state - element of sequence of tuples
 #define JSTRUCT_F_TYPE(state) BOOST_PP_TUPLE_ELEM(3, 0, state)
 #define JSTRUCT_F_NAME(state) BOOST_PP_TUPLE_ELEM(3, 1, state)
@@ -86,10 +95,14 @@
 //ADD_STRCT_DESERIALIZE_MACRO and ADD_STRCT_SERIALIZE_MACRO - implement de/serialization of MapObjectsData fields
 #define ADD_STRCT_FIELD_MACRO(i, data, field_tuple) JSTRUCT_F_TYPE(field_tuple) JSTRUCT_F_NAME(field_tuple) = JSTRUCT_F_DEFV(field_tuple);
 #ifdef DEBUG
-	#define ADD_STRCT_ONGUID_MACRO(i, data, field_tuple) ImGui::Auto(JSTRUCT_F_NAME_STR(field_tuple), JSTRUCT_F_NAME(field_tuple));
+	#define ADD_STRCT_ONGUID_MACRO(i, data, field_tuple) isChanged = isChanged || ImGui::Auto(JSTRUCT_F_NAME_STR(field_tuple), JSTRUCT_F_NAME(field_tuple));
 #endif
 #define ADD_STRCT_DESERIALIZE_MACRO(i, data, field_tuple) JSTRUCT_FIELD_DESERIALIZE(JSTRUCT_F_NAME_STR(field_tuple), JSTRUCT_F_NAME(field_tuple));
 #define ADD_STRCT_SERIALIZE_MACRO(i, data, field_tuple) JSTRUCT_FIELD_SERIALIZE(JSTRUCT_F_NAME_STR(field_tuple), JSTRUCT_F_NAME(field_tuple), JSTRUCT_F_DEFV(field_tuple));
+
+//used for overloading operator== in structs 
+#define JSTRUCT_COMPARATOR_LINE(field) field == rhValue.field && 
+#define ADD_COMPARATOR_LINE_MACRO(i, data, field_tuple) JSTRUCT_COMPARATOR_LINE(JSTRUCT_F_NAME(field_tuple))
 
 //Need conditional definition due to use of ImGui inside the macro :(
 #ifdef DEBUG
@@ -102,13 +115,20 @@ struct name : public SpawnableStr \
 \
 	bool onGui(const char* label) override \
 	{ \
+		bool isChanged = false; \
 		if (ImGui::TreeNode(label)) \
 		{ \
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_ONGUID_MACRO, "", fields) \
 			ImGui::TreePop(); \
 		} \
-		return false; \
+		return isChanged; \
 	} \
+	bool operator==(const name& rhValue) \
+	{ \
+		return (BOOST_PP_SEQ_FOR_EACH(ADD_COMPARATOR_LINE_MACRO, "", fields) \
+				className == rhValue.className);\
+	} \
+	bool operator!=(const name& rhValue) { return !(*this == rhValue); }\
 }; \
 \
 namespace nlohmann {\
@@ -133,6 +153,12 @@ struct name : public SpawnableStr \
 {\
 	std::string className = "CLASS_NAME"; \
 	BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_FIELD_MACRO, data, fields) \
+	bool operator==(const name& rhValue) \
+	{ \
+		return (BOOST_PP_SEQ_FOR_EACH(ADD_COMPARATOR_LINE_MACRO, "", fields) \
+				className == rhValue.className);\
+	} \
+	bool operator!=(const name& rhValue) { return !(*this == rhValue); }\
 };\
 \
 namespace nlohmann {\

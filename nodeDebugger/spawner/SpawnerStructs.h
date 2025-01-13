@@ -9,14 +9,22 @@ W4_USE_UNSTRICT_INTERFACE
 #include "SpawnerStructsImpl.h" //Implements MOD_DEFINITION
 #include "SpawnerEnums.h" 
 
-//interface struct for spawnables
-struct SpawnableStr
-{
-	//override this method to expose struct variables to ImGui (consider using IMGUI_AUTO macro passing your field to it)
-	//It's good practice to wrap all code of your onGui override in this structure:
-	//if(ImGui::TreeNode(label)){ /*your_imgui_calls_here*/ ImGui::TreePop();}
-	virtual bool onGui(const char* label) { return false; };
-};
+//we can't use templates with 2+ arguements in macro, hence this little trick:
+template<typename T>
+using settingUMap = std::unordered_map<std::string, T>;
+template<typename T>
+using settingMap = std::map<std::string, T>;
+
+//struct for possible child objects in MapObjectData
+JSTRUCT_DEFINITION(ChildObjectData,
+	((settingUMap<bool>,		flags,		settingUMap<bool>()))
+	((settingUMap<int>,			integers,	settingUMap<int>()))
+	((settingUMap<float>,		floats,		settingUMap<float>()))
+	((settingUMap<std::string>,	strs,		settingUMap<std::string>()))
+	((settingUMap<vec2>,		vec2s,		settingUMap<vec2>()))
+	((settingUMap<vec3>,		vec3s,		settingUMap<vec3>()))
+	((settingUMap<vec4>,		vec4s,		settingUMap<vec4>()))
+);
 
 //MapObjectsData struct constructor. 
 //It defines the struct, onGui method for it, as well as JSON serialization methods
@@ -36,6 +44,7 @@ MOD_DEFINITION(
 	((bool, hasTwoActivatePoints, false))
 	((vec3, interactPos_R, vec3(666.f)))
 	((vec3, interactPos_L, vec3(666.f)))
+	((ChildObjectData, childData, ChildObjectData()))
 	((std::vector<SPK_MATERIAL>, SPARK_Materials, std::vector<SPK_MATERIAL>()))
 );
 

@@ -22,6 +22,7 @@ NodeDebugger::NodeDebugger() :
     auto collider = m_clickMesh->addCollider<AABB>("clickMesh_debug", m_clickMesh);
     collider->setReceiveRaycasts(true);
     collider->setBlockRaycasts(false);
+    collider->setBlockScreencasts(false);
     collider->setScreencastCallback([this](const CollisionInfo& hit)
         {
             if (!ND_CASTALLOWED)
