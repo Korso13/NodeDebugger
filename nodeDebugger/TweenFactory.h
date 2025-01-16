@@ -54,7 +54,9 @@ namespace TweenContainer
                     changeValueOnUpdateCB(newValue);
 
                 nodeValueSetter(newValue, _node, tweenRecord);
-            });
+            },
+            tweenRecord.tweenName
+        );
 
         for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
         {
@@ -103,7 +105,7 @@ namespace TweenContainer
         else
             offset = tweenStart - tweenRecord.tweenStart;
 
-        sptr<CustomTweens::EndlessTween<vec3>> tween = make::sptr<CustomTweens::EndlessTween<vec3>>(tweenStart, onUpdateCb);
+        sptr<CustomTweens::EndlessTween<vec3>> tween = make::sptr<CustomTweens::EndlessTween<vec3>>(tweenStart, onUpdateCb, tweenRecord.tweenName);
         float nowTime = 0.f;
         for (size_t i = 0; i < tweenRecord.tweenPoints.size(); i++)
         {

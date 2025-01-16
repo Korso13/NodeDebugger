@@ -54,7 +54,7 @@ struct SpawnableStr
            name,															  \
            enumerators														  \
         )                                                                     \
-		NONE																  \
+		SIZE																  \
 	};																		  \
 																			  \
     W4_NLOHMANN_JSON_SERIALIZE_ENUM(name,{                                    \

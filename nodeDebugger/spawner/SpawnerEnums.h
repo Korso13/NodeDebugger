@@ -46,6 +46,7 @@ MAKE_SERIALIZED_ENUM_CLASS(BonusType,
 	(Coins)
 	(ExpSpheres)
 	(CoinsAndSpheres)
+	(NONE)
 );
 
 SERIALIZE_ENUM(ViewDirection,

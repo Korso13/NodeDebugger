@@ -641,17 +641,33 @@ bool PathdrawerTab::checkPathComplete(const plottedPath& pathRecord)
 
 void PathdrawerTab::pathNodeRaycastHandler(const CollisionInfo& hit, const std::string nodeName)
 {
-	if (!isActiveTab() || m_activeSubtab != Subtab::PathBuilder)
+	if (!isActiveTab())
 		return;
 
-	if (!m_pathDragBuildOn)
+	if(m_activeSubtab == Subtab::PathBuilder)
 	{
-		m_pathDragBuildStartPoint = nodeName;
-		m_pathDragBuildOn = true;
+		if (!m_pathDragBuildOn)
+		{
+			m_pathDragBuildStartPoint = nodeName;
+			m_pathDragBuildOn = true;
+		}
+		else if (m_pathDragBuildStartPoint != nodeName)
+		{
+			m_pathDragBuildEndPoint = nodeName;
+		}
 	}
-	else if(m_pathDragBuildStartPoint != nodeName)
+	else if (m_activeSubtab == Subtab::NodePathSearch)
 	{
-		m_pathDragBuildEndPoint = nodeName;
+		//deselect already selected node
+		if (m_selectedSearchNode != "No Node Selected" && m_pathNodeRender[m_selectedSearchNode])
+			m_pathNodeRender[m_selectedSearchNode]->getMaterialInst()->setParam("color", vec4(1.f, 0.f, 0.f, 0.7));
+		//select new node
+		if (m_pathNodeRender[nodeName])
+			m_pathNodeRender[nodeName]->getMaterialInst()->setParam("color", vec4(1.f, 1.f, 0.f, 0.7));
+		m_selectedSearchNode = nodeName;
+		//deselect previously selected paths
+		m_selectedSearchResultIndex = -1;
+		selectPathLine("__RESET_SELECTION__");
 	}
 }
 
