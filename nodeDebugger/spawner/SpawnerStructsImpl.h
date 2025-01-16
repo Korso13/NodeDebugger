@@ -142,7 +142,7 @@ namespace nlohmann {\
 		} \
 		static void to_json(json& j, const name& obj) \
 		{ \
-			JSTRUCT_FIELD_SERIALIZE("className", className, "className"); \
+			JSTRUCT_FIELD_SERIALIZE("className", className, "CLASS_NAME"); \
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_SERIALIZE_MACRO, "", fields) \
 		} \
 	};\
@@ -172,7 +172,7 @@ namespace nlohmann {\
 		} \
 		static void to_json(json& j, const name& obj) \
 		{ \
-			JSTRUCT_FIELD_SERIALIZE("className", className, "className"); \
+			JSTRUCT_FIELD_SERIALIZE("className", className, "CLASS_NAME"); \
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_SERIALIZE_MACRO, "", fields) \
 		} \
 	};\

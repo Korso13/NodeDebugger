@@ -16,7 +16,7 @@ template<typename T>
 using settingMap = std::map<std::string, T>;
 
 //struct for possible child objects in MapObjectData
-JSTRUCT_DEFINITION(ChildObjectData,
+JSTRUCT_DEFINITION(SettingsStuct,
 	((settingUMap<bool>,		flags,		settingUMap<bool>()))
 	((settingUMap<int>,			integers,	settingUMap<int>()))
 	((settingUMap<float>,		floats,		settingUMap<float>()))
@@ -44,7 +44,8 @@ MOD_DEFINITION(
 	((bool, hasTwoActivatePoints, false))
 	((vec3, interactPos_R, vec3(666.f)))
 	((vec3, interactPos_L, vec3(666.f)))
-	((ChildObjectData, childData, ChildObjectData()))
+	((SettingsStuct, settings, SettingsStuct()))
+	((SettingsStuct, childData, SettingsStuct()))
 	((std::vector<SPK_MATERIAL>, SPARK_Materials, std::vector<SPK_MATERIAL>()))
 );
 

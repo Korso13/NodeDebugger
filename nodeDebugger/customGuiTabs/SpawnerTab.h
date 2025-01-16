@@ -6,7 +6,6 @@
 #include "common/nodeDebugger/spawner/Spawnable.h"
 
 //TODO list:
-//- Add object getter by class name
 //- Add material current settings export to JSON (if possible)
 //- Add constructor for shader materials and their settings export
 

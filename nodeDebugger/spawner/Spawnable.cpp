@@ -18,7 +18,7 @@ bool Spawnable::onGui(const char* label)
 			bNeedsDeletion = true;
 		}
 
-		if (ImGui::BeginChild((m_spRoot->getName() + " Panel").c_str(), ND_Util::getSizeForChild(0.5), true, ImGuiWindowFlags_AlwaysAutoResize)) //scrollable panel with exposed settings
+		if (ImGui::BeginChild((m_spRoot->getName() + " Panel").c_str(), ND_Util::getSizeForChild(0.7), true, ImGuiWindowFlags_AlwaysAutoResize)) //scrollable panel with exposed settings
 		{
 			//Root node transforms
 			if (m_spRoot)

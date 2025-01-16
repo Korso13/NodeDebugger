@@ -98,7 +98,6 @@ public:
 	std::map<std::string, SpawnerRecord>& getClassRegistry() { return m_classesRegistry; }
 
 	SpawnerRecord& getSpawnerRecord(const std::string& className);
-	void setDefaultMeshesRoot(sptr<Node> newRoot);
 
 	//registerSpawnableClass() is used to expose spawnable class in the Spawner Tab
 	//className / entityName - the spawnable class and its name to be exposed in the Spawner Tab
@@ -142,19 +141,27 @@ public:
 	std::map<std::string, sptr<Spawnable>>& getAllSpawnables() { return m_spawnedEntities; }
 	std::map<std::string, std::pair<MapMeshData, sptr<Mesh>>>& getAllMeshes() { return m_spawnedMeshes; }
 
-	//Spawned meshes getters
+	//Spawned mesh getters
 	sptr<Mesh> getMeshByName(const std::string& meshName);
-	std::vector<sptr<Mesh>> getAllMeshesMatching(const std::string& meshName);
+	//Returns vector of meshes containing meshNameSearch in their name
+	std::vector<sptr<Mesh>> getAllMeshesMatching(const std::string& meshNameSearch);
+
+	sptr<Spawnable> getObjectByName(const std::string& spawnableName);
+	std::vector<sptr<Spawnable>> getAllObjectsOfClass(const std::string className);
 
 	//Used by SpawnerTab::onGuiMeshPalette() to set root for newly spawned meshes
 	sptr<Node>& getDefaultMeshesRoot() { return m_view; };
-	std::map<std::string, CommonTypes::MeshesContainerSetting>& getMeshesList();
+	void setDefaultMeshesRoot(sptr<Node> newRoot);
+	//Returns meshesContainerSetting contents
+	std::map<std::string, CommonTypes::MeshesContainerSetting>& getMeshesSettings();
+	//Returns vector of meshesContainerSetting records (meshes' names)
+	std::vector<std::string> getMeshesList();
 
 	//prevents repeating names wrecking ImGui tree menus
 	std::string checkUniqueName(const std::string& name);
 	std::string checkUniqueMeshName(const std::string& name);
 
-	//used before exporting meshes
+	//used before exporting mapObjects to json
 	void updateMeshHierarchyRecords();
 
 	//converts node's hierarchy place into string adress. Use as<Node>() to cast your sptr<Mesh> to Node

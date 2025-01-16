@@ -341,7 +341,7 @@ void PathdrawerTab::selectPathLine(const std::string& pathName)
 			for (auto& line : lineMeshes)
 			{
 				auto mat = RMat("sprite")->createInstance();
-				color _color = color(0.f, 0.f, 1.f, 1.f);
+				color _color = color(0.f, 0.f, 1.f, 0.7);
 				mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(_color));
 				line->setMaterialInst(mat);
 				line->setRenderOrder(9000 - 1);
@@ -356,7 +356,7 @@ void PathdrawerTab::selectPathLine(const std::string& pathName)
 	for (auto& line : m_pathLinesRender[pathName])
 	{
 		auto mat = RMat("sprite")->createInstance();
-		color _color = color(0.f, 1.f, 0.f, 1.f);
+		color _color = color(0.f, 1.f, 0.f, 0.7);
 		mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(_color));
 		line->setMaterialInst(mat);
 		line->setRenderOrder(9100);
@@ -372,7 +372,7 @@ void PathdrawerTab::renderPathNode(const std::string name, const pathNode& nodeD
 	auto mat = RMat("sprite")->createInstance();
 	color _color = color(1.f, 1.f, 1.f, 1.f);
 	mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(_color));
-	mat->setParam("color", vec4(1.f, 0.f, 0.f, 0.8));
+	mat->setParam("color", vec4(1.f, 0.f, 0.f, 0.7));
 	mat->enableBlending(true);
 	newPointMesh->setMaterialInst(mat);
 	Render::getRoot()->addChild(newPointMesh);
@@ -547,9 +547,9 @@ void PathdrawerTab::onGuiPathSearchTab()
 			if (ImGui::Selectable(nodeName.c_str(), &isSelected))
 			{
 				if(m_pathNodeRender[nodeName])
-					m_pathNodeRender[nodeName]->getMaterialInst()->setParam("color", vec4(1.f, 1.f, 0.f, 1.f));
+					m_pathNodeRender[nodeName]->getMaterialInst()->setParam("color", vec4(1.f, 1.f, 0.f, 0.7));
 				if(m_selectedSearchNode != "No Node Selected" && m_pathNodeRender[m_selectedSearchNode])
-					m_pathNodeRender[m_selectedSearchNode]->getMaterialInst()->setParam("color", vec4(1.f, 0.f, 0.f, 1.f));
+					m_pathNodeRender[m_selectedSearchNode]->getMaterialInst()->setParam("color", vec4(1.f, 0.f, 0.f, 0.7));
 				m_selectedSearchNode = nodeName;
 
 				m_selectedSearchResultIndex = -1;
@@ -787,14 +787,11 @@ void PathdrawerTab::onKeyReleased(const event::Keyboard::Up& evt)
 
 void PathdrawerTab::onTouchBegin(const Touch::Begin& evt)
 {
-	if (!isActiveTab() || m_activeSubtab == Subtab::NodePathSearch)
+	if (!isActiveTab())
 		return;
 
 	auto ray = Render::getScreenCamera()->createRayFromScreen(evt.point);
 	auto hits = Render::raycastAll(ray);
-
-	if (!m_touchCtrOn)
-		return;
 
 	for (auto& hit : hits)
 	{
@@ -806,7 +803,7 @@ void PathdrawerTab::onTouchBegin(const Touch::Begin& evt)
 			if (hitName == "clickMesh_debug")
 			{
 				//click adding new path node
-				if (m_activeSubtab == Subtab::PathNodes)
+				if (m_activeSubtab == Subtab::PathNodes && m_touchCtrOn)
 					addPathNode(m_newPathNodeNaming, hit.point.withoutZ(), m_nodeDefaultSpeed);
 			}
 		}

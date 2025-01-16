@@ -175,7 +175,7 @@ void SpawnerFactory::setDefaultMeshesRoot(sptr<Node> newRoot)
 	m_view = newRoot;
 }
 
-std::map<std::string, CommonTypes::MeshesContainerSetting>& SpawnerFactory::getMeshesList()
+std::map<std::string, CommonTypes::MeshesContainerSetting>& SpawnerFactory::getMeshesSettings()
 {
 	if (m_meshesList.empty())
 	{
@@ -201,6 +201,14 @@ std::map<std::string, CommonTypes::MeshesContainerSetting>& SpawnerFactory::getM
 	}
 
 	return m_meshesList;
+}
+
+std::vector<std::string> SpawnerFactory::getMeshesList()
+{
+	std::vector<std::string> result;
+	for (const auto& [meshSettingName, setting] : m_meshesList)
+		result.push_back(meshSettingName);
+	return result;
 }
 
 std::string SpawnerFactory::checkUniqueName(const std::string& name)
@@ -441,6 +449,26 @@ std::vector<sptr<Mesh>> SpawnerFactory::getAllMeshesMatching(const std::string& 
 	}
 
 	return searchResult;
+}
+
+sptr<Spawnable> SpawnerFactory::getObjectByName(const std::string& spawnableName)
+{
+	if (m_spawnedEntities.contains(spawnableName))
+		return m_spawnedEntities[spawnableName];
+	else
+	{
+		err("Failed to find Spawnable %s", spawnableName.c_str());
+		return nullptr;
+	}
+}
+
+std::vector<sptr<Spawnable>> SpawnerFactory::getAllObjectsOfClass(const std::string className)
+{
+	std::vector<sptr<Spawnable>> found;
+	for (auto& [name, Spawned] : m_spawnedEntities)
+		if (Spawned && Spawned->getMapObjectsData().className == className)
+			found.push_back(Spawned);
+	return found;
 }
 
 sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
