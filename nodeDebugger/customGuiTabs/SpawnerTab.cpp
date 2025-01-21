@@ -17,7 +17,7 @@ void SpawnerTab::onUpdate(float dt)
 
 bool SpawnerTab::isEmpty()
 { 
-	return SPAWNER.getClassRegistry().empty() && SPAWNER.getMeshesList().empty();
+	return SPAWNER.getClassRegistry().empty() && SPAWNER.getMeshesSettings().empty();
 };
 
 void SpawnerTab::onGuiCall()
@@ -56,8 +56,8 @@ void SpawnerTab::onGuiMapMeshData(MapMeshData& data)
 {
 	if (ImGui::BeginCombo("<-Mesh Name", data.meshName.c_str()))
 	{
-		auto It = SPAWNER.getMeshesList().begin();
-		for (size_t i = 0; i < SPAWNER.getMeshesList().size(); i++)
+		auto It = SPAWNER.getMeshesSettings().begin();
+		for (size_t i = 0; i < SPAWNER.getMeshesSettings().size(); i++)
 		{
 			auto& meshName = (*It).first;
 			auto& meshSetting = (*It++).second;
@@ -186,9 +186,9 @@ void SpawnerTab::onGuiSpawnedList()
 				//MapObjectsContainer tempContainer = Spawnable::mapData; //to prevent duplicating entries if exporting more than once in a session
 				SPAWNER.updateMeshHierarchyRecords();
 				MapObjectsContainer tempContainer;
-				MapObjectsData templateRec; tempContainer.mapObjectsData.push_back(templateRec);
+				//MapObjectsData templateRec; tempContainer.mapObjectsData.push_back(templateRec);
 				for (auto& [name, spawnedObject] : SPAWNER.getAllSpawnables())
-					if (spawnedObject)
+					if (spawnedObject && !spawnedObject->getMapObjectsData().isChildObj)
 						tempContainer.mapObjectsData.push_back(spawnedObject->getMapObjectsData());
 				for (auto& [name, spawnedMesh] : SPAWNER.getAllMeshes())
 					if (spawnedMesh.second)

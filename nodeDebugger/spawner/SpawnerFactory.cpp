@@ -79,14 +79,13 @@ void SpawnerFactory::SpawnObjects()
 			}
 		}
 
-#ifdef  DEBUG
-		//adding to debugger
 		m_spawnedEntities.insert(
 			{
 				checkUniqueName(newEntity->getSpawnableRoot()->getName()),
 				newEntity
 			}
 		);
+#ifdef  DEBUG
 		//restoring default MapObjectsData param for this class
 		lastAltereedParam.paramValue = defMOD;
 #endif //  DEBUG
@@ -558,6 +557,27 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, boo
 	}
 
 	return newEntity;
+}
+
+void SpawnerFactory::registerSpawnable(sptr<Spawnable> newSpawnable, bool useOnSpawnCB, const std::string& altName)
+{
+	if (!m_classesRegistry.contains(newSpawnable->getMapObjectsData().className))
+		return;
+
+	std::string newSpawnableName = (altName == "default") ? newSpawnable->getMapObjectsData().objName : altName;
+	auto& spawnData = getSpawnerRecord(newSpawnable->getMapObjectsData().className);
+	if (useOnSpawnCB && spawnData.m_onSpawnCb)
+		spawnData.m_onSpawnCb(newSpawnable);
+
+	if (newSpawnable->getSpawnableRoot())
+		newSpawnableName = checkUniqueName(newSpawnable->getSpawnableRoot()->getName());
+	if (newSpawnableName.empty()) newSpawnableName = checkUniqueName("Unnamed"); //must have unique, non-empty name!!
+	m_spawnedEntities.insert(
+		{
+			newSpawnableName,
+			newSpawnable
+		}
+	);
 }
 
 void SpawnerFactory::purgeSpawnedObjects()

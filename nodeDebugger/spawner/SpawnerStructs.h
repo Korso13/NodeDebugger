@@ -15,6 +15,9 @@ using settingUMap = std::unordered_map<std::string, T>;
 template<typename T>
 using settingMap = std::map<std::string, T>;
 
+//JSTRUCT_DEFINITION macro defines the struct, onGui method for it, as well as JSON serialization methods
+//Add new fields via syntax: ((type, field_name, defaultValue))
+
 //struct for possible child objects in MapObjectData
 JSTRUCT_DEFINITION(SettingsStuct,
 	((settingUMap<bool>,		flags,		settingUMap<bool>()))
@@ -27,11 +30,10 @@ JSTRUCT_DEFINITION(SettingsStuct,
 );
 
 //MapObjectsData struct constructor. 
-//It defines the struct, onGui method for it, as well as JSON serialization methods
-//Add new fields via syntax: ((type, field_name, defaultValue))
 MOD_DEFINITION(
 	((std::string, objName, "TEMPLATE_RECORD")) //DO NOT REMOVE OR RENAME!
-	((std::string, node, ""))
+	((std::string, node, "")) //DO NOT REMOVE OR RENAME!
+	((bool, isChildObj, false)) //DO NOT REMOVE OR RENAME!
 	((std::string, clickEvent, "none"))
 	((BonusType, bonus_inside_1, BonusType::NONE))
 	((BonusType, bonus_inside_2, BonusType::NONE))
@@ -49,8 +51,9 @@ MOD_DEFINITION(
 	((std::vector<SPK_MATERIAL>, SPARK_Materials, std::vector<SPK_MATERIAL>()))
 );
 
-//Definitions of other structs used by Spawnables (can be rendered in ImGui, exported/imported via JSON)
+//Struct for Mesh Spawner
 JSTRUCT_DEFINITION(MapMeshData,
+	((std::string, className, "CLASS_NAME"))
 	((std::string, meshName, ""))
 	((std::string, material, "sprite"))
 	((std::string, node, ""))
@@ -62,7 +65,7 @@ JSTRUCT_DEFINITION(MapMeshData,
 	((vec3, rotation_local, vec3::zero))
 );
 
-//Just MapObjectsContainer definition and deserialization
+//MapObjectsContainer definition and deserialization for Spawner Factory
 struct MapObjectsContainer {
 	std::vector<MapObjectsData> mapObjectsData;
 	std::vector<MapMeshData> mapMeshData;

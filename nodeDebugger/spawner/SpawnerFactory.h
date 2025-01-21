@@ -129,6 +129,7 @@ public:
 	//Used by factory on SpawnObjects() and by SpawnerTab
 	sptr<Mesh> spawnMesh(MapMeshData& meshData);
 	sptr<Spawnable> spawnObjectOfClass(SpawnerRecord& spawnData, bool bTabSpawned = false);
+	void registerSpawnable(sptr<Spawnable> newSpawnable, bool useOnSpawnCb, const std::string& altName = "default");
 
 	//removes sptrs of spawned meshes/Spawnables
 	void purgeSpawnedObjects();

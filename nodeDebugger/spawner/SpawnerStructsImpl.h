@@ -110,7 +110,6 @@ struct SpawnableStr
 #define JSTRUCT_DEFINITION(name, fields) \
 struct name : public SpawnableStr \
 {\
-	std::string className = "CLASS_NAME"; \
 	BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_FIELD_MACRO, "", fields) \
 \
 	bool onGui(const char* label) override \
@@ -126,7 +125,7 @@ struct name : public SpawnableStr \
 	bool operator==(const name& rhValue) \
 	{ \
 		return (BOOST_PP_SEQ_FOR_EACH(ADD_COMPARATOR_LINE_MACRO, "", fields) \
-				className == rhValue.className);\
+				true == true);\
 	} \
 	bool operator!=(const name& rhValue) { return !(*this == rhValue); }\
 }; \
@@ -137,12 +136,10 @@ namespace nlohmann {\
 	{ \
 		static void from_json(const json& j, name& obj) \
 		{ \
-			JSTRUCT_FIELD_DESERIALIZE("className", className); \
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_DESERIALIZE_MACRO, "", fields) \
 		} \
 		static void to_json(json& j, const name& obj) \
 		{ \
-			JSTRUCT_FIELD_SERIALIZE("className", className, "CLASS_NAME"); \
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_SERIALIZE_MACRO, "", fields) \
 		} \
 	};\
@@ -151,12 +148,11 @@ namespace nlohmann {\
 #define JSTRUCT_DEFINITION(name, fields) \
 struct name : public SpawnableStr \
 {\
-	std::string className = "CLASS_NAME"; \
 	BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_FIELD_MACRO, data, fields) \
 	bool operator==(const name& rhValue) \
 	{ \
 		return (BOOST_PP_SEQ_FOR_EACH(ADD_COMPARATOR_LINE_MACRO, "", fields) \
-				className == rhValue.className);\
+				true == true);\
 	} \
 	bool operator!=(const name& rhValue) { return !(*this == rhValue); }\
 };\
@@ -167,17 +163,103 @@ namespace nlohmann {\
 	{ \
 		static void from_json(const json& j, name& obj) \
 		{ \
-			JSTRUCT_FIELD_DESERIALIZE("className", className); \
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_DESERIALIZE_MACRO, "", fields) \
 		} \
 		static void to_json(json& j, const name& obj) \
 		{ \
-			JSTRUCT_FIELD_SERIALIZE("className", className, "CLASS_NAME"); \
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_SERIALIZE_MACRO, "", fields) \
 		} \
 	};\
 }
 #endif
 
-//JSTRUCT_DEFINITION call for MapObjectsData
-#define MOD_DEFINITION(fields) JSTRUCT_DEFINITION(MapObjectsData, fields)
+
+//==============================================
+//MapObjectsData dedicated struct factory macro
+//==============================================
+#ifdef DEBUG
+#define MOD_DEFINITION(fields) \
+struct MapObjectsData : public SpawnableStr \
+{\
+	std::string className = "CLASS_NAME"; \
+	BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_FIELD_MACRO, "", fields) \
+	sptr<MapObjectsData> childObj = nullptr;\
+\
+	bool onGui(const char* label) override \
+	{ \
+		bool isChanged = false; \
+		if (ImGui::TreeNode(label)) \
+		{ \
+			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_ONGUID_MACRO, "", fields) \
+			if(!childObj)\
+			{\
+				if(ImGui::Button("Add child object")) childObj = make::sptr<MapObjectsData>();\
+			}\
+			else\
+				isChanged = isChanged || ImGui::Auto("Child object", *childObj);\
+			ImGui::TreePop(); \
+		} \
+		return isChanged; \
+	} \
+	bool operator==(const MapObjectsData& rhValue) \
+	{ \
+		return (BOOST_PP_SEQ_FOR_EACH(ADD_COMPARATOR_LINE_MACRO, "", fields) \
+				className == rhValue.className);\
+	} \
+	bool operator!=(const MapObjectsData& rhValue) { return !(*this == rhValue); }\
+}; \
+\
+namespace nlohmann {\
+	template<> \
+	struct adl_serializer<MapObjectsData> \
+	{ \
+		static void from_json(const json& j, MapObjectsData& obj) \
+		{ \
+			JSTRUCT_FIELD_DESERIALIZE("className", className); \
+			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_DESERIALIZE_MACRO, "", fields) \
+			if(j.contains("childObj"))  \
+				adl_serializer<decltype(obj.childObj)>::from_json(j["childObj"], obj.childObj); \
+		} \
+		static void to_json(json& j, const MapObjectsData& obj) \
+		{ \
+			JSTRUCT_FIELD_SERIALIZE("className", className, "CLASS_NAME"); \
+			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_SERIALIZE_MACRO, "", fields) \
+			if(obj.childObj) j["childObj"] = *obj.childObj; \
+		} \
+	};\
+}
+#else
+#define MOD_DEFINITION(fields) \
+struct MapObjectsData : public SpawnableStr \
+{\
+	std::string className = "CLASS_NAME"; \
+	BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_FIELD_MACRO, data, fields) \
+	sptr<MapObjectsData> childObj = nullptr;\
+	bool operator==(const MapObjectsData& rhValue) \
+	{ \
+		return (BOOST_PP_SEQ_FOR_EACH(ADD_COMPARATOR_LINE_MACRO, "", fields) \
+				className == rhValue.className);\
+	} \
+	bool operator!=(const MapObjectsData& rhValue) { return !(*this == rhValue); }\
+};\
+\
+namespace nlohmann {\
+	template<> \
+	struct adl_serializer<MapObjectsData> \
+	{ \
+		static void from_json(const json& j, MapObjectsData& obj) \
+		{ \
+			JSTRUCT_FIELD_DESERIALIZE("className", className); \
+			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_DESERIALIZE_MACRO, "", fields) \
+			if(j.contains("childObj"))  \
+				adl_serializer<decltype(obj.childObj)>::from_json(j["childObj"], obj.childObj); \
+		} \
+		static void to_json(json& j, const MapObjectsData& obj) \
+		{ \
+			JSTRUCT_FIELD_SERIALIZE("className", className, "CLASS_NAME"); \
+			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_SERIALIZE_MACRO, "", fields) \
+			if(obj.childObj) j["childObj"] = *obj.childObj; \
+		} \
+	};\
+}
+#endif

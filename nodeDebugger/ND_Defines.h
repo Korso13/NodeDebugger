@@ -15,7 +15,7 @@ W4_USE_UNSTRICT_INTERFACE
 #define NOCOMP_F {return 1.f;};
 #define NOCOMP_PTR {return nullptr;}
 class ImGuiNode;
-struct ImVec2 { ImVec2(float, float) {}; };
+//struct ImVec2 { ImVec2(float, float) {}; };
 #endif
 
 #ifndef FORCENODEDEBUG_OFF

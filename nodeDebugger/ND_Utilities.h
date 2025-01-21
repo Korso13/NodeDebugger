@@ -32,7 +32,9 @@ namespace ND_Util
 	void resetImGuiRepeatElemId();
 	void resetPlotterWindowFlag();
 
+#ifndef FORCENODEDEBUG_OFF
 	ImVec2 getSizeForChild(float windowHeightPercent = 0.5);
+#endif
 
 	bool ImGuiSearchBar(std::string& lastSearchVal);
 	//use to filter which items to show after getting filter from searchbar. Returns true if no filter is set or filter string found in itemName(case non-sensitive!)

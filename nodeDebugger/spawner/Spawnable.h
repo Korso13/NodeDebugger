@@ -111,12 +111,20 @@ protected:
 	void addSpawnableSetting(SpawnSetting&& newSetting)
 	{
 		m_spawnableSettings.insert({ newSetting.settingName, std::move(newSetting)});
+	}	
+	void removeSpawnableSetting(const std::string& settingName)
+	{
+		m_spawnableSettings.erase(settingName);
 	}
 
 	//Exposes method of the spawned object to its spawner tab
 	void addSpawnableBtn(const std::string& btnName, std::function<void()>&& btnCall)
 	{
-		m_spawnableBtns.insert({ btnName, std::move(btnCall)});
+		m_spawnableBtns[btnName] = std::move(btnCall);
+	}
+	void removeSpawnableBtn(const std::string& btnName)
+	{
+		m_spawnableBtns.erase(btnName);
 	}
 
 public:
@@ -126,6 +134,8 @@ public:
 protected:
 
 	MapObjectsData m_mapObjectData;
+	
+	bool m_isChildObj = false;
 	sptr<Node> m_spRoot = nullptr; //Spawnable object's root (used in OnGui())
 
 private:

@@ -61,9 +61,12 @@ bool Spawnable::onGui(const char* label)
 				if (btnCall)
 				{
 					if (ImGui::Button(btnName.c_str()))
-						btnCall();
+					{
+						auto tempBtnCb = btnCall;
+						tempBtnCb();
+						break;
+					}
 				}
-
 			}
 		}
 		ImGui::EndChild(); //ends entity scrollable zone

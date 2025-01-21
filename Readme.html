@@ -32,7 +32,7 @@
 </ul>
 <h2 id="версия">Версия</h2>
 <ul>
-<li>Текущая версия <strong>5.01</strong></li>
+<li>Текущая версия <strong>5.1.0</strong></li>
 </ul>
 <h2 id="установка-и-настройка-nodedebugger">Установка и Настройка NodeDebugger</h2>
 <p>Для установки необходимо закинуть папку <strong>nodeDebugger</strong> в папку <strong>sources/common</strong> проекта, а также подкинуть дополнительные файлы из <strong>extra sources</strong> в папки <strong>js</strong> и <strong>sources/settings</strong>. В папке <strong>sdk fixes</strong> лежат фиксы для движка (без них например забаговано изменение контейнеров через UI).</p>
@@ -171,6 +171,26 @@
 <li>Если вы передаёте переменную как rvalue (movable копия), обязательно пропишите колбэк, иначе у вас ничего не будет меняться в вашем объекте или изменённое значение не попадёт в экспорт <code>MapObjectsData</code> (впрочем его поля по-хорошему должны передаваться по lvalue)!</li>
 <li>Сеттинг типа <code>sptr&lt;Node&gt;</code> будет отображаться как меню трансформа + гизмо + будет подменю смены родительской ноды. В экспорт автоматом пишется родительская нода только для корневой ноды объекта, поэтому если вам нужно сохранять адрес какой-то вторичной ноды, создайте в  <code>MapObjectsData</code> дополнительное <code>std::string</code> поле, и через колбэк к сеттингу пишите туда нужный адрес (функции для парсинга адреса см в разделе “Прочие функции Spawner”).</li>
 </ul>
+<h3 id="добавление-дочерних-объектов-в-spawnable">Добавление дочерних объектов в Spawnable</h3>
+<p>Spawnable поддерживает добавление и создание дочерних объектов, которые сохраняются в экспорте в json (поле childObjects в <code>MapObjectsData</code>) и могут инстанциироваться при загрузке из JSON.</p>
+<p>Активируется функционал через вызов метода Spawnable <code>addChildSpawner()</code>. Он принимает 2 аргумента</p>
+<ol>
+<li>Колбэк формата <code>[this](sptr&lt;Spawnable&gt;){}</code>, который будет вызываться вместо стандартной onSpawn функции для класса дочернего объекта. Оставляем nullptr если нужна стандартная  onSpawn функция. В колбэк прилетает свежесозданный дочерний объект.</li>
+<li>bool флаг - функционал дочерних объектов включён/выключен<br>
+Звать этот метод предлагаю в перегрузке initSpawnable().</li>
+</ol>
+<p>После <code>addChildSpawner()</code> в коде уже можно вызывать <strong><code>spawnAllChildren()</code></strong> для создания дочерних объектов, загруженных из json.<br>
+Добавлять новых можно через UI объекта в подвкладке SpawnedObjects - там будет Раскрывающееся древо “%<em>имя_объекта</em>% Children”.</p>
+<ol>
+<li>Из выпадающего списка внизу выбираем класс объекта, жмём <code>Add ___ Child</code></li>
+<li>Появится запись (<code>MapObjectsData</code>) о новом дочернем объекте, которую можно настроить.</li>
+<li>Когда настройка записи завершена, жмём <code>Spawn</code> чтобы создать дочерний объект</li>
+<li>После создания объекта появится меню его настройки (то, что выводим через <code>addSpawnableSetting(), addSpawnableButton()</code>), и сам объект окажется в подвкладке SpawnedObjects</li>
+<li>Кнопка <code>Delete</code> удаляет запись (<code>MapObjectsData</code>) о дочернем объекте и пытается затереть сам объект (советую детей держать в wptr чтобы это работало нормально)</li>
+</ol>
+<p>Из кода класса детей можно получить через метод <strong><code>getSpawnedChildren()</code></strong>, который возвращает структуру с wptr полем <code>child</code> - дочерним объектом(не забываем проверить через <code>expired()</code> и использовать через <code>lock()</code>).</p>
+<p><code>getMapObjectsData()</code> сам обновляет свою информацию о детях при вызове, поэтому если вы перегружаете этот метод - <strong>обязательно зовите родительский в перегрузке</strong>!</p>
+<p>Вся информация о детях при экспорте сохраняется в поле childObjects родительского объекта. В коде нет ограничений на количество и уровень вложенности дочених объектов, т.е. дочение объекты могут иметь свои собственные дочерние объекты.</p>
 <h3 id="сериализация-struct-и-enum">Сериализация struct и enum</h3>
 <p>Как уже писалось выше, для экспорта любого enum или struct в json или для вывода его в UI дебагера требуется для начала их сериализовать. Сразу оговорюсь, что в движке забагован вывод обычных enum (c enum class всё в порядке) в UI, по возможности избегайте их использования.</p>
 <p>Для сериализации структур их необходимо объявить через макрос <code>JSTRUCT_DEFINITION</code>. Делать это желательно в файле <em>common/nodeDebugger/spawner/SpawnerStructs.h</em> (так он точно будет известен фабрике и всем наследникам Spawnable). Синтаксис у этого макроса специфичный:</p>
@@ -261,6 +281,8 @@
 <li><strong><code>sptr&lt;Node&gt; SPAWNER.findNodeByHierarchyAddress(std::string adress)</code></strong> - находит ноду в иерархии нод по переданному адресу формата <code>название_ноды_0||название_ноды_1 ...</code></li>
 <li><strong><code>MAP_DATA</code></strong> - контейнер с mapObjectsData структурами всех объектов из mapObjects.json</li>
 <li><strong><code>MAP_MESH_DATA</code></strong> - контейнер с MapMeshData структурами всех мешей из mapObjects.json</li>
+<li><strong><code>template&lt;typename T&gt; sptr&lt;T&gt; getObjectByName(const std::string&amp; spawnableName);</code></strong> - ищет по имени и возвращает созданный/загруженный объект закастив до нужного класса <code>T</code>(должен быть наследником <code>Spawnable</code>). Имя объекта - то, как он выводится в подвкладке Spawned Objects.</li>
+<li><strong><code>template&lt;typename T&gt; std::vector&lt;sptr&lt;T&gt;&gt; getAllObjectsOfClass(const std::string&amp; className);</code></strong> - возвращает вектор объектов класса  <code>className</code> закастив их до нужного класса <code>T</code>(должен быть наследником <code>Spawnable</code>).</li>
 </ul>
 <h2 id="contribution-guidelines">Contribution guidelines</h2>
 <p>Also includes code by:</p>
