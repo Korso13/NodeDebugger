@@ -20,9 +20,21 @@ protected:
 	//forward decl
 	struct SpawnSetting;
 
+	//Struct to hold spawnable child objects
+	struct SpawnableChild
+	{
+		SpawnableChild(MapObjectsData& srcMod) : mod(srcMod) {};
+		SpawnableChild(const SpawnableChild& src) : bSpawned(src.bSpawned), child(src.child), mod(src.mod) {};
+		void operator=(const SpawnableChild& src) { bSpawned = src.bSpawned; child = src.child; mod = src.mod; };
+		
+		bool bSpawned = false;
+		wptr<Spawnable> child;
+		MapObjectsData& mod;
+	};
+
 private:
 
-	//helper struct
+	//helper structs
 	struct anyVar
 	{
 		friend SpawnSetting;
@@ -46,6 +58,7 @@ private:
 		std::function<bool(const std::string&, anyVar&)> onGuiCb = nullptr;
 		std::function<void(anyVar&)> refCb = nullptr;
 	};
+
 
 protected:
 
@@ -96,7 +109,8 @@ public:
 	virtual bool onGui(const char* label);
 
 	//used to get data for exporting spawned entities
-	virtual MapObjectsData& getMapObjectsData() { return m_mapObjectData; }
+	//Always call Spawnable::getMapObjectsData() if your class can have children (it updates getMapObjectsData().childObjects!!)
+	virtual MapObjectsData& getMapObjectsData();
 
 protected:
 
@@ -127,6 +141,27 @@ protected:
 		m_spawnableBtns.erase(btnName);
 	}
 
+	//Adds UI to Spawnable settings to add and spawn children. 
+	//If onChildSpawnCb is not set, regular Spawner m_onSpawnCb is used. If you want to use both - call regular Spawner's m_onSpawnCb inside onChildSpawnCb
+	void addChildSpawner(std::function<void(sptr<Spawnable>)> onChildSpawnCb = nullptr, bool childrenSpawnerOn = true);
+	//Spawns all children found in getMapObjectsData().childObjects (should be used on loading object from json)
+	//Call after you set onChildSpawnCb via addChildSpawner(if you need such)!
+	//Call only once!
+	void spawnAllChildren();
+
+	std::vector<SpawnableChild>& getSpawnedChildren() { return m_children; };
+
+private:
+
+	void childSpawnerUI();
+	sptr<Spawnable> spawnChild(sptr<MapObjectsData> childData, SpawnableChild& childHolder, bool bTabSpawned = false);
+	
+	//recursively visits all descendents (child objects) of this object
+	void childrenVisiter(const std::function<void(Spawnable&)>& visiterFunction);
+
+	//Used to render focus frame around Spawnable
+	std::array<vec3, 2> getSpawnableBounds(sptr<Node> spawnableRoot);
+
 public:
 
 	bool isSpawned = false; //set to true if the object was spawned via Spawner Tab
@@ -135,7 +170,6 @@ protected:
 
 	MapObjectsData m_mapObjectData;
 	
-	bool m_isChildObj = false;
 	sptr<Node> m_spRoot = nullptr; //Spawnable object's root (used in OnGui())
 
 private:
@@ -143,6 +177,14 @@ private:
 	std::map<std::string, SpawnSetting> m_spawnableSettings; //Fields exposed to the Spawner Tab Gui
 	std::map<std::string, std::function<void()>> m_spawnableBtns; //Btns exposed to the Spawner Tab Gui
 	size_t m_rootNodeTransformSubsHandler = -1;
+
+	bool m_childrenAdderEnabled = false;
+	std::function<void(sptr<Spawnable>)> m_onChildSpawnCb = nullptr;
+
+	std::vector<SpawnableChild> m_children;
+
+	std::array<vec3, 2> m_cachedBounds;
+	sptr<Plotter> m_framePlotter = nullptr;
 };
 
 #include "SpawnableImpl.inl"

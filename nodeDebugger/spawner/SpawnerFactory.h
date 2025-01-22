@@ -49,8 +49,11 @@ public:
 		//Sets callback executed after entity removed from Spawnables list. 
 		//Use it to remove all of Spawnable's sptr records to allow for deleting the object from memory
 		SpawnerRecord& setOnDeleteCallback(std::function<void(sptr<Spawnable>)>&& cb);
-		
+		std::function<void(sptr<Spawnable>)> getOnDeleteCallback() { return m_onDeleteCb; };
 		SpawnerRecord& setObjNameList(std::vector<std::string>&& listOfNames);
+		
+		const MapObjectsData getMapObjectsData();
+		void setNewMapObjectsData(MapObjectsData& newMOD);
 
 	private:
 
@@ -96,6 +99,9 @@ public:
 	void SpawnObjects();
 
 	std::map<std::string, SpawnerRecord>& getClassRegistry() { return m_classesRegistry; }
+	//Use it to show a combo list with classes available in Spawner. 
+	//Returns class name on selecting a new one or selectedClass if nothing new was selected
+	std::string getClassesImGuiCombo(const std::string& selectedClass = "CLASS_NAME", const std::string& comboHeader = "Classes");
 
 	SpawnerRecord& getSpawnerRecord(const std::string& className);
 
@@ -129,6 +135,7 @@ public:
 	//Used by factory on SpawnObjects() and by SpawnerTab
 	sptr<Mesh> spawnMesh(MapMeshData& meshData);
 	sptr<Spawnable> spawnObjectOfClass(SpawnerRecord& spawnData, bool bTabSpawned = false);
+	sptr<Spawnable> spawnObjectOfClass(SpawnerRecord& spawnData, MapObjectsData& customMOD, bool bUseOnSpawnCb = true, bool bTabSpawned = false);
 	void registerSpawnable(sptr<Spawnable> newSpawnable, bool useOnSpawnCb, const std::string& altName = "default");
 
 	//removes sptrs of spawned meshes/Spawnables
@@ -147,8 +154,11 @@ public:
 	//Returns vector of meshes containing meshNameSearch in their name
 	std::vector<sptr<Mesh>> getAllMeshesMatching(const std::string& meshNameSearch);
 
-	sptr<Spawnable> getObjectByName(const std::string& spawnableName);
-	std::vector<sptr<Spawnable>> getAllObjectsOfClass(const std::string className);
+	//returns Spawned object of class T(must be Spawnable) by its name (how it's written in Spawned Objects subtab)
+	template<typename T> requires(std::is_base_of_v<Spawnable, T>)
+	sptr<T> getObjectByName(const std::string& spawnableName);
+	template<typename T> requires(std::is_base_of_v<Spawnable, T>)
+	std::vector<sptr<T>> getAllObjectsOfClass(const std::string className);
 
 	//Used by SpawnerTab::onGuiMeshPalette() to set root for newly spawned meshes
 	sptr<Node>& getDefaultMeshesRoot() { return m_view; };
@@ -191,6 +201,28 @@ private:
 	std::map<int, sptr<Spawnable>> m_delayedSpawnableParenting;
 };
 
+//Template specializations
+template<typename T> requires(std::is_base_of_v<Spawnable, T>)
+sptr<T> SpawnerFactory::getObjectByName(const std::string& spawnableName)
+{
+	if (m_spawnedEntities.contains(spawnableName))
+		return cast_sptr<T>(m_spawnedEntities[spawnableName]);
+	else
+	{
+		err("Failed to find Spawnable %s", spawnableName.c_str());
+		return nullptr;
+	}
+};
+
+template<typename T> requires(std::is_base_of_v<Spawnable, T>)
+std::vector<sptr<T>> SpawnerFactory::getAllObjectsOfClass(const std::string className)
+{
+	std::vector<sptr<T>> found;
+	for (auto& [name, Spawned] : m_spawnedEntities)
+		if (Spawned && Spawned->getMapObjectsData().className == className)
+			found.push_back(cast_sptr<T>(Spawned));
+	return found;
+}
 
 //SpawnerRecord's addConstructorParam() specialization for sptr<Node>, which utilizes ImGuiNodeHierarchy for picking the node
 template<>

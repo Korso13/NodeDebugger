@@ -28,29 +28,10 @@ void SpawnerFactory::SpawnObjects()
 		if (!spawnerRec.m_spawnerFunc)
 			continue;
 
-		//TODO: try to refactor this mess to avoid overwriting spawn params + use spawnObjectOfClass!
-		//replacing default MapObjectsData param with values from mapObjects.json. We will restore default MapObjectsData param later (if it's debug build)
-		auto constructorParams = spawnerRec.constructorParams;
-#ifdef  DEBUG
-		static SpawnerRecord::ParamPack refStub;
-		static SpawnerRecord::ParamPack& lastAltereedParam = refStub;
-		SpawnerRecord::variantHolder defMOD;
-#endif //  DEBUG
-		for (auto& param : constructorParams)
-		{
-			if (param.isMapData)
-			{
-#ifdef  DEBUG
-				lastAltereedParam = param;
-				defMOD = param.paramValue;
-#endif //  DEBUG
-				param.paramValue.setValue<MapObjectsData>(obj);
-				break;
-			}
-		}
+		//spawning new object, registering in m_spawnedEntities, executing onSpawn logic
+		auto newEntity = spawnObjectOfClass(spawnerRec, obj, true, false);
 
-		//spawning new object (can't use spawnObjectOfClass for now due to alternate constructorParams)
-		auto newEntity = spawnerRec.m_spawnerFunc(constructorParams);
+		//reparenting object to designated node if needed
 		bool foundParentNode = obj.node.empty(); //only need to search node if it's mentioned in obj.node
 		if (newEntity->getSpawnableRoot() && !foundParentNode)
 		{
@@ -61,10 +42,6 @@ void SpawnerFactory::SpawnObjects()
 				newEntity->getSpawnableRoot()->setParent(parentNode);
 			}
 		}
-
-		//executing onSpawn Logic
-		if (spawnerRec.m_onSpawnCb)
-			spawnerRec.m_onSpawnCb(newEntity);
 
 		//in case we failed to get getSpawnableRoot() after creating Spawnable (if it's not set in constructor)
 		if (!foundParentNode) 
@@ -78,17 +55,6 @@ void SpawnerFactory::SpawnObjects()
 					m_delayedSpawnableParenting.insert({ m_delayedSpawnableParenting.size(), newEntity });
 			}
 		}
-
-		m_spawnedEntities.insert(
-			{
-				checkUniqueName(newEntity->getSpawnableRoot()->getName()),
-				newEntity
-			}
-		);
-#ifdef  DEBUG
-		//restoring default MapObjectsData param for this class
-		lastAltereedParam.paramValue = defMOD;
-#endif //  DEBUG
 	}
 
 	//Meshes spawner (spawns meshes from mapObjects and registers them with SpawnerTab)
@@ -152,6 +118,20 @@ void SpawnerFactory::SpawnObjects()
 #ifdef DEBUG
 	checkNodeHierarchyNames();
 #endif // DEBUG
+}
+
+std::string SpawnerFactory::getClassesImGuiCombo(const std::string& selectedClass, const std::string& comboHeader)
+{
+	static std::map<std::string, std::string> classMapForCombo;
+	if (classMapForCombo.size() != m_classesRegistry.size())
+		for (auto& [className, spawnData] : m_classesRegistry)
+			classMapForCombo[className] = className;
+
+	auto comboResult = ND_Util::ImGuiComboList(comboHeader, classMapForCombo, selectedClass);
+	if (comboResult.first)
+		return comboResult.second;
+	else
+		return selectedClass;
 }
 
 SpawnerFactory::SpawnerRecord& SpawnerFactory::getSpawnerRecord(const std::string& className)
@@ -450,26 +430,6 @@ std::vector<sptr<Mesh>> SpawnerFactory::getAllMeshesMatching(const std::string& 
 	return searchResult;
 }
 
-sptr<Spawnable> SpawnerFactory::getObjectByName(const std::string& spawnableName)
-{
-	if (m_spawnedEntities.contains(spawnableName))
-		return m_spawnedEntities[spawnableName];
-	else
-	{
-		err("Failed to find Spawnable %s", spawnableName.c_str());
-		return nullptr;
-	}
-}
-
-std::vector<sptr<Spawnable>> SpawnerFactory::getAllObjectsOfClass(const std::string className)
-{
-	std::vector<sptr<Spawnable>> found;
-	for (auto& [name, Spawned] : m_spawnedEntities)
-		if (Spawned && Spawned->getMapObjectsData().className == className)
-			found.push_back(Spawned);
-	return found;
-}
-
 sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 {
 	//spawn logic
@@ -548,6 +508,70 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, boo
 		}
 	);
 
+	if (newEntity->getSpawnableRoot() && bTabSpawned)
+	{
+		ND_NODE(newEntity->getSpawnableRoot());
+		vec3 cameraPos = Render::getScreenCamera()->getWorldTranslation();
+		cameraPos.z = 0.f;
+		newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
+	}
+
+	return newEntity;
+}
+
+const MapObjectsData SpawnerFactory::SpawnerRecord::getMapObjectsData()
+{
+	for (auto& param : this->constructorParams)
+	{
+		if (param.isMapData)
+		{
+			return param.paramValue.get<MapObjectsData>();
+		}
+	}
+
+	//muting compilationError
+	return MapObjectsData();
+}
+
+void SpawnerFactory::SpawnerRecord::setNewMapObjectsData(MapObjectsData& newMOD)
+{
+	for (auto& param : this->constructorParams)
+	{
+		if (param.isMapData)
+		{
+			return param.paramValue.setValue<MapObjectsData>(newMOD);
+		}
+	}
+}
+
+sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, MapObjectsData& customMOD, bool bUseOnSpawnCb, bool bTabSpawned)
+{
+	//Customizing Spawn's MOD
+	MapObjectsData defaultMOD = spawnData.getMapObjectsData();
+	spawnData.setNewMapObjectsData(customMOD);
+	//spawning new object
+	auto newEntity = spawnData.m_spawnerFunc(spawnData.constructorParams);
+	newEntity->isSpawned = bTabSpawned; //marks object as spawned via ND tab
+	std::string newEntityName = newEntity->getMapObjectsData().objName;
+	//executing onSpawn logic
+	if (spawnData.m_onSpawnCb && bUseOnSpawnCb)
+		spawnData.m_onSpawnCb(newEntity);
+
+	//restoring default MOD
+	spawnData.setNewMapObjectsData(defaultMOD);
+
+	//naming new object
+	if (newEntity->getSpawnableRoot())
+		newEntityName = checkUniqueName(newEntity->getSpawnableRoot()->getName());
+	if (newEntityName.empty()) newEntityName = checkUniqueName("Unnamed"); //must have unique, non-empty name!!
+	m_spawnedEntities.insert(
+		{
+			newEntityName,
+			newEntity
+		}
+	);
+
+	//placing new object in front of camera
 	if (newEntity->getSpawnableRoot() && bTabSpawned)
 	{
 		ND_NODE(newEntity->getSpawnableRoot());
