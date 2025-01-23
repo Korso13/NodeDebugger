@@ -9,14 +9,20 @@ void SpawnerFactory::SpawnObjects()
 	//Ensuring all pre-existing nodes are uniquely named! 
 	checkNodeHierarchyNames();
 
-	std::sort(MAP_MESH_DATA.begin(), MAP_MESH_DATA.end(), [this](MapMeshData& data1, MapMeshData& data2)
-		{
-			return std::count(data1.node.begin(), data1.node.end(), '|') / 2 < std::count(data2.node.begin(), data2.node.end(), '|') / 2;
-		});
-	std::sort(MAP_DATA.begin(), MAP_DATA.end(), [this](MapObjectsData& data1, MapObjectsData& data2)
-		{
-			return std::count(data1.node.begin(), data1.node.end(), '|') / 2 < std::count(data2.node.begin(), data2.node.end(), '|') / 2;
-		});
+	if(MAP_MESH_DATA.size() > 1)
+	{
+		std::sort(MAP_MESH_DATA.begin(), MAP_MESH_DATA.end(), [this](MapMeshData& data1, MapMeshData& data2)
+			{
+				return std::count(data1.node.begin(), data1.node.end(), '|') / 2 < std::count(data2.node.begin(), data2.node.end(), '|') / 2;
+			});
+	}
+	if(MAP_DATA.size() > 1)
+	{
+		std::sort(MAP_DATA.begin(), MAP_DATA.end(), [this](MapObjectsData& data1, MapObjectsData& data2)
+			{
+				return std::count(data1.node.begin(), data1.node.end(), '|') / 2 < std::count(data2.node.begin(), data2.node.end(), '|') / 2;
+			});
+	}
 
 	//spawning objects from MapObjects.json
 	for (auto& obj : MAP_DATA)
