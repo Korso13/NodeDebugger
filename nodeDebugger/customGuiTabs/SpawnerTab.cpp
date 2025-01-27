@@ -270,6 +270,14 @@ void SpawnerTab::onGuiSpawnedList()
 						{
 							defferedDeleteName = name;
 						}
+						//Button for focusing on the object with camera
+						if (ImGui::Button(("Focus on " + name).c_str()))
+						{
+							vec3 camPos = Render::getScreenCamera()->getWorldTranslation();
+							vec3 centerPos = spawnedMesh.second->getWorldTranslation();
+							camPos.x = centerPos.x; camPos.y = centerPos.y;
+							Render::getScreenCamera()->setWorldTranslation(camPos);
+						};
 
 						auto materialSelectorResult = ND_Util::ImGuiMaterialSelector(spawnedMesh.first.material);
 						if (materialSelectorResult.first)

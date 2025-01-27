@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ND_iGuiTab.h"
+#include <regex>
 
 class VariablesTab : public iGuiTab
 {
@@ -11,7 +12,7 @@ public:
 	void onGuiCall() override NOCOMP;
 	bool isEmpty() override NOCOMP_B;
 
-	//Not working, use addItemTyped()
+	//Not usable in this case, use addItemTyped()
 	void addItem(std::any item, const std::string& altName = "default") override {};
 	
 	template<typename T>
@@ -30,20 +31,17 @@ private:
 	void drawVectorCollection(const std::string& name, debugVectors& collection) NOCOMP;
 	void drawMapCollection(const std::string& name, debugMapCollection& collection) NOCOMP;
 	void drawSettingsSubtab() NOCOMP;
+	//Logic for rendering GUI for debug variables
+	void drawVariablesFolder(std::vector<debugVariant>& variables) NOCOMP;
 
 private:
 
 	std::unordered_map<std::string, debugMapCollection> m_debugMaps;
 	std::unordered_map<std::string, debugVectors> m_debugVectors;
 
-	std::unordered_map<std::string, debugVar<std::string>> m_debugStrings;
-	std::unordered_map<std::string, debugVar<float>> m_debugFloats;
-	std::unordered_map<std::string, debugVar<int>  > m_debugInts;
-	std::unordered_map<std::string, debugVar<bool> > m_debugBools;
-	std::unordered_map<std::string, debugVar<vec2> > m_debugVec2;
-	std::unordered_map<std::string, debugVar<vec3> > m_debugVec3;
-	std::unordered_map<std::string, debugVar<vec4> > m_debugVec4;
-	std::unordered_map<std::string, debugVar<ivec2> > m_debugIVec2;
+	using variables_container = std::unordered_map<std::string, std::vector<debugVariant>>;
+	variables_container m_debugVariables;
+	size_t m_variablesCounter = 0;
 
 #ifdef ND_ACCESSENABLED
 	std::unordered_map<std::string, bool>&			m_boolSettings;
@@ -87,127 +85,30 @@ inline void VariablesTab::addCollectionKeyTyped(const std::string& altName, Cont
 	m_debugMaps.insert({ altName, maps });
 }
 
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, std::string* item, std::function<void()> cb)
+template<typename T>
+void VariablesTab::addItemTyped(const std::string& altName, T item, std::function<void()> cb)
 {
-	debugVar<std::string> debugVar;
-	debugVar.var = item;
-	debugVar.onChangeCb = cb;
-	m_debugStrings.insert({ altName, debugVar });
-}
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, float* item, std::function<void()> cb)
-{
-	debugVar<float> debugVar;
-	debugVar.var = item;
-	debugVar.onChangeCb = cb;
-	m_debugFloats.insert({ altName, debugVar });
-}
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, const float* item, std::function<void()> cb)
-{
-	debugVar<float> debugVar;
-	debugVar.var = const_cast<float*>(item);
-	debugVar.onChangeCb = cb;
-	m_debugFloats.insert({ altName, debugVar });
-}
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, int* item, std::function<void()> cb)
-{
-	debugVar<int> debugVar;
-	debugVar.var = item;
-	debugVar.onChangeCb = cb;
-	m_debugInts.insert({ altName, debugVar });
-}
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, const int* item, std::function<void()> cb)
-{
-	debugVar<int> debugVar;
-	debugVar.var = const_cast<int*>(item);
-	debugVar.onChangeCb = cb;
-	m_debugInts.insert({ altName, debugVar });
-}
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, bool* item, std::function<void()> cb)
-{
-	debugVar<bool> debugVar;
-	debugVar.var = item;
-	debugVar.onChangeCb = cb;
-	m_debugBools.insert({ altName, debugVar });
-}
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, const bool* item, std::function<void()> cb)
-{
-	debugVar<bool> debugVar;
-	debugVar.var = const_cast<bool*>(item);
-	debugVar.onChangeCb = cb;
-	m_debugBools.insert({ altName, debugVar });
-}
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, vec2* item, std::function<void()> cb)
-{
-	debugVar<vec2> debugVar;
-	debugVar.var = item;
-	debugVar.onChangeCb = cb;
-	m_debugVec2.insert({ altName, debugVar });
-}
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, const vec2* item, std::function<void()> cb)
-{
-	debugVar<vec2> debugVar;
-	debugVar.var = const_cast<vec2*>(item);
-	debugVar.onChangeCb = cb;
-	m_debugVec2.insert({ altName, debugVar });
-}
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, vec3* item, std::function<void()> cb)
-{
-	debugVar<vec3> debugVar;
-	debugVar.var = item;
-	debugVar.onChangeCb = cb;
-	m_debugVec3.insert({ altName, debugVar });
-}
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, const vec3* item, std::function<void()> cb)
-{
-	debugVar<vec3> debugVar;
-	debugVar.var = const_cast<vec3*>(item);
-	debugVar.onChangeCb = cb;
-	m_debugVec3.insert({ altName, debugVar });
-}
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, vec4* item, std::function<void()> cb)
-{
-	debugVar<vec4> debugVar;
-	debugVar.var = item;
-	debugVar.onChangeCb = cb;
-	m_debugVec4.insert({ altName, debugVar });
-}
+	debugVariant debugVar;
+	std::string variableName, folderName = "none";
+	variableName = altName; //default
 
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, const vec4* item, std::function<void()> cb)
-{
-	debugVar<vec4> debugVar;
-	debugVar.var = const_cast<vec4*>(item);
-	debugVar.onChangeCb = cb;
-	m_debugVec4.insert({ altName, debugVar });
-}
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, ivec2* item, std::function<void()> cb)
-{
-	debugVar<ivec2> debugVar;
+	std::regex reg(R"(\[.+\])", std::regex::icase);
+	std::smatch folder_found;
+	if (std::regex_search(altName, folder_found, reg))
+	{
+		//warn("%s", folder_found.str().c_str());
+		if (folder_found.str().size() > 2)
+		{
+			folderName = folder_found.str(); folderName.pop_back(); folderName.erase(0, 1);
+			variableName = std::regex_replace(altName, reg, "");
+		}
+	}
+
+	debugVar.variableName = variableName;
 	debugVar.var = item;
 	debugVar.onChangeCb = cb;
-	m_debugIVec2.insert({ altName, debugVar });
-}
-
-template<>
-inline void VariablesTab::addItemTyped(const std::string& altName, const ivec2* item, std::function<void()> cb)
-{
-	debugVar<ivec2> debugVar;
-	debugVar.var = const_cast<ivec2*>(item);
-	debugVar.onChangeCb = cb;
-	m_debugIVec2.insert({ altName, debugVar });
+	m_debugVariables[folderName].push_back(debugVar);
+	m_variablesCounter++;
 }
 
 #endif

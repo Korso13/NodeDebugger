@@ -19,6 +19,8 @@ W4_USE_UNSTRICT_INTERFACE
 #define ND_SPINE(spine) NodeDebugger::get()->addSpine(spine)
 #define ND_VAR(name, variable) NodeDebugger::get()->addDebugVariable(name, variable, nullptr)
 #define ND_VARCB(name, variable, callback) NodeDebugger::get()->addDebugVariable(name, variable, callback)
+#define ND_FVAR(folder, name, variable) NodeDebugger::get()->addDebugVariable("[" + folder + "]" + name, variable, nullptr)
+#define ND_FVARCB(folder, name, variable, callback) NodeDebugger::get()->addDebugVariable("[" + folder + "]" + name, variable, callback)
 #define ND_COLLECTION(name, collection) NodeDebugger::get()->addDebugCollection(name, collection)
 #define ND_BTN(name, callback) NodeDebugger::get()->addDebugCBButton(name, callback)
 

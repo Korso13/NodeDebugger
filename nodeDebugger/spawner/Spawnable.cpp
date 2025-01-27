@@ -200,6 +200,7 @@ void Spawnable::initSpawnable(sptr<Node> rootNode)
 		{
 			getMapObjectsData().pos = trans.translation();
 			getMapObjectsData().pos.z = 0.f; //sometimes the gizmo puts in double values into Z field breaking ROs. Disable if you need non-zero Z placement
+			m_cachedBounds = std::array<w4::math::vec3, 2>(); //clearing plotter frame pos cache
 		});
 }
 

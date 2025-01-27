@@ -143,10 +143,23 @@ struct SpineDebugging
 	std::map<int, std::string> slots;
 };
 
-template<typename T>
-struct debugVar
+//Helper struct for using std::visit with vector of variants
+//Syntax to use: std::visit(Visitor{[](type1 var){/*type1_handler*/},[](type2 var){/*type2_handler*/}...}, std::variant<>);
+template<typename ... Lambdas>
+struct Visitor : Lambdas...
 {
-	T* var = nullptr;
+	Visitor(Lambdas... lambdas) : Lambdas(std::forward<Lambdas>(lambdas))...
+	{
+	}
+	using Lambdas::operator()...;
+};
+
+using variable_t = std::variant<bool*, int*, float*, std::string*, vec2*, vec3*, vec4*, ivec2*>;
+
+struct debugVariant
+{
+	std::string variableName = "";
+	variable_t var;
 	std::function<void()> onChangeCb = nullptr;
 };
 

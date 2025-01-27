@@ -86,7 +86,7 @@ template<typename T>
 inline void ND_ImGui::addDebugVariable(std::string name, T* variablePtr, std::function<void()> cb)
 {
 	if (!getCustomTabByName("Variables"))
-    return;
+		return;
 
     cast_sptr<VariablesTab>(getCustomTabByName("Variables"))->addItemTyped(name, variablePtr, cb);
 }
