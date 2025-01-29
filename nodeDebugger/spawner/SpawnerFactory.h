@@ -45,11 +45,13 @@ public:
 
 		//Sets callback executed right after spawning a Spawnable entity
 		SpawnerRecord& setOnSpawnCallback(std::function<void(sptr<Spawnable>)>&& cb);
+		std::function<void(sptr<Spawnable>)> getOnSpawnCallback() { return m_onSpawnCb; };
 
 		//Sets callback executed after entity removed from Spawnables list. 
 		//Use it to remove all of Spawnable's sptr records to allow for deleting the object from memory
 		SpawnerRecord& setOnDeleteCallback(std::function<void(sptr<Spawnable>)>&& cb);
 		std::function<void(sptr<Spawnable>)> getOnDeleteCallback() { return m_onDeleteCb; };
+		
 		SpawnerRecord& setObjNameList(std::vector<std::string>&& listOfNames);
 		
 		const MapObjectsData getMapObjectsData();
@@ -104,6 +106,10 @@ public:
 	std::string getClassesImGuiCombo(const std::string& selectedClass = "CLASS_NAME", const std::string& comboHeader = "Classes");
 
 	SpawnerRecord& getSpawnerRecord(const std::string& className);
+	//Method for getting object of class' standard onSpawn callback. Useful for instancing child objects
+	std::function<void(sptr<Spawnable>)> getObjectOnSpawnCallback(sptr<Spawnable> spawnedObject);
+	//Method for getting class' standard onSpawn callback. Useful for instancing child objects
+	std::function<void(sptr<Spawnable>)> getClassOnSpawnCallback(const std::string& className);
 
 	//registerSpawnableClass() is used to expose spawnable class in the Spawner Tab
 	//className / entityName - the spawnable class and its name to be exposed in the Spawner Tab

@@ -152,6 +152,21 @@ SpawnerFactory::SpawnerRecord& SpawnerFactory::getSpawnerRecord(const std::strin
 	}
 }
 
+std::function<void(sptr<Spawnable>)> SpawnerFactory::getObjectOnSpawnCallback(sptr<Spawnable> spawnedObject)
+{
+	if(!spawnedObject)
+		return [this](sptr<Spawnable>) {};
+	return getClassOnSpawnCallback(spawnedObject->getMapObjectsData().className);
+}
+
+std::function<void(sptr<Spawnable>)> SpawnerFactory::getClassOnSpawnCallback(const std::string& className)
+{
+	if (m_classesRegistry.contains(className))
+		return getSpawnerRecord(className).getOnSpawnCallback();
+	else
+		return [this](sptr<Spawnable>) {};
+}
+
 void SpawnerFactory::setDefaultMeshesRoot(sptr<Node> newRoot)
 {
 	if (!newRoot)
