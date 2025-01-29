@@ -134,6 +134,7 @@ void SpawnerTab::onGuiClassPalette()
 						warn("Spawning %s!", className.c_str());
 						//Spawns new object of class and registers it to appear in Spawned subtab (kept in SpawnerFactory's getAllSpawnables())
 						auto newEntity = SPAWNER.spawnObjectOfClass(spawnerEntityRec, true);
+						m_needUpdateEntitiesFilter = true;
 					}
 				}
 
@@ -168,6 +169,7 @@ void SpawnerTab::onGuiMeshPalette()
 				vec3 cameraPos = Render::getScreenCamera()->getWorldTranslation();
 				cameraPos.z = 0.f;
 				newMesh->setWorldTranslation(cameraPos);
+				m_needUpdateEntitiesFilter = true;
 			}
 		}
 		ImGui::EndTabItem();
@@ -208,17 +210,30 @@ void SpawnerTab::onGuiSpawnedList()
 				m_entitiesFilter.clear();
 			if (m_needUpdateEntitiesFilter) 
 				m_needUpdateEntitiesFilter = false;
+			if (isFilterChanged) m_lastEntitiesFilterList.clear();
 
 			//scrollable child panel
 			if (ImGui::BeginChild("Spawned Objects Panel"))
 			{
 				std::string defferedDeleteName;
+				//============================================================
 				//renders list of spawned entities with their exposed settings
+				//============================================================
 				for (auto& [name, spawnedObject] : SPAWNER.getAllSpawnables())
 				{
-					//list-filtering logic
-					if (!ND_Util::checkFilterConditions(name, m_entitiesFilter))
-						continue;
+					//list-filtering logic optimizations
+					if (isFilterChanged && !m_entitiesFilter.empty())
+					{
+						if (!ND_Util::checkFilterConditions(name, m_entitiesFilter))
+							continue;
+						else
+							m_lastEntitiesFilterList.insert(name);
+					}
+					else if(!m_entitiesFilter.empty())
+					{
+						if (!m_lastEntitiesFilterList.contains(name))
+							continue;
+					}
 
 					bool bNeedDeletion = false;
 					if (spawnedObject)
@@ -256,11 +271,26 @@ void SpawnerTab::onGuiSpawnedList()
 					defferedDeleteName.clear();
 				}
 
+				//===============================
 				//renders list of spawned meshes
+				//===============================
 				for (auto& [name, spawnedMesh] : SPAWNER.getAllMeshes())
 				{
-					//list-filtering logic
-					if (!ND_Util::checkFilterConditions(name, m_entitiesFilter) || !spawnedMesh.second)
+					//list-filtering logic optimizations
+					if (isFilterChanged && !m_entitiesFilter.empty())
+					{
+						if (!ND_Util::checkFilterConditions(name, m_entitiesFilter))
+							continue;
+						else
+							m_lastEntitiesFilterList.insert(name);
+					}
+					else if(!m_entitiesFilter.empty())
+					{
+						if (!m_lastEntitiesFilterList.contains(name))
+							continue;
+					}
+
+					if (!spawnedMesh.second)
 						continue;
 
 					if (ImGui::TreeNode(name.c_str()))

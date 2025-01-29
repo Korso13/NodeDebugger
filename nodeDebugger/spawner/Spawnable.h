@@ -97,7 +97,7 @@ public:
 
 	Spawnable() = delete;
 	Spawnable(MapObjectsData& spawnData) : m_mapObjectData(spawnData) {};
-	virtual ~Spawnable() { m_spRoot = nullptr; }
+	virtual ~Spawnable() { if (m_framePlotter) Render::getRoot()->removeChild(m_framePlotter); m_spRoot = nullptr; }
 
 	virtual sptr<Node> getSpawnableRoot() { return m_spRoot; };
 

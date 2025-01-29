@@ -53,8 +53,9 @@ private:
 
 private:
 
-	bool m_needUpdateEntitiesFilter = false;
+	bool m_needUpdateEntitiesFilter = true; //todo: add usage!
 	std::string m_entitiesFilter = "";
+	std::set<std::string> m_lastEntitiesFilterList;
 
 	MapMeshData m_currentMeshSpawnerSetting;
 
