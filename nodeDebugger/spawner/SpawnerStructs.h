@@ -18,7 +18,7 @@ using settingMap = std::map<std::string, T>;
 //JSTRUCT_DEFINITION macro defines the struct, onGui method for it, as well as JSON serialization methods
 //Add new fields via syntax: ((type, field_name, defaultValue))
 
-//struct for possible child objects in MapObjectData
+//struct for various objects' settings in MapObjectData
 JSTRUCT_DEFINITION(SettingsStuct,
 	((settingUMap<bool>,		flags,		settingUMap<bool>()))
 	((settingUMap<int>,			integers,	settingUMap<int>()))
@@ -29,6 +29,12 @@ JSTRUCT_DEFINITION(SettingsStuct,
 	((settingUMap<vec4>,		vec4s,		settingUMap<vec4>()))
 );
 
+JSTRUCT_DEFINITION(ExtraLoot,
+	((int, bonus_count, 0))
+	((BonusType, bonus_type, BonusType::NONE))
+	((std::string, bonus_mesh, "none"))
+);
+
 //MapObjectsData struct constructor. 
 MOD_DEFINITION(
 	((std::string, objName, "TEMPLATE_RECORD")) //DO NOT REMOVE OR RENAME!
@@ -37,6 +43,7 @@ MOD_DEFINITION(
 	((std::string, clickEvent, "none"))
 	((BonusType, bonus_inside_1, BonusType::NONE))
 	((BonusType, bonus_inside_2, BonusType::NONE))
+	((std::vector<ExtraLoot>, extra_loot, std::vector<ExtraLoot>()))
 	((bool, isBoss, false))
 	((int, room, -1))
 	((int, level, 0))

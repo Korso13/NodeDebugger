@@ -24,6 +24,9 @@ struct SpawnableStr
 // Enum declaration & serialization macros
 //========================================
 
+#define ENUM_TO_STRING(r, data, elem)    \
+    case data::elem : return std::string(BOOST_PP_STRINGIZE(elem));
+
 //SERIALIZE_ENUM and AUTO_SERIALIZE_ENUM_CLASS helper Macro
 #define X_DEFINE_ENUM_SERIALIZER(r, data, elem) \
 	{ data::elem, BOOST_PP_STRINGIZE(elem)},
@@ -63,7 +66,7 @@ struct SpawnableStr
                 name,														  \
                 enumerators                                                   \
         )                                                                     \
-    });
+    });																		  
 
 //===========================================
 // Struct declaration & serialization macros
@@ -103,6 +106,8 @@ struct SpawnableStr
 //used for overloading operator== in structs 
 #define JSTRUCT_COMPARATOR_LINE(field) field == rhValue.field && 
 #define ADD_COMPARATOR_LINE_MACRO(i, data, field_tuple) JSTRUCT_COMPARATOR_LINE(JSTRUCT_F_NAME(field_tuple))
+#define JSTRUCT_DOUBLE_COMPARATOR_LINE(field) lhValue.field == rhValue.field && 
+#define ADD_DOUBLE_COMPARATOR_LINE_MACRO(i, data, field_tuple) JSTRUCT_DOUBLE_COMPARATOR_LINE(JSTRUCT_F_NAME(field_tuple))
 
 //Need conditional definition due to use of ImGui inside the macro :(
 #ifdef DEBUG
@@ -125,10 +130,15 @@ struct name : public SpawnableStr \
 	bool operator==(const name& rhValue) \
 	{ \
 		return (BOOST_PP_SEQ_FOR_EACH(ADD_COMPARATOR_LINE_MACRO, "", fields) \
-				true == true);\
+				true);\
 	} \
 	bool operator!=(const name& rhValue) { return !(*this == rhValue); }\
 }; \
+static bool operator==(const name& lhValue, const name& rhValue) \
+{ \
+	return (BOOST_PP_SEQ_FOR_EACH(ADD_DOUBLE_COMPARATOR_LINE_MACRO, "", fields) \
+			true);\
+} \
 \
 namespace nlohmann {\
 	template<> \
@@ -152,10 +162,15 @@ struct name : public SpawnableStr \
 	bool operator==(const name& rhValue) \
 	{ \
 		return (BOOST_PP_SEQ_FOR_EACH(ADD_COMPARATOR_LINE_MACRO, "", fields) \
-				true == true);\
+				true);\
 	} \
 	bool operator!=(const name& rhValue) { return !(*this == rhValue); }\
 };\
+static bool operator==(const name& lhValue, const name& rhValue) \
+{ \
+	return (BOOST_PP_SEQ_FOR_EACH(ADD_DOUBLE_COMPARATOR_LINE_MACRO, "", fields) \
+			true);\
+} \
 \
 namespace nlohmann {\
 	template<> \
@@ -191,7 +206,7 @@ struct MapObjectsData : public SpawnableStr \
 		if (ImGui::TreeNode(label)) \
 		{ \
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_ONGUID_MACRO, "", fields) \
-			if(ImGui::Button("Add child object")) childObjects.push_back(make::sptr<MapObjectsData>());\
+			if(ImGui::Button("Add child object")) childObjects.emplace_back(make::sptr<MapObjectsData>());\
 			if(!childObjects.empty())\
 			{\
 				int indx = 0;\
