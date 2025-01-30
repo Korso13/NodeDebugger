@@ -35,7 +35,7 @@ void SpawnerFactory::SpawnObjects()
 			continue;
 
 		//spawning new object, registering in m_spawnedEntities, executing onSpawn logic
-		auto newEntity = spawnObjectOfClass(spawnerRec, obj, true, false);
+		auto newEntity = spawnObjectOfClass(spawnerRec, obj, nullptr, false);
 
 		//reparenting object to designated node if needed
 		bool foundParentNode = obj.node.empty(); //only need to search node if it's mentioned in obj.node
@@ -565,7 +565,7 @@ void SpawnerFactory::SpawnerRecord::setNewMapObjectsData(MapObjectsData& newMOD)
 	}
 }
 
-sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, MapObjectsData& customMOD, bool bUseOnSpawnCb, bool bTabSpawned)
+sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, MapObjectsData& customMOD, std::function<void(sptr<Spawnable>)> customOnSpawnCb, bool bTabSpawned)
 {
 	//Customizing Spawn's MOD
 	MapObjectsData defaultMOD = spawnData.getMapObjectsData();
@@ -575,7 +575,9 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 	newEntity->isSpawned = bTabSpawned; //marks object as spawned via ND tab
 	std::string newEntityName = newEntity->getMapObjectsData().objName;
 	//executing onSpawn logic
-	if (spawnData.m_onSpawnCb && bUseOnSpawnCb)
+	if (customOnSpawnCb)
+		customOnSpawnCb(newEntity);
+	else if (spawnData.m_onSpawnCb)
 		spawnData.m_onSpawnCb(newEntity);
 
 	//restoring default MOD

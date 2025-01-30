@@ -141,7 +141,8 @@ public:
 	//Used by factory on SpawnObjects() and by SpawnerTab
 	sptr<Mesh> spawnMesh(MapMeshData& meshData);
 	sptr<Spawnable> spawnObjectOfClass(SpawnerRecord& spawnData, bool bTabSpawned = false);
-	sptr<Spawnable> spawnObjectOfClass(SpawnerRecord& spawnData, MapObjectsData& customMOD, bool bUseOnSpawnCb = true, bool bTabSpawned = false);
+	//Spawns object if class with custom MapObjectsData and optional custom onSpawnCb (default onSpawn will be used if customOnSpawnCb == nullptr)
+	sptr<Spawnable> spawnObjectOfClass(SpawnerRecord& spawnData, MapObjectsData& customMOD, std::function<void(sptr<Spawnable>)> customOnSpawnCb = nullptr, bool bTabSpawned = false);
 	void registerSpawnable(sptr<Spawnable> newSpawnable, bool useOnSpawnCb, const std::string& altName = "default");
 
 	//removes sptrs of spawned meshes/Spawnables

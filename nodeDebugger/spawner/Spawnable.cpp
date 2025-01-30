@@ -323,13 +323,13 @@ sptr<Spawnable> Spawnable::spawnChild(sptr<MapObjectsData> childData, SpawnableC
 	sptr<Spawnable> child = SPAWNER.spawnObjectOfClass(
 		SPAWNER.getSpawnerRecord(childData->className),
 		*childData,
-		m_onChildSpawnCb == nullptr, //do we need to use default onSpawnCb?
+		m_onChildSpawnCb, //uses default onSpawnCb if m_onChildSpawnCb == nullptr
 		bTabSpawned
 	);
 	
-	if (m_onChildSpawnCb)
-		m_onChildSpawnCb(child);
-	SPAWNER.registerSpawnable(child, false);
+	//if (m_onChildSpawnCb)
+	//	m_onChildSpawnCb(child);
+	//SPAWNER.registerSpawnable(child, false);
 
 	childHolder.child = child;
 	childHolder.bSpawned = true;
