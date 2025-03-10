@@ -150,7 +150,7 @@ void BordersTab::renderBorderLines(std::string borderRecordToRedraw)
 			line->setName("line_" + STR(i));
 			m_borderRender[borderPointName]->addChild(line);
 			auto mat = RMat("sprite")->createInstance();
-			color _color = color(1.f, 1.f, 0.f, 1.f);
+			color _color = color(1.f, 1.f, 0.f, 0.7);
 			mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(_color));
 			line->setMaterialInst(mat);
 			m_borderLinesRender[borderRegion->borderName].push_back(line);
@@ -161,7 +161,7 @@ void BordersTab::renderBorderLines(std::string borderRecordToRedraw)
 			auto vecRot = line->getWorldRotation().toVector();
 			vecRot.z = atan2(prevPos.y - middle.y, prevPos.x - middle.x);
 
-			auto scale = vec3((pos - prevPos).length(), 0.1f, 1.0f);
+			auto scale = vec3((pos - prevPos).length(), 0.05f, 1.0f);
 
 			line->setWorldScale(scale);
 			line->setRenderOrder(10000 - 1);

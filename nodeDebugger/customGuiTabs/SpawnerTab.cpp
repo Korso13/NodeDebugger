@@ -178,6 +178,12 @@ void SpawnerTab::onGuiMeshPalette()
 
 void SpawnerTab::onGuiSpawnedList()
 {
+	//TODO: redesign this shitty UI!
+	//- Instead of bunch of Trees use a List of Selectables
+	//- List takes 25% of tab's space
+	//- 60-70% of space subform for editing Spawnable/Mesh selected in teh list
+	//- (?) Add btn to spawnable that focuses Child object in the list (as alternative to editing in parent's form)
+
 	if (!SPAWNER.getAllSpawnables().empty() || !SPAWNER.getAllMeshes().empty())
 	{
 		if (ImGui::BeginTabItem("Spawned Objects"))
@@ -326,6 +332,11 @@ void SpawnerTab::onGuiSpawnedList()
 						{
 							spawnedMesh.second->setParent(parentNode);
 							spawnedMesh.first.node = SPAWNER.getNodeHierarchyAddress(spawnedMesh.second->as<Node>());
+						}
+						if (ImGui::InputText("Mesh ID", &spawnedMesh.first.meshId))
+						{
+							if (spawnedMesh.second && !spawnedMesh.first.meshId.empty())
+								spawnedMesh.second->setName(spawnedMesh.first.meshId);
 						}
 						ND_Util::ImGuiNodeRender(spawnedMesh.second, name);
 

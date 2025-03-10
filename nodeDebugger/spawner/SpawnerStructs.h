@@ -62,6 +62,7 @@ MOD_DEFINITION(
 JSTRUCT_DEFINITION(MapMeshData,
 	((std::string, className, "CLASS_NAME"))
 	((std::string, meshName, ""))
+	((std::string, meshId, ""))
 	((std::string, material, "sprite"))
 	((std::string, node, ""))
 	((int32_t, renderOrder, 1))

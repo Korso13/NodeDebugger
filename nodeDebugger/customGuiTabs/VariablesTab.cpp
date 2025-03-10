@@ -143,16 +143,16 @@ void VariablesTab::onGuiCall()
 	ImGui::EndTabBar();
 }
 
-void VariablesTab::drawVariablesFolder(std::vector<debugVariant>& variables)
+void VariablesTab::drawVariablesFolder(std::unordered_map<std::string, debugVariant>& variables)
 {
 	std::for_each(variables.begin(), variables.end(), 
-		[this](debugVariant& v)
+		[this](const auto& v)
 		{
-			if (!ND_Util::checkFilterConditions(v.variableName, m_variablesFilter))
+			if (!ND_Util::checkFilterConditions(v.first, m_variablesFilter))
 				return;
 
-			const std::string& name = v.variableName;
-			const std::function<void()>& cb = v.onChangeCb;
+			const std::string& name = v.first;
+			const std::function<void()>& cb = v.second.onChangeCb;
 			std::visit(Visitor{
 				[&name, &cb](bool* var) 
 				{
@@ -215,7 +215,7 @@ void VariablesTab::drawVariablesFolder(std::vector<debugVariant>& variables)
 					if (ImGui::Auto(name.c_str(), var))
 						if (cb) cb();
 				}
-			}, v.var);
+			}, v.second.var);
 		});
 }
 

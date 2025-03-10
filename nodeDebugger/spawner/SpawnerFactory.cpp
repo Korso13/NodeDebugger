@@ -4,11 +4,10 @@
 
 void SpawnerFactory::SpawnObjects()
 {
-	debug("[SpawnerFactory]");
+	info("[SpawnerFactory]Loaded %d meshes and %d Spawnable objects(not counting child objects)", MAP_MESH_DATA.size(), MAP_DATA.size());
 
 	//Ensuring all pre-existing nodes are uniquely named! 
 	checkNodeHierarchyNames();
-
 	if(MAP_MESH_DATA.size() > 1)
 	{
 		std::sort(MAP_MESH_DATA.begin(), MAP_MESH_DATA.end(), [this](MapMeshData& data1, MapMeshData& data2)
@@ -119,10 +118,10 @@ void SpawnerFactory::SpawnObjects()
 		}
 	}
 
-	//run it twice in case newly-loaded nodes are poorly-named. Not neded in release versions
+	//run it twice in case newly-loaded nodes are poorly-named. Not needed in release versions
 	//Possibly not that nessesary...
 #ifdef DEBUG
-	checkNodeHierarchyNames();
+	//checkNodeHierarchyNames();
 #endif // DEBUG
 }
 
@@ -346,7 +345,7 @@ std::string SpawnerFactory::getNodeHierarchyAddress(sptr<Node> node)
 
 sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string adress)
 {
-	debug("[SpawnerFactory::findNodeByHierarchyAddress] %s", adress.c_str());
+	//debug("[SpawnerFactory::findNodeByHierarchyAddress] %s", adress.c_str());
 	sptr<Node> foundNode = nullptr;
 	if (adress.empty())
 		return nullptr;
@@ -482,7 +481,15 @@ sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 	newMesh->setLocalRotation(Rotator(meshData.rotation_local));
 
 	//Adds mesh to list of spawned entities
-	std::string uniqueName = checkUniqueMeshName(newMesh->getName());
+	std::string uniqueName; 
+	if(!meshData.meshId.empty())
+		uniqueName = checkUniqueMeshName(meshData.meshId);
+	else
+		uniqueName = checkUniqueMeshName(meshData.meshName);
+
+	if (uniqueName != meshData.meshId)
+		meshData.meshId = uniqueName;
+	newMesh->setName(uniqueName);
 	m_spawnedMeshes.insert({ uniqueName, {meshData, newMesh} });
 
 	ND_NODE(newMesh);
