@@ -77,6 +77,7 @@ void SpawnerTab::onGuiMapMeshData(MapMeshData& data)
 			if (ImGui::Selectable(meshName.c_str(), &isSelected))
 			{
 				data.meshName = meshName;
+				data.meshId = meshName;
 			}
 			ImGui::NextColumn();
 			
@@ -90,6 +91,7 @@ void SpawnerTab::onGuiMapMeshData(MapMeshData& data)
 			if (ImGui::ImageButton(RT(textureName), icoSize, ImVec2(0, 1), ImVec2(1, 0)))
 			{
 				data.meshName = meshName;
+				data.meshId = meshName;
 			}
 			ImGui::Columns(1);
 		}

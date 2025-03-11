@@ -467,7 +467,20 @@ sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 		return nullptr;
 	}
 
-	sptr<Mesh> newMesh = createMesh(meshData.meshName, "", "sprite", true, parentNode); //material replaced with unique instance later
+	sptr<Mesh> newMesh = createMesh(meshData.meshName, "", "sprite", true, nullptr); //material replaced with unique instance later
+	
+																					 //naming and parenting
+	std::string uniqueName; 
+	if(!meshData.meshId.empty())
+		uniqueName = checkUniqueMeshName(meshData.meshId);
+	else
+		uniqueName = checkUniqueMeshName(meshData.meshName);
+
+	if (uniqueName != meshData.meshId)
+		meshData.meshId = uniqueName;
+	newMesh->setName(uniqueName);
+	parentNode->addChild(newMesh, false);
+
 	//making unique material instance
 	auto newMatInst = RMat(meshData.material)->createInstance();
 	newMatInst->setTexture(TextureId::TEXTURE_0, newMesh->getMaterialInst()->getTexture(TextureId::TEXTURE_0));
@@ -481,15 +494,6 @@ sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 	newMesh->setLocalRotation(Rotator(meshData.rotation_local));
 
 	//Adds mesh to list of spawned entities
-	std::string uniqueName; 
-	if(!meshData.meshId.empty())
-		uniqueName = checkUniqueMeshName(meshData.meshId);
-	else
-		uniqueName = checkUniqueMeshName(meshData.meshName);
-
-	if (uniqueName != meshData.meshId)
-		meshData.meshId = uniqueName;
-	newMesh->setName(uniqueName);
 	m_spawnedMeshes.insert({ uniqueName, {meshData, newMesh} });
 
 	ND_NODE(newMesh);
@@ -580,7 +584,7 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 	//spawning new object
 	auto newEntity = spawnData.m_spawnerFunc(spawnData.constructorParams);
 	newEntity->isSpawned = bTabSpawned; //marks object as spawned via ND tab
-	std::string newEntityName = newEntity->getMapObjectsData().objName;
+	std::string newEntityName = checkUniqueName(newEntity->getMapObjectsData().objId);
 	//executing onSpawn logic
 	if (customOnSpawnCb)
 		customOnSpawnCb(newEntity);
@@ -591,9 +595,16 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 	spawnData.setNewMapObjectsData(defaultMOD);
 
 	//naming new object
-	if (newEntity->getSpawnableRoot())
-		newEntityName = checkUniqueName(newEntity->getSpawnableRoot()->getName());
-	if (newEntityName.empty()) newEntityName = checkUniqueName("Unnamed"); //must have unique, non-empty name!!
+	if (newEntityName.empty())
+	{		
+		if (newEntity->getSpawnableRoot())
+			newEntityName = checkUniqueName(newEntity->getSpawnableRoot()->getName());
+		else if (!newEntity->getMapObjectsData().objName.empty())
+			newEntityName = checkUniqueName(newEntity->getMapObjectsData().objName);
+		else
+			newEntityName = checkUniqueName("Unnamed");//must have unique, non-empty name!!
+	}
+
 	m_spawnedEntities.insert(
 		{
 			newEntityName,
@@ -618,12 +629,12 @@ void SpawnerFactory::registerSpawnable(sptr<Spawnable> newSpawnable, bool useOnS
 	if (!m_classesRegistry.contains(newSpawnable->getMapObjectsData().className))
 		return;
 
-	std::string newSpawnableName = (altName == "default") ? newSpawnable->getMapObjectsData().objName : altName;
 	auto& spawnData = getSpawnerRecord(newSpawnable->getMapObjectsData().className);
 	if (useOnSpawnCB && spawnData.m_onSpawnCb)
 		spawnData.m_onSpawnCb(newSpawnable);
 
-	if (newSpawnable->getSpawnableRoot())
+	std::string newSpawnableName = (altName == "default") ? checkUniqueName(newSpawnable->getMapObjectsData().objId) : altName;
+	if (newSpawnableName.empty() && newSpawnable->getSpawnableRoot())
 		newSpawnableName = checkUniqueName(newSpawnable->getSpawnableRoot()->getName());
 	if (newSpawnableName.empty()) newSpawnableName = checkUniqueName("Unnamed"); //must have unique, non-empty name!!
 	m_spawnedEntities.insert(
