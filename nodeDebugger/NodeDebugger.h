@@ -22,7 +22,7 @@ W4_USE_UNSTRICT_INTERFACE
 #define ND_FVAR(folder, name, variable) NodeDebugger::get()->addDebugVariable("[" + folder + "]" + name, variable, nullptr)
 #define ND_FVARCB(folder, name, variable, callback) NodeDebugger::get()->addDebugVariable("[" + folder + "]" + name, variable, callback)
 #define ND_COLLECTION(name, collection) NodeDebugger::get()->addDebugCollection(name, collection)
-#define ND_BTN(name, callback) NodeDebugger::get()->addDebugCBButton(name, callback)
+#define ND_BTN NodeDebugger::get()->addDebugCBButton
 
 //kinda breakpoint that stops playable update. Can be resumed via NodeDebugger GUI
 #ifndef FORCENODEDEBUG_OFF
@@ -33,6 +33,7 @@ W4_USE_UNSTRICT_INTERFACE
 
 //Use this before casting any rays to check if you are clicking ImGui interface. Returns false if mouse is above ImGui window
 #define ND_CASTALLOWED !NodeDebugger::get()->checkRaycastCollision()
+#define ND_HOTKEY(key, callback) NodeDebugger::get()->setCallbackForButton(key, callback)
 
 //Controlls map:
 /*

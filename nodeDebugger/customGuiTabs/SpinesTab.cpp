@@ -9,9 +9,6 @@ void SpinesTab::onGuiCall()
 
 	ND_Util::ImGuiNodeSettings();
 
-    ImGui::Checkbox("Copy animation name(not length) on Play", &m_copyAnimNameNotLength);
-    ImGui::Separator();
-
     if (m_debugSpines.size() > 6)
         ND_Util::ImGuiSearchBar(m_spinesFilter);
     else if (!m_spinesFilter.empty())
@@ -33,6 +30,8 @@ void SpinesTab::onGuiCall()
                 {
                     if (ImGui::BeginTabItem("Animations"))
                     {
+                        ImGui::Checkbox("Copy animation name(not length) on Play", &m_copyAnimNameNotLength);
+                        ImGui::Separator();
                         onGuiAnimations(debugSpine);
 
                         ImGui::EndTabItem();

@@ -3,16 +3,15 @@
 #ifndef FORCENODEDEBUG_OFF
 #include <sources/common/nodeDebugger/ND_JsonTools.h>
 #include "external/imgui_stdlib.h"
-#include <regex>
 #include "TweenFactory.h"
 #include <utils/EditorCamera.h>
 #include "external/addonPlot/implot.h"
 #include "ND_ParticleEmitterEditor.h"
 #include "settings/materialSystem/materialContainer/MaterialContainer.h"
 
-#define TWEENCONTAINER TweenContainer::getTweenContainer()
-
 ND_Settings* ND_Settings::m_instance = nullptr;
+
+#define TWEENCONTAINER TweenContainer::getTweenContainer()
 
 //helper struct for ImGuiTweenPlotter()
 struct vec3D
@@ -641,17 +640,6 @@ namespace ND_Util
         return isSearchChanged;
     }
 
-    bool checkFilterConditions(const std::string& itemName, const std::string& filter)
-    {
-        if(filter.empty())
-            return true;
-
-        std::regex regex(filter, std::regex::icase);
-        std::smatch name_match;
-
-        return std::regex_search(itemName, name_match, regex);
-    }
-
     void resetImGuiRepeatElemId()
     {
         repeatElemId = 0;
@@ -673,29 +661,34 @@ namespace ND_Util
 
     void ImGuiNodeSettings(bool bNoGizmoSettings)
     {
-        ImGui::DragFloat("Sliders sensivity", &sliderSensivity, 0.001, 0.001f, 10.0f, "%.4f");
-        ImGui::Columns(2);
-        ImGui::Checkbox("Rotation in degrees", &degreesOutput);
-        ImGui::NextColumn();
-        ImGui::Checkbox("Single scale value", &bindXYZScaling);
-        ImGui::Columns(1);
-        if(!bNoGizmoSettings)
+        if (ImGui::TreeNode("Node Editor Settings"))
         {
-            ImGui::Checkbox("Gizmo Snapping", &ImGuiDrawerGizmo::m_snap);
-            if (ImGuiDrawerGizmo::m_currentGizmoOperation == ImGuizmo::TRANSLATE)
+            ImGui::DragFloat("Sliders sensivity", &sliderSensivity, 0.001, 0.001f, 10.0f, "%.4f");
+            ImGui::Columns(2);
+            ImGui::Checkbox("Rotation in degrees", &degreesOutput);
+            ImGui::NextColumn();
+            ImGui::Checkbox("Single scale value", &bindXYZScaling);
+            ImGui::Columns(1);
+            if(!bNoGizmoSettings)
             {
-                ImGui::DragVec3("Gizmo snapping step", ImGuiDrawerGizmo::m_snapTranslation, 0.f, 10.f, 0.01f);
+                ImGui::Checkbox("Gizmo Snapping", &ImGuiDrawerGizmo::m_snap);
+                if (ImGuiDrawerGizmo::m_currentGizmoOperation == ImGuizmo::TRANSLATE)
+                {
+                    ImGui::DragVec3("Gizmo snapping step", ImGuiDrawerGizmo::m_snapTranslation, 0.f, 10.f, 0.01f);
+                }
+                else if (ImGuiDrawerGizmo::m_currentGizmoOperation == ImGuizmo::ROTATE)
+                {
+                    ImGui::InputFloat("Gizmo snapping step", &ImGuiDrawerGizmo::m_snapRotation, 0.01, 0.1);
+                }
+                else if (ImGuiDrawerGizmo::m_currentGizmoOperation == ImGuizmo::SCALE)
+                {
+                    ImGui::InputFloat("Gizmo snapping step", &ImGuiDrawerGizmo::m_snapScale, 0.001, 0.1);
+                }
             }
-            else if (ImGuiDrawerGizmo::m_currentGizmoOperation == ImGuizmo::ROTATE)
-            {
-                ImGui::InputFloat("Gizmo snapping step", &ImGuiDrawerGizmo::m_snapRotation, 0.01, 0.1);
-            }
-            else if (ImGuiDrawerGizmo::m_currentGizmoOperation == ImGuizmo::SCALE)
-            {
-                ImGui::InputFloat("Gizmo snapping step", &ImGuiDrawerGizmo::m_snapScale, 0.001, 0.1);
-            }
+
+            ImGui::TreePop();
         }
-        ImGui::Spacing();
+
         ImGui::Separator();
         ImGui::Spacing();
     }
@@ -794,12 +787,16 @@ namespace ND_Util
         //Tween sample settings
         ImGui::InputText("Tween name", &tweenRecord.tweenName);
 
+        ImGui::Columns(2);
         if (ImGui::Checkbox("Looped tween", &tweenRecord.isLoopedTween))
         {
             tweenRecord.tweenEndless = nullptr;
             tweenRecord.tween = nullptr;
         }
+        ImGui::NextColumn();
         ImGui::Checkbox("World vec3 values?", &tweenRecord.isWorldVec3);
+
+        ImGui::Columns(1);
         ImGui::Columns(2);
         ImGui::Checkbox("Relative values", &tweenRecord.isRelativeValues);
         ImGui::NextColumn();
@@ -839,11 +836,11 @@ namespace ND_Util
         ImGui::Columns(1);
 
         //tween points scroll zone
-        float pointsScrollzoneSize = 0.1;
+        float pointsScrollzoneSize = 0.2;
         if (tweenRecord.tweenPoints.size() == 1)
-            pointsScrollzoneSize = 0.27;
+            pointsScrollzoneSize = 0.33;
         else if(tweenRecord.tweenPoints.size() > 1)
-            pointsScrollzoneSize = 0.4;
+            pointsScrollzoneSize = 0.53;
         if (ImGui::BeginChild("Tween points scroll zone", getSizeForChild(pointsScrollzoneSize)))
         {
             ImGui::DragVec3("Start point", tweenRecord.tweenStart, -500.f, 500.f, sliderSensivity);
@@ -870,10 +867,13 @@ namespace ND_Util
                     }
                     ImGui::Columns(1);
 
+                    ImGui::Columns(2);
                     //vec, time selector
                     ImGui::DragVec3(CSTR("Vec " + STR(i + 1)), tweenRecord.tweenPoints[i], -500.f, 500.f, sliderSensivity);
+                    ImGui::NextColumn();
                     ImGui::InputFloat(CSTR("Time " + STR(i + 1)), &tweenRecord.tweenDelays[i], 0.01, 0.1, "%.2f");
 
+                    ImGui::Columns(1);
                     //Easings selector
                     int intEasingType = CastI(tweenRecord.easingTypes[i]); //selected easing type
                     //one-time script to load easings' names
@@ -1236,6 +1236,7 @@ namespace ND_Util
         }
         ImGui::EndTabBar();
 
+        ImGui::Columns(2);
         //buttons for simultaneous launch/stop
         if (ImGui::Button("Play all tweens"))
         {
@@ -1255,6 +1256,7 @@ namespace ND_Util
             else
                 tweenRecordRotate.tweenEndless = TweenContainer::generateEndlessTween(tweenRecordRotate, _node, true);
         }
+        ImGui::NextColumn();
         if (ImGui::Button("Stop all tweens"))
         {
             tweenRecordMove.tween = nullptr;
@@ -1264,6 +1266,7 @@ namespace ND_Util
             tweenRecordRotate.tween = nullptr;
             tweenRecordRotate.tweenEndless = nullptr;
         }
+        ImGui::Columns(1);
     }
 }
 
