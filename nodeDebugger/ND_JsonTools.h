@@ -11,6 +11,34 @@
 
 W4_USE_UNSTRICT_INTERFACE
 
+#define FIELD_DESERIALIZE_NE(x)                                                                                        \
+{                                                                                                                   \
+    if(j.contains(#x))                                                                                              \
+    {                                                                                                               \
+        adl_serializer<decltype(obj.x)>::from_json(j[#x], obj.x)     ;                                              \
+    }                                                                                                             \
+}
+
+#define FIELD_SERIALIZE_MAP(x, defValue)                                                                            \
+{                                                                                                                   \
+    bool nonDefault = false;\
+	for(auto& [key, item] : obj.x) if(item != defValue) {nonDefault = true; break;}									\
+	if(!obj.x.empty() && nonDefault)                                                                                \
+    {                                                                                                               \
+        j[#x] = obj.x;																							\
+    }                                                                                                             \
+}
+
+#define FIELD_SERIALIZE_VEC(x, defValue)                                                                             \
+{                                                                                                                   \
+    bool nonDefault = false;\
+	for(auto& item : obj.x) if(item != defValue) {nonDefault = true; break;}										\
+	if(!obj.x.empty() && nonDefault)                                                                                \
+    {                                                                                                               \
+        j[#x] = obj.x;																								\
+    }                                                                                                             \
+}
+
 struct tweenRecordsContainer
 {
 	std::vector<tweenDebugRecord> tweenRecordsData;
@@ -80,18 +108,21 @@ namespace nlohmann
 	{
 		static void from_json(const json& j, tweenDebugRecord& obj)
 		{
-			FIELD_DESERIALIZE(tweenName);
-			FIELD_DESERIALIZE(isLoopedTween);
-			FIELD_DESERIALIZE(isRelativeValues);
-			FIELD_DESERIALIZE(isPercentRelativeValues);
-			FIELD_DESERIALIZE(transformType);
-			FIELD_DESERIALIZE(isWorldVec3);
-			FIELD_DESERIALIZE(tweenStart);
-			FIELD_DESERIALIZE(tweenPoints);
-			FIELD_DESERIALIZE(tweenDelays);
-			FIELD_DESERIALIZE(easingTypes);
+			FIELD_DESERIALIZE_NE(tweenName);
+			FIELD_DESERIALIZE_NE(isLoopedTween);
+			FIELD_DESERIALIZE_NE(isRelativeValues);
+			FIELD_DESERIALIZE_NE(isPercentRelativeValues);
+			FIELD_DESERIALIZE_NE(transformType);
+			FIELD_DESERIALIZE_NE(isWorldVec3);
+			FIELD_DESERIALIZE_NE(tweenStart);
+			FIELD_DESERIALIZE_NE(tweenPoints);
+			FIELD_DESERIALIZE_NE(curveApogeePoints);
+			FIELD_DESERIALIZE_NE(tweenDelays);
+			FIELD_DESERIALIZE_NE(easingTypes);
 		}
 
+		//using BV3pair = std::pair<bool, vec3>;
+		typedef std::pair<bool, vec3> BV3pair;
 		static void to_json(json& j, const tweenDebugRecord& obj)
 		{
 			FIELD_SERIALIZE(tweenName);
@@ -102,6 +133,7 @@ namespace nlohmann
 			FIELD_SERIALIZE(isWorldVec3);
 			FIELD_SERIALIZE(tweenStart);
 			FIELD_SERIALIZE(tweenPoints);
+			FIELD_SERIALIZE_MAP(curveApogeePoints, BV3pair(false, vec3::zero));
 			FIELD_SERIALIZE(tweenDelays);
 			FIELD_SERIALIZE(easingTypes);
 		}
@@ -347,3 +379,5 @@ namespace nlohmann
 		jsWriteEvent(flatJson.c_str(), "tweens.json");
 	}
 }
+
+#undef FIELD_DESERIALIZE_NE

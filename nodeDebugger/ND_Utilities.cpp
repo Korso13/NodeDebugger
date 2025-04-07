@@ -915,8 +915,27 @@ namespace ND_Util
                     ImGui::DragVec3(CSTR("Vec " + STR(i + 1)), tweenRecord.tweenPoints[i], -500.f, 500.f, sliderSensivity);
                     ImGui::NextColumn();
                     ImGui::InputFloat(CSTR("Time " + STR(i + 1)), &tweenRecord.tweenDelays[i], 0.01, 0.1, "%.2f");
-
                     ImGui::Columns(1);
+
+                    //curves
+                    if (tweenRecord.transformType == tweenTransformType::MOVE)
+                    {
+                        ImGui::Columns(2);
+                        ImGui::Checkbox(("Curve?[" + STR(i + 1) + "]").c_str(), &tweenRecord.curveApogeePoints[i].first);
+                        if (tweenRecord.curveApogeePoints[i].first)
+                        {
+                            ImGui::SameLine();
+                            ImGui::DragVec3(CSTR("Apogee " + STR(i + 1)), tweenRecord.curveApogeePoints[i].second, -500.f, 500.f, sliderSensivity);
+                            //ImGui::Separator();
+                            ImGui::NextColumn();
+                            if (ImGui::Button(CSTR("Set to current value[" + STR(i + 1) + "]")))
+                            {
+                                tweenRecord.curveApogeePoints[i].second = TweenContainer::nodeValueGetter(_node, tweenRecord);
+                            }
+                        }
+                        ImGui::Columns(1);
+                    }
+
                     //Easings selector
                     int intEasingType = CastI(tweenRecord.easingTypes[i]); //selected easing type
                     //one-time script to load easings' names
@@ -950,6 +969,7 @@ namespace ND_Util
                         tweenRecord.tweenPoints.erase(tweenRecord.tweenPoints.begin() + i);
                         tweenRecord.tweenDelays.erase(tweenRecord.tweenDelays.begin() + i);
                         tweenRecord.easingTypes.erase(tweenRecord.easingTypes.begin() + i);
+                        tweenRecord.curveApogeePoints.erase(i);
                         break;
                     }
                     ImGui::Spacing();
@@ -1112,7 +1132,10 @@ namespace ND_Util
                 };
             
             //tween to be used in plotting the line
-            auto tween = make::sptr<Tween<vec3>>(tweenRecord.tweenStart);
+            //auto tween = make::sptr<Tween<vec3>>(tweenRecord.tweenStart);
+            sptr<Node> testNode = make::sptr<Node>();
+            auto tween = TweenContainer::generateTween(tweenRecord, testNode, nullptr, nullptr, true);
+            auto tweenCopy = TweenContainer::generateTween(tweenRecord, testNode, nullptr, nullptr, true);
             float nowTime = 0.f;
 
             if (ImPlot::DragPoint(0, &startPoint.x, &startPoint.y, IMG_VIOLET, 4, PLOTTER_INPUTBLOCKCHECK))
@@ -1128,12 +1151,28 @@ namespace ND_Util
             {
                 float nowTimeStamp = nowTime; //to be used for timeline points altering
                 nowTime += tweenRecord.tweenDelays[i];
-                tween->add(tweenRecord.tweenPoints[i], nowTime, tweenRecord.easingTypes[i]);
+                //tween->add(tweenRecord.tweenPoints[i], nowTime, tweenRecord.easingTypes[i]);
                 
                 vec3D nextPoint(tweenRecord.tweenPoints[i]);
+                tweenCopy->updValue(IMG_PLOTTERSTIMESTEP); tweenCopy->checkCb();
+                vec3 newValue = TweenContainer::nodeValueGetter(testNode, tweenRecord);
                 double xTime = static_cast<double>(nowTime);
                 double yTime = static_cast<double>(
-                    neAbs((tweenRecord.tweenPoints[i] - tween->getValue(nowTime - IMG_PLOTTERSTIMESTEP)).length()) / IMG_PLOTTERSTIMESTEP); //avg speed for the last IMG_PLOTTERSTIMESTEP
+                    neAbs((tweenRecord.tweenPoints[i] - newValue).length()) / IMG_PLOTTERSTIMESTEP); //avg speed for the last IMG_PLOTTERSTIMESTEP
+
+                //curve apogees (optional)
+                if(tweenRecord.transformType == tweenTransformType::MOVE)
+                {
+                    if (tweenRecord.curveApogeePoints[i].first)
+                    {
+                        vec3D apogeePoint(tweenRecord.curveApogeePoints[i].second);
+                        if (ImPlot::DragPoint(i + 1 + 100, &apogeePoint.x, &apogeePoint.y, IMG_BLUE, 4, PLOTTER_INPUTBLOCKCHECK))
+                        {
+                            tweenRecord.curveApogeePoints[i].second = apogeePoint.getVec3();
+                        }
+                        ImPlot::Annotation(apogeePoint.x, apogeePoint.y, IMG_VIOLET, getAnnotationPlacement(apogeePoint), false, "%s%i", "Apogee ", CastI(i + 1));
+                    }
+                }
 
                 //vec3 points
                 if (ImPlot::DragPoint(i+1, &nextPoint.x, &nextPoint.y, IMG_VIOLET, 4, PLOTTER_INPUTBLOCKCHECK))
@@ -1141,7 +1180,6 @@ namespace ND_Util
                     tweenRecord.tweenPoints[i] = nextPoint.getVec3();
                 }
                 ImPlot::Annotation(nextPoint.x, nextPoint.y, IMG_VIOLET, getAnnotationPlacement(nextPoint), false, "%s%i", "Point ", CastI(i+1));
-
                 //speed-time graph points(first arg is just id, uses tweenPoints.size for reliable offset from vec3 points ids)
                 if (ImPlot::DragPoint(i+1+tweenRecord.tweenPoints.size(), &xTime, &yTime, IMG_ORANGE, 4, PLOTTER_INPUTBLOCKCHECK))
                 {
@@ -1153,6 +1191,7 @@ namespace ND_Util
             
             //resetting, reusing the variables used in graph calculations
             lastPoint = tweenRecord.tweenStart; 
+            TweenContainer::nodeValueSetter(tweenRecord.tweenStart, testNode, tweenRecord);
             float lastNowTime = 0.f;
             nowTime = 0.f;
 
@@ -1177,7 +1216,8 @@ namespace ND_Util
                     nowTime += IMG_PLOTTERSTIMESTEP;
                     if (nowTime > tweenDuration) //reached the end of the tween
                         nowTime = tweenDuration;
-                    vec3 nextValue = tween->getValue(nowTime);
+                    tween->updValue(IMG_PLOTTERSTIMESTEP); tween->checkCb();
+                    vec3 nextValue = TweenContainer::nodeValueGetter(testNode, tweenRecord);
 
                     //for tween's vec3 values graph
                     xs[i] = static_cast<double>(nextValue.x);

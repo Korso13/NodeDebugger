@@ -73,6 +73,7 @@ static float	sliderSensivity = 0.01;
 //console messages colors:
 #define IMG_RED		ImVec4(1.f, 0.f, 0.f, 1.f)
 #define IMG_ORANGE  ImVec4(1.f, 0.2, 0.f, 1.f)
+#define IMG_BLUE	ImVec4(0.f, 0.2, 1.f, 1.f)
 #define IMG_VIOLET  ImVec4(0.4, 0.1, 0.5, 1.f)
 #define IMG_WHITE	ImVec4(1.f, 1.f, 1.f, 1.f)
 
@@ -122,6 +123,7 @@ struct tweenDebugRecord
 	tweenTransformType transformType;
 	vec3 tweenStart = vec3::zero;
 	std::vector<vec3> tweenPoints;
+	std::unordered_map<int, std::pair<bool, vec3>> curveApogeePoints;
 	std::vector<float> tweenDelays;
 	std::vector<Easing> easingTypes;
 

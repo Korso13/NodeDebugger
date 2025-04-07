@@ -2,6 +2,7 @@
 
 #include "W4Framework.h"
 #include "ND_Defines.h"
+#include "common/ParabolaFactory.h"
 
 namespace TweenContainer
 {
@@ -41,11 +42,30 @@ namespace TweenContainer
         if (!tweenRecord.isRelativeValues || (tweenRecord.isRelativeValues && tweenRecord.isPercentRelativeValues) )
             offset = vec3::zero;
         else
-            offset = tweenStart-tweenRecord.tweenStart;
+            offset = tweenStart - tweenRecord.tweenStart;
+
+        //for curves
+        using curveFuncsHandler = std::map<int, std::pair<bool, std::function<float(float)>>>; //key - point id, pair - is curveOn and curve function itself 
+        sptr<curveFuncsHandler> curveFuncs = make::sptr<curveFuncsHandler>(); //use sptr to share container between tween callbacks! Yep, it's that fucked up! -_|*_*|_-
+        for (int i = 0; i < tweenRecord.tweenPoints.size(); i++)
+        {
+            if (!tweenRecord.curveApogeePoints.contains(i) || !tweenRecord.curveApogeePoints.at(i).first)
+                continue;
+
+            vec3 end = tweenRecord.tweenPoints[i];
+            vec3 begin = (i == 0) ? tweenRecord.tweenStart : tweenRecord.tweenPoints[i-1];
+            auto curve = getParabolicFunction(begin, end, tweenRecord.curveApogeePoints.at(i).second);
+            if(i == 0)
+                curveFuncs->insert({ 0, { true, curve } });
+            else
+                curveFuncs->insert({ i-1, { true, curve } });
+
+        }
+        //============
 
         auto tween = make::sptr<CustomTweens::Tween<vec3>>(
             tweenStart,
-            [tweenRecord, _node, changeValueOnUpdateCB](vec3 newValue)
+            [tweenRecord, _node, changeValueOnUpdateCB, curveFuncs](vec3 newValue)
             {
                 if (!_node)
                     return;
@@ -53,6 +73,12 @@ namespace TweenContainer
                 if (changeValueOnUpdateCB)
                     changeValueOnUpdateCB(newValue);
 
+                //applying curve functions (if any). curveFunc.first - bool indicating if curve func is active (activated in point callbacks)
+                for (auto& [point, curveFunc] : *curveFuncs)
+                    if (curveFunc.first && curveFunc.second)
+                        newValue.y = curveFunc.second(newValue.x);
+
+                //setting final transform value to the node
                 nodeValueSetter(newValue, _node, tweenRecord);
             },
             tweenRecord.tweenName
@@ -74,8 +100,14 @@ namespace TweenContainer
                 tweenRecord.tweenDelays[i],
                 tweenRecord.easingTypes[i],
                 (i + 1 == tweenRecord.tweenPoints.size())
-                ? onFinishCB
-                : []() {}
+                ? onFinishCB //last point's callback
+                : //other points' callbacks
+                [curveFuncs, i]() 
+                {
+                    //toggles on/off curveFuncs based on passed tween point
+                    for (auto& [point, curveFunc] : *curveFuncs)
+                        curveFunc.first = point == i;
+                }
             );
         }
 
