@@ -36,7 +36,7 @@ class ImGuiNode;
 #define NDSPINES
 #define NDVARIABLES
 #define NDBORDERS
-#define NDPATHDRAWER
+//#define NDPATHDRAWER
 //#define NDSPOTLIGHTS
 //#define NDCONSOLE
 
@@ -68,6 +68,7 @@ static float	sliderSensivity = 0.01;
 #define IMG_FONTSIZE 28.f				//font size for all ImGui text
 #define IMG_FLOATFORMAT "%.5f"			//float precision format for variables tab
 #define IMG_VECFORMAT "%.4f"			//vec2 and vec3 precision format for variables tab
+#define IMG_LISTBOX_ENTRIESINFRAME 5	//how many items fit ImGuiListBox height
 
 //console messages colors:
 #define IMG_RED		ImVec4(1.f, 0.f, 0.f, 1.f)

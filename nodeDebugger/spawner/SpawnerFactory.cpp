@@ -122,6 +122,7 @@ void SpawnerFactory::SpawnObjects()
 	//Possibly not that nessesary...
 #ifdef DEBUG
 	//checkNodeHierarchyNames();
+	ND_SPAWNER->initClickColliders();
 #endif // DEBUG
 }
 
@@ -469,7 +470,7 @@ sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 
 	sptr<Mesh> newMesh = createMesh(meshData.meshName, "", "sprite", true, nullptr); //material replaced with unique instance later
 	
-																					 //naming and parenting
+	//naming and parenting																				 //naming and parenting
 	std::string uniqueName; 
 	if(!meshData.meshId.empty())
 		uniqueName = checkUniqueMeshName(meshData.meshId);
@@ -521,36 +522,6 @@ sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 	return newMesh;
 }
 
-sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, bool bTabSpawned)
-{
-	auto newEntity = spawnData.m_spawnerFunc(spawnData.constructorParams);
-	newEntity->isSpawned = bTabSpawned; //marks entity as spawned via ND tab
-
-	std::string newEntityName = newEntity->getMapObjectsData().objName;
-	if (spawnData.m_onSpawnCb)
-		spawnData.m_onSpawnCb(newEntity);
-	
-	if (newEntity->getSpawnableRoot())
-		newEntityName = checkUniqueName(newEntity->getSpawnableRoot()->getName());
-	if (newEntityName.empty()) newEntityName = checkUniqueName("Unnamed"); //must have unique, non-empty name!!
-	m_spawnedEntities.insert(
-		{
-			newEntityName,
-			newEntity
-		}
-	);
-
-	if (newEntity->getSpawnableRoot() && bTabSpawned)
-	{
-		ND_NODE(newEntity->getSpawnableRoot());
-		vec3 cameraPos = Render::getScreenCamera()->getWorldTranslation();
-		cameraPos.z = 0.f;
-		newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
-	}
-
-	return newEntity;
-}
-
 const MapObjectsData SpawnerFactory::SpawnerRecord::getMapObjectsData()
 {
 	for (auto& param : this->constructorParams)
@@ -576,6 +547,37 @@ void SpawnerFactory::SpawnerRecord::setNewMapObjectsData(MapObjectsData& newMOD)
 	}
 }
 
+sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, bool bTabSpawned)
+{
+	auto newEntity = spawnData.m_spawnerFunc(spawnData.constructorParams);
+	newEntity->isSpawned = bTabSpawned; //marks entity as spawned via ND tab
+
+	std::string newEntityName = newEntity->getMapObjectsData().objName;
+	if (spawnData.m_onSpawnCb)
+		spawnData.m_onSpawnCb(newEntity);
+	
+	if (newEntity->getSpawnableRoot())
+		newEntityName = checkUniqueName(newEntity->getSpawnableRoot()->getName());
+	if (newEntityName.empty()) newEntityName = checkUniqueName("Unnamed"); //must have unique, non-empty name!!
+	newEntity->getMapObjectsData().objId = newEntityName;
+	m_spawnedEntities.insert(
+		{
+			newEntityName,
+			newEntity
+		}
+	);
+
+	if (newEntity->getSpawnableRoot() && bTabSpawned)
+	{
+		ND_NODE(newEntity->getSpawnableRoot());
+		vec3 cameraPos = Render::getScreenCamera()->getWorldTranslation();
+		cameraPos.z = 0.f;
+		newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
+	}
+
+	return newEntity;
+}
+
 sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, MapObjectsData& customMOD, std::function<void(sptr<Spawnable>)> customOnSpawnCb, bool bTabSpawned)
 {
 	//Customizing Spawn's MOD
@@ -591,9 +593,6 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 	else if (spawnData.m_onSpawnCb)
 		spawnData.m_onSpawnCb(newEntity);
 
-	//restoring default MOD
-	spawnData.setNewMapObjectsData(defaultMOD);
-
 	//naming new object
 	if (newEntityName.empty())
 	{		
@@ -603,7 +602,13 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 			newEntityName = checkUniqueName(newEntity->getMapObjectsData().objName);
 		else
 			newEntityName = checkUniqueName("Unnamed");//must have unique, non-empty name!!
+
+		//info("[Spawner] Renaming %s entity objId to %s", customMOD.className.c_str(), newEntityName.c_str());
+		newEntity->getMapObjectsData().objId = newEntityName;
 	}
+
+	//restoring default MOD
+	spawnData.setNewMapObjectsData(defaultMOD);
 
 	m_spawnedEntities.insert(
 		{

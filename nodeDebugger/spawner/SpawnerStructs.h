@@ -37,6 +37,7 @@ JSTRUCT_DEFINITION(ExtraLoot,
 
 //MapObjectsData struct constructor. 
 MOD_DEFINITION(
+	((std::string, objId, "")) //DO NOT REMOVE OR RENAME!
 	((std::string, objName, "TEMPLATE_RECORD")) //DO NOT REMOVE OR RENAME!
 	((std::string, node, "")) //DO NOT REMOVE OR RENAME!
 	((bool, isChildObj, false)) //DO NOT REMOVE OR RENAME!

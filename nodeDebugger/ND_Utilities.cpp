@@ -640,6 +640,17 @@ namespace ND_Util
         return isSearchChanged;
     }
 
+    bool checkFilterConditions(const std::string& itemName, const std::string& filter)
+    {
+        if (filter.empty())
+            return true;
+
+        std::regex regex(filter, std::regex::icase);
+        std::smatch name_match;
+
+        return std::regex_search(itemName, name_match, regex);
+    }
+
     void resetImGuiRepeatElemId()
     {
         repeatElemId = 0;
@@ -709,8 +720,40 @@ namespace ND_Util
         }
     }
 
-    std::map<std::string, std::string> materials = { {"alpha_anim", "alpha_anim"},{"animated", "animated"},{"animated_mirror", "animated_mirror"},{"animated_mirrored", "animated_mirrored"},{"bump", "bump"},{"defaultShader", "defaultShader"},{"digits", "digits"},{"ocean_water", "ocean_water"},{"point_light_color", "point_light_color"},{"point_light_tex", "point_light_tex"},{"point_light_tex_nm", "point_light_tex_nm"},{"progress_bar", "progress_bar"},{"progress_bar_radial", "progress_bar_radial"},{"simple", "simple"},{"sprite", "sprite"},{"sprite_mirrored", "sprite_mirrored"},{"sprite_repeat", "sprite_repeat"},{"masked_sprite", "masked_sprite"},{"unlit", "unlit"} };
+    std::pair<bool, std::string> ImGuiListBox(const std::string& listName, const std::set<std::string>& list, const std::string& listCurrentValue)
+    {
+        std::pair<bool, std::string> result;
+        result.first = false;
+        result.second = listCurrentValue;
 
+        if (!list.empty())
+        {
+            if (ImGui::BeginListBox(listName.c_str(), ImVec2(-FLT_MIN, std::min(CastI(list.size()), IMG_LISTBOX_ENTRIESINFRAME) * ImGui::GetTextLineHeightWithSpacing()))) //use all width, IMG_LISTBOX_ENTRIESINFRAME items tall
+            {
+                for (auto& listValue : list)
+                {
+                    bool isSelected = listValue == listCurrentValue;
+                    if (isSelected)
+                        ImGui::SetItemDefaultFocus();
+
+                    if (ImGui::Selectable(listValue.c_str(), &isSelected))
+                    {
+                        result.first = true;
+                        result.second = listValue;
+                    }
+                    if (!result.first && isSelected)
+                        result.second = listValue;
+                }
+
+                ImGui::EndListBox();
+            }
+        }
+
+        return result;
+    }
+
+    std::map<std::string, std::string> materials = { {"alpha_anim", "alpha_anim"},{"animated", "animated"},{"animated_mirror", "animated_mirror"},{"animated_mirrored", "animated_mirrored"},{"bump", "bump"},{"defaultShader", "defaultShader"},{"digits", "digits"},{"ocean_water", "ocean_water"},{"point_light_color", "point_light_color"},{"point_light_tex", "point_light_tex"},{"point_light_tex_nm", "point_light_tex_nm"},{"progress_bar", "progress_bar"},{"progress_bar_radial", "progress_bar_radial"},{"simple", "simple"},{"sprite", "sprite"},{"sprite_mirrored", "sprite_mirrored"},{"sprite_repeat", "sprite_repeat"},{"masked_sprite", "masked_sprite"},{"unlit", "unlit"} };
+    
     std::pair<bool, std::string> ImGuiMaterialSelector(const std::string& currentMaterial)
     {
 #ifdef MS_MATERIAL_LIST

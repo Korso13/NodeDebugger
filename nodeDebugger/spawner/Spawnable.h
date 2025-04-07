@@ -97,7 +97,7 @@ public:
 
 	Spawnable() = delete;
 	Spawnable(MapObjectsData& spawnData) : m_mapObjectData(spawnData) {};
-	virtual ~Spawnable() { if (m_framePlotter) Render::getRoot()->removeChild(m_framePlotter); m_spRoot = nullptr; }
+	virtual ~Spawnable();
 
 	virtual sptr<Node> getSpawnableRoot() { return m_spRoot; };
 
@@ -161,6 +161,9 @@ private:
 
 	//Used to render focus frame around Spawnable
 	std::array<vec3, 2> getSpawnableBounds(sptr<Node> spawnableRoot);
+	void removeFocusFrame() { if (m_framePlotter) Render::getRoot()->removeChild(m_framePlotter); };
+
+	void initSpawnableCollider(std::function<void(const CollisionInfo&)> clickCb);
 
 public:
 
@@ -182,6 +185,8 @@ private:
 	std::function<void(sptr<Spawnable>)> m_onChildSpawnCb = nullptr;
 
 	std::vector<SpawnableChild> m_children;
+
+	sptr<Collider> m_spawnableSelectCollider = nullptr;
 
 	std::array<vec3, 2> m_cachedBounds;
 	sptr<Plotter> m_framePlotter = nullptr;

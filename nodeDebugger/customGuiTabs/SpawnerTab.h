@@ -28,7 +28,7 @@ class SpawnerTab : public iGuiTab, protected OnUpdateProvider
 
 public:
 	
-	SpawnerTab() : iGuiTab("Spawner") { m_currentMeshSpawnerSetting.className = "Mesh"; };
+	SpawnerTab();
 
 	void onGuiCall() override NOCOMP;
 	bool isEmpty() override NOCOMP_B;
@@ -37,6 +37,8 @@ public:
 	void addItem(std::any item, const std::string& altName = "default") override NOCOMP;
 	
 	void purgeValues() override NOCOMP;
+
+	void initClickColliders() NOCOMP;
 
 protected:
 
@@ -48,15 +50,24 @@ private:
 	void onGuiClassPalette() NOCOMP;
 	void onGuiMeshPalette() NOCOMP;
 	void onGuiSpawnedList() NOCOMP;
+	void onGuiSpawnedMeshesList() NOCOMP;
 	void onGuiMapMeshData(MapMeshData& data) NOCOMP;
+	void onGuiExportBtn() NOCOMP;
 
+	void onKeyPressed(const event::Keyboard::Down& evt) NOCOMP;
+	void onKeyReleased(const event::Keyboard::Up& evt) NOCOMP;
+	void onTouchBegin(const Touch::Begin& evt) NOCOMP;
 
 private:
 
-	bool m_needUpdateEntitiesFilter = true; //todo: add usage!
+	bool m_needUpdateEntitiesFilter = true; 
+	bool m_clickAddModeON = false;
 	std::string m_entitiesFilter = "";
-	std::set<std::string> m_lastEntitiesFilterList;
+	std::string m_meshesFilter = "";
+	std::string m_lastSelectedSpawnable = "";
+	std::string m_lastSelectedMesh = "";
+	std::set<std::string> m_lastSpawnablesFilterList;
+	std::set<std::string> m_lastMeshesFilterList;
 
 	MapMeshData m_currentMeshSpawnerSetting;
-
 };
