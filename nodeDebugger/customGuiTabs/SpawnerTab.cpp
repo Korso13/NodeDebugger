@@ -219,7 +219,7 @@ void SpawnerTab::onGuiClassPalette()
 						warn("Spawning %s!", className.c_str());
 						//Spawns new object of class and registers it to appear in Spawned subtab (kept in SpawnerFactory's getAllSpawnables())
 						auto newEntity = SPAWNER.spawnObjectOfClass(spawnerEntityRec, true);
-						auto name = newEntity->getMapObjectsData().objId;
+						auto name = SPAWNER.getLastSpawnedObjectName();
 						newEntity->initSpawnableCollider(
 							[this, name](const CollisionInfo& hit)
 							{
@@ -568,9 +568,25 @@ void SpawnerTab::onTouchBegin(const Touch::Begin& evt)
 				warn("Spawning %s!", lastSelectedSpawnerRec.getMapObjectsData().className.c_str());
 				//Spawns new object of class and registers it to appear in Spawned subtab (kept in SpawnerFactory's getAllSpawnables())
 				auto newEntity = SPAWNER.spawnObjectOfClass(lastSelectedSpawnerRec, true); 
-				m_needUpdateEntitiesFilter = true;
 				if (newEntity && newEntity->getSpawnableRoot()) 
 					newEntity->getSpawnableRoot()->setWorldTranslation(hit.point * vec3(1.f, 1.f, 0.f));
+
+				auto name = SPAWNER.getLastSpawnedObjectName();
+				newEntity->initSpawnableCollider(
+					[this, name](const CollisionInfo& hit)
+					{
+						if (!ND_CASTALLOWED)
+							return;
+
+						if (isActiveTab() && m_lastSelectedSpawnable != name)
+						{
+							if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
+								SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->removeFocusFrame();
+							m_lastSelectedSpawnable = name;
+						}
+					});
+
+				m_needUpdateEntitiesFilter = true;
 			}
 		}
 	}

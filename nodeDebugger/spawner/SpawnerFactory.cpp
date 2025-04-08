@@ -552,11 +552,13 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, boo
 	auto newEntity = spawnData.m_spawnerFunc(spawnData.constructorParams);
 	newEntity->isSpawned = bTabSpawned; //marks entity as spawned via ND tab
 
-	std::string newEntityName = newEntity->getMapObjectsData().objName;
+	std::string newEntityName; 
 	if (spawnData.m_onSpawnCb)
 		spawnData.m_onSpawnCb(newEntity);
 	
-	if (newEntity->getSpawnableRoot())
+	if(!newEntity->getMapObjectsData().objName.empty())
+		newEntityName = checkUniqueName(newEntity->getMapObjectsData().objName);
+	else if (newEntity->getSpawnableRoot())
 		newEntityName = checkUniqueName(newEntity->getSpawnableRoot()->getName());
 	if (newEntityName.empty()) newEntityName = checkUniqueName("Unnamed"); //must have unique, non-empty name!!
 	newEntity->getMapObjectsData().objId = newEntityName;
@@ -575,6 +577,7 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, boo
 		newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
 	}
 
+	m_lastSpawnedObjectName = newEntityName;
 	return newEntity;
 }
 
@@ -626,6 +629,7 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 		newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
 	}
 
+	m_lastSpawnedObjectName = newEntityName;
 	return newEntity;
 }
 

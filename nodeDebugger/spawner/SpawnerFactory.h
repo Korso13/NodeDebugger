@@ -144,6 +144,7 @@ public:
 	//Spawns object if class with custom MapObjectsData and optional custom onSpawnCb (default onSpawn will be used if customOnSpawnCb == nullptr)
 	sptr<Spawnable> spawnObjectOfClass(SpawnerRecord& spawnData, MapObjectsData& customMOD, std::function<void(sptr<Spawnable>)> customOnSpawnCb = nullptr, bool bTabSpawned = false);
 	void registerSpawnable(sptr<Spawnable> newSpawnable, bool useOnSpawnCb, const std::string& altName = "default");
+	const std::string& getLastSpawnedObjectName() const { return m_lastSpawnedObjectName; }
 
 	//removes sptrs of spawned meshes/Spawnables
 	void purgeSpawnedObjects();
@@ -206,6 +207,8 @@ private:
 	bool m_primaryMeshLoadComplete = false;
 	std::map<int, MapMeshData> m_delayedMeshSpawn;
 	std::map<int, sptr<Spawnable>> m_delayedSpawnableParenting;
+
+	std::string m_lastSpawnedObjectName = "";
 };
 
 //Template specializations

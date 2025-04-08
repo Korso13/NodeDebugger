@@ -1,6 +1,7 @@
 #include "Spawnable.h"
 #include "settings/JsonDeserializator.h"
 #include "SpawnerFactory.h"
+#include <common/nodeDebugger/NodeDebugger.h>
 
 std::array<vec3, 2> Spawnable::getSpawnableBounds(sptr<Node> spawnableRoot)
 {
@@ -62,12 +63,15 @@ void Spawnable::initSpawnableCollider(std::function<void(const CollisionInfo&)> 
 {
 #ifdef DEBUG
 	if (!m_spRoot)
+	{
+		warn("[Spawnable::initSpawnableCollider] Invalid root {%s}", getMapObjectsData().objId.c_str());
 		return;
+	}
 
 	auto bounds = getSpawnableBounds(m_spRoot);
 	vec3 colliderSize = vec3::zero;
-	colliderSize.x = bounds[1].x - bounds[0].x;
-	colliderSize.y = bounds[1].y - bounds[0].y;
+	colliderSize.x = std::max(0.3f, bounds[1].x - bounds[0].x);
+	colliderSize.y = std::max(0.3f, bounds[1].y - bounds[0].y);
 	colliderSize.z = 0.01;
 
 	m_spawnableSelectCollider = m_spRoot->addCollider<AABB>("spawner_collider", colliderSize);
@@ -77,6 +81,15 @@ void Spawnable::initSpawnableCollider(std::function<void(const CollisionInfo&)> 
 	m_spawnableSelectCollider->setRaycastCallback(clickCb);
 	m_spawnableSelectCollider->setScreencastCallback(ScreencastEvent::Down, clickCb);
 	m_spawnableSelectCollider->setLocalTranslation(vec3(0.f, 0.f, -0.01));
+
+	if (SB("debug_drawColliders"))
+	{
+		auto colliderDebug = createColliderMesh(m_spawnableSelectCollider, color::Red);
+		m_spRoot->addChild(colliderDebug);
+		colliderDebug->setLocalTranslation(m_spawnableSelectCollider->getLocalTranslation());
+		colliderDebug->setRenderOrder(9);
+		ND_NODE(colliderDebug, getMapObjectsData().objId + "_collider");
+	}
 #endif // DEBUG
 }
 
