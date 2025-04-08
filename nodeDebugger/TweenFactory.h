@@ -70,13 +70,13 @@ namespace TweenContainer
                 if (!_node)
                     return;
 
-                if (changeValueOnUpdateCB)
-                    changeValueOnUpdateCB(newValue);
-
                 //applying curve functions (if any). curveFunc.first - bool indicating if curve func is active (activated in point callbacks)
                 for (auto& [point, curveFunc] : *curveFuncs)
                     if (curveFunc.first && curveFunc.second)
                         newValue.y = curveFunc.second(newValue.x);
+
+                if (changeValueOnUpdateCB)
+                    changeValueOnUpdateCB(newValue);
 
                 //setting final transform value to the node
                 nodeValueSetter(newValue, _node, tweenRecord);

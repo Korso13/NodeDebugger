@@ -961,6 +961,14 @@ namespace ND_Util
                         tweenRecord.tweenPoints.insert(tweenRecord.tweenPoints.begin() + i, tweenRecord.tweenPoints[i]);
                         tweenRecord.tweenDelays.insert(tweenRecord.tweenDelays.begin() + i, tweenRecord.tweenDelays[i]);
                         tweenRecord.easingTypes.insert(tweenRecord.easingTypes.begin() + i, tweenRecord.easingTypes[i]);
+                        //shifting curve points
+                        for (size_t j = (tweenRecord.tweenPoints.size() - 1); j > i; j--)
+                        {
+                            if (j == 0)
+                                break;
+                            tweenRecord.curveApogeePoints[j] = tweenRecord.curveApogeePoints[j-1];
+                        }
+                        tweenRecord.curveApogeePoints.erase(i);
                         break;
                     }
                     ImGui::SameLine();
@@ -969,7 +977,12 @@ namespace ND_Util
                         tweenRecord.tweenPoints.erase(tweenRecord.tweenPoints.begin() + i);
                         tweenRecord.tweenDelays.erase(tweenRecord.tweenDelays.begin() + i);
                         tweenRecord.easingTypes.erase(tweenRecord.easingTypes.begin() + i);
-                        tweenRecord.curveApogeePoints.erase(i);
+                        //shifting curve points
+                        for (size_t j = i; j < tweenRecord.tweenPoints.size(); j++)
+                        {
+                            tweenRecord.curveApogeePoints[j] = tweenRecord.curveApogeePoints[j+1];
+                        }
+                        tweenRecord.curveApogeePoints.erase(tweenRecord.tweenPoints.size());
                         break;
                     }
                     ImGui::Spacing();
@@ -1191,6 +1204,7 @@ namespace ND_Util
             
             //resetting, reusing the variables used in graph calculations
             lastPoint = tweenRecord.tweenStart; 
+            vec3 lastUncurvedPoint = tweenRecord.tweenStart; //for speed calculations (curves wreck speed graph a lot)
             TweenContainer::nodeValueSetter(tweenRecord.tweenStart, testNode, tweenRecord);
             float lastNowTime = 0.f;
             nowTime = 0.f;
@@ -1205,7 +1219,7 @@ namespace ND_Util
                 xs[0] = startPoint.x;
                 ys[0] = startPoint.y;
 
-                //for Speed-Time graph
+                //for Speed-Time graph (first-order derivative function)
                 double xTimes[linePoints], yTimes[linePoints];
                 xTimes[0] = 0; //tween's now time (start)
                 yTimes[0] = 0; //tween's now speed (start)
@@ -1216,7 +1230,7 @@ namespace ND_Util
                     nowTime += IMG_PLOTTERSTIMESTEP;
                     if (nowTime > tweenDuration) //reached the end of the tween
                         nowTime = tweenDuration;
-                    tween->updValue(IMG_PLOTTERSTIMESTEP); tween->checkCb();
+                    vec3 nextUncurvedValue = tween->updValue(IMG_PLOTTERSTIMESTEP); tween->checkCb();
                     vec3 nextValue = TweenContainer::nodeValueGetter(testNode, tweenRecord);
 
                     //for tween's vec3 values graph
@@ -1225,8 +1239,9 @@ namespace ND_Util
                     
                     //for Speed-Time graph
                     xTimes[i] = nowTime;
-                    yTimes[i] = neAbs((nextValue - lastPoint).length()) / (nowTime - lastNowTime);
+                    yTimes[i] = (nextUncurvedValue - lastUncurvedPoint).length() / std::max(0.00001f, nowTime - lastNowTime);
                     lastPoint = nextValue;
+                    lastUncurvedPoint = nextUncurvedValue;
                     lastNowTime = nowTime;
                 }
 
