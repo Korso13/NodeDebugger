@@ -47,19 +47,22 @@ namespace TweenContainer
         //for curves
         using curveFuncsHandler = std::map<int, std::pair<bool, std::function<float(float)>>>; //key - point id, pair - is curveOn and curve function itself 
         sptr<curveFuncsHandler> curveFuncs = make::sptr<curveFuncsHandler>(); //use sptr to share container between tween callbacks! Yep, it's that fucked up! -_|*_*|_-
-        for (int i = 0; i < tweenRecord.tweenPoints.size(); i++)
+        if(tweenRecord.transformType == tweenTransformType::MOVE && curveFuncs)
         {
-            if (!tweenRecord.curveApogeePoints.contains(i) || !tweenRecord.curveApogeePoints.at(i).first)
-                continue;
+            for (int i = 0; i < tweenRecord.tweenPoints.size(); i++)
+            {
+                if (!tweenRecord.curveApogeePoints.contains(i) || !tweenRecord.curveApogeePoints.at(i).first)
+                    continue;
 
-            vec3 end = tweenRecord.tweenPoints[i];
-            vec3 begin = (i == 0) ? tweenRecord.tweenStart : tweenRecord.tweenPoints[i-1];
-            auto curve = getParabolicFunction(begin, end, tweenRecord.curveApogeePoints.at(i).second);
-            if(i == 0)
-                curveFuncs->insert({ 0, { true, curve } });
-            else
-                curveFuncs->insert({ i-1, { true, curve } });
+                vec3 end = tweenRecord.tweenPoints[i];
+                vec3 begin = (i == 0) ? tweenRecord.tweenStart : tweenRecord.tweenPoints[i - 1];
+                auto curve = getParabolicFunction(begin, end, tweenRecord.curveApogeePoints.at(i).second);
+                if (i == 0)
+                    curveFuncs->insert({ 0, { true, curve } });
+                else
+                    curveFuncs->insert({ i - 1, { true, curve } });
 
+            }
         }
         //============
 
@@ -71,9 +74,12 @@ namespace TweenContainer
                     return;
 
                 //applying curve functions (if any). curveFunc.first - bool indicating if curve func is active (activated in point callbacks)
-                for (auto& [point, curveFunc] : *curveFuncs)
-                    if (curveFunc.first && curveFunc.second)
-                        newValue.y = curveFunc.second(newValue.x);
+                if (curveFuncs)
+                {                
+                    for (auto& [point, curveFunc] : *curveFuncs)
+                        if (curveFunc.first && curveFunc.second)
+                            newValue.y = curveFunc.second(newValue.x);
+                }
 
                 if (changeValueOnUpdateCB)
                     changeValueOnUpdateCB(newValue);
@@ -105,6 +111,8 @@ namespace TweenContainer
                 [curveFuncs, i]() 
                 {
                     //toggles on/off curveFuncs based on passed tween point
+                    if (!curveFuncs)
+                        return;
                     for (auto& [point, curveFunc] : *curveFuncs)
                         curveFunc.first = point == i;
                 }

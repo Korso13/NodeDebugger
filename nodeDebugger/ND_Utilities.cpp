@@ -519,9 +519,14 @@ namespace ND_Util
         bool changed = false;//tracks if new node was selected
 
         ImGui::PushID(repeatElemId++);
+
+        std::string _nodeRootName = _nodeRoot->getName();
+        if (_nodeRootName.empty())
+            _nodeRootName = "[NO_NAME]";
         if (_nodeRoot->getChildren().empty())
         {
-            if (ImGui::MenuItem(_nodeRoot->getName().c_str()))
+
+            if (ImGui::MenuItem(_nodeRootName.c_str()))
             {
                 _nodeToSet = _nodeRoot;
                 changed = true;
@@ -529,9 +534,9 @@ namespace ND_Util
         }
         else
         {
-            if (ImGui::BeginMenu(_nodeRoot->getName().c_str()))
+            if (ImGui::BeginMenu(_nodeRootName.c_str()))
             {
-                if (ImGui::Button(CSTR("Pick " + _nodeRoot->getName())))
+                if (ImGui::Button(CSTR("Pick " + _nodeRootName)))
                 {
                     _nodeToSet = _nodeRoot;
                     changed = true;
@@ -540,7 +545,16 @@ namespace ND_Util
                 ImGui::Separator();
                 ImGui::Separator();
 
+                std::multimap<std::string, sptr<Node>> orderedChildren;
                 for (auto& child : _nodeRoot->getChildren())
+                {
+                    std::string name = child->getName();
+                    if (name.empty())
+                        name = "[NO_NAME]";
+                    orderedChildren.insert({ name, child });
+                }
+
+                for (auto& [name, child] : orderedChildren)
                 {
                     if (child)
                     {
@@ -582,7 +596,16 @@ namespace ND_Util
                 ImGui::Separator();
                 ImGui::Separator();
 
+                std::multimap<std::string, sptr<Node>> orderedChildren;
                 for (auto& child : root->getChildren())
+                {
+                    std::string name = child->getName();
+                    if (name.empty())
+                        name = "[NO_NAME]";
+                    orderedChildren.insert({ name, child });
+                }
+
+                for (auto& [name, child] : orderedChildren)
                 {
                     if (child)
                     {
@@ -606,7 +629,16 @@ namespace ND_Util
                 ImGui::Separator();
                 ImGui::Separator();
 
+                std::multimap<std::string, sptr<Node>> orderedChildren;
                 for (auto& child : rootHud->getChildren())
+                {
+                    std::string name = child->getName();
+                    if (name.empty())
+                        name = "[NO_NAME]";
+                    orderedChildren.insert({ name, child });
+                }
+
+                for (auto& [name, child] : orderedChildren)
                 {
                     if (child)
                     {
@@ -638,17 +670,6 @@ namespace ND_Util
         ImGui::PopID();
 
         return isSearchChanged;
-    }
-
-    bool checkFilterConditions(const std::string& itemName, const std::string& filter)
-    {
-        if (filter.empty())
-            return true;
-
-        std::regex regex(filter, std::regex::icase);
-        std::smatch name_match;
-
-        return std::regex_search(itemName, name_match, regex);
     }
 
     void resetImGuiRepeatElemId()
@@ -1369,3 +1390,18 @@ namespace ND_Util
 }
 
 #endif
+
+//used in release versions
+namespace ND_Util
+{
+    bool checkFilterConditions(const std::string& itemName, const std::string& filter)
+    {
+        if (filter.empty())
+            return true;
+
+        std::regex regex(filter, std::regex::icase);
+        std::smatch name_match;
+
+        return std::regex_search(itemName, name_match, regex);
+    }
+}

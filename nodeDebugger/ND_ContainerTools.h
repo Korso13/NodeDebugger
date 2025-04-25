@@ -39,6 +39,15 @@ public:
         ImGui::PopID();
     }
 
+    template <typename TK>
+    static void renderMapPair(TK& key, float& value)
+    {
+        std::string keyString = std::to_string(key);
+        ImGui::PushID(keyString.c_str());
+        ImGui::InputFloat(keyString.c_str(), &value, 0.f, 0.f, IMG_FLOATFORMAT);
+        ImGui::PopID();
+    }
+
     template <typename TK, typename TV>
     static bool ContainerView(const char* label, std::unordered_map<TK, TV>& value, const std::string filter = "")
     {

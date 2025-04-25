@@ -78,10 +78,10 @@ static float	sliderSensivity = 0.01;
 #define IMG_WHITE	ImVec4(1.f, 1.f, 1.f, 1.f)
 
 //Slider settings (limits):
-#define IMG_POSRANGE 100.f
+#define IMG_POSRANGE 900.f
 #define IMG_ROTRANGE_DEG 360.f
 #define IMG_ROTRANGE_RAD TWO_PI
-#define IMG_SCALERANGE 30.f
+#define IMG_SCALERANGE 50.f
 
 #define IMG_PLOTTERSTIMESTEP 0.01
 //=========================================================================================
