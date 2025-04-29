@@ -205,6 +205,7 @@ private:
 	std::map<std::string, std::pair<MapMeshData, sptr<Mesh>>> m_spawnedMeshes;
 
 	bool m_primaryMeshLoadComplete = false;
+	bool m_nodeHierarchySearchLogging = false;
 	std::map<int, MapMeshData> m_delayedMeshSpawn;
 	std::map<int, sptr<Spawnable>> m_delayedSpawnableParenting;
 

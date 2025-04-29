@@ -72,6 +72,7 @@ void SpawnerFactory::SpawnObjects()
 	//same for Spawnables, which had not been parented by node mentioned in their MapObjectData on spawn
 	if (!m_delayedMeshSpawn.empty() || !m_delayedSpawnableParenting.empty())
 	{
+		//m_nodeHierarchySearchLogging = true;
 		info("[SpawnerFactory::SpawnObjects] Mesh spawner has %d meshes on delayed spawn and %d delayed Spawnables. Processing...", m_delayedMeshSpawn.size(), m_delayedSpawnableParenting.size());
 		for (size_t i = 0; i < 10; i++) //how many iterations to try and spawn delayed meshes and parent Spawnables. 30 should be more than enough
 		{
@@ -102,6 +103,7 @@ void SpawnerFactory::SpawnObjects()
 				}
 			}
 			std::erase_if(m_delayedSpawnableParenting, [&removalQueue2, this](const std::pair<int, sptr<Spawnable>>& elem){return removalQueue2.contains(elem.first);});
+			m_nodeHierarchySearchLogging = false;
 		}
 		//if there're still remaining meshes, spawning them on m_view
 		if (!m_delayedMeshSpawn.empty())
@@ -268,7 +270,7 @@ void SpawnerFactory::checkNodeHierarchyNames()
 	//cuts traversal 
 	auto predicateCheck = [this](Node& node)
 		{
-			return !node.getAllChildren().empty();
+			return !node.getChildren().empty();
 		};
 
 	auto nodeNameCheck = [this](Node& node)
@@ -276,7 +278,7 @@ void SpawnerFactory::checkNodeHierarchyNames()
 			auto parentName = node.getName();
 			int32_t unnamedChildrenCount = 0;
 			std::set<std::string> children;
-			for (auto& child : node.getAllChildren())
+			for (auto& child : node.getChildren())
 			{
 				if (!child)
 					continue;
@@ -365,7 +367,8 @@ sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string adress)
 				firstNodeName = adress;
 				adress.clear();
 			}
-			//info("\nfirstNodeName: %s", firstNodeName.c_str());
+			if(m_nodeHierarchySearchLogging)
+				info("\nfirstNodeName: %s", firstNodeName.c_str());
 
 			if (firstNodeName == "Root")
 				foundNode = Render::getRoot();
@@ -375,14 +378,20 @@ sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string adress)
 		else
 		{
 			std::string nextNodeName = adress.substr(0, adress.find("||")); //getting sub string up to the next separator
-			//info("\nnextNodeName: %s", nextNodeName.c_str());
-			auto children = foundNode->getAllChildren();
+			if (m_nodeHierarchySearchLogging)
+				info("\nnextNodeName: %s", nextNodeName.c_str());
+			auto children = foundNode->getChildren();
 			auto childIt = children.begin();
 			bool bFound = false;
 			for (; childIt != children.end(); childIt++)
 			{
 				if ((*childIt)->getName() == nextNodeName)
 				{
+					if (m_nodeHierarchySearchLogging)
+						warn("Found child %s matching name %s. It's parent %s",
+							(*childIt)->getName().c_str(),
+							nextNodeName.c_str(), 
+							(*childIt)->getParent()->getName().c_str());
 					foundNode = *childIt;
 					bFound = true;
 					break;
@@ -391,12 +400,24 @@ sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string adress)
 
 			if (bFound)
 			{
+				if (m_nodeHierarchySearchLogging)
+				{
+					std::string output = "Children of " + foundNode->getName() + " " + STR(children.size()) + "\n";
+					warn("%s", output.c_str());
+					for (auto& child : children)
+					{
+						info("%s", child->getName().c_str());
+					}
+				}
+
 				adress.erase(0, adress.find("||") + 2); //removing found node from the adress along with the separator
-				//info("\n Adress after iteration: \n%s", adress.c_str());
+				if (m_nodeHierarchySearchLogging)
+					info("\n Adress after iteration: \n%s", adress.c_str());
 			}
 			else
 			{
-				//warn("\nCoundn't find %s", nextNodeName.c_str());
+				if (m_nodeHierarchySearchLogging)
+					warn("\nCoundn't find %s", nextNodeName.c_str());
 				foundNode = nullptr;
 				break;
 			}
@@ -407,7 +428,7 @@ sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string adress)
 	if (!adress.empty())
 	{
 		std::string lastNodeName = adress;
-		auto children = foundNode->getAllChildren();
+		auto children = foundNode->getChildren();
 		auto childIt = children.begin();
 		bool bFound = false;
 		for (; childIt != children.end(); childIt++)
@@ -421,7 +442,16 @@ sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string adress)
 		}
 		if (!bFound)
 		{
-			//warn("\nCoundn't find last node: %s", lastNodeName.c_str());
+			if (m_nodeHierarchySearchLogging)
+			{
+				warn("\nCoundn't find last node: %s", lastNodeName.c_str());
+				std::string output = "Children " + STR(children.size()) + "\n";
+				for (auto& child : children)
+				{
+					output = output + "\n" + child->getName();
+				}
+				warn("%s", output.c_str());
+			}
 			foundNode = nullptr;
 		}
 	}
