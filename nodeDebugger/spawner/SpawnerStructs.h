@@ -35,6 +35,22 @@ JSTRUCT_DEFINITION(ExtraLoot,
 	((std::string, bonus_mesh, "none"))
 );
 
+//Struct for Mesh Spawner
+JSTRUCT_DEFINITION(MapMeshData,
+	((std::string, className, "CLASS_NAME"))
+	((std::string, meshName, ""))
+	((std::string, meshId, ""))
+	((std::string, material, "sprite"))
+	((std::string, node, ""))
+	((int32_t, renderOrder, 1))
+	((bool, useWorldPos, true))
+	((bool, isNeedToTurnLeft, false))
+	((vec3, position_world, vec3::zero))
+	((vec3, position_local, vec3::zero))
+	((vec3, scale_local, vec3::one))
+	((vec3, rotation_local, vec3::zero))
+);
+
 //MapObjectsData struct constructor. 
 MOD_DEFINITION(
 	((std::string, objId, "")) //DO NOT REMOVE OR RENAME!
@@ -57,21 +73,6 @@ MOD_DEFINITION(
 	((SettingsStuct, settings, SettingsStuct()))
 	((SettingsStuct, childData, SettingsStuct())) //todo: depricate this rudimentary shit!
 	((std::vector<SPK_MATERIAL>, SPARK_Materials, std::vector<SPK_MATERIAL>()))
-);
-
-//Struct for Mesh Spawner
-JSTRUCT_DEFINITION(MapMeshData,
-	((std::string, className, "CLASS_NAME"))
-	((std::string, meshName, ""))
-	((std::string, meshId, ""))
-	((std::string, material, "sprite"))
-	((std::string, node, ""))
-	((int32_t, renderOrder, 1))
-	((bool, useWorldPos, true))
-	((vec3, position_world, vec3::zero))
-	((vec3, position_local, vec3::zero))
-	((vec3, scale_local, vec3::one))
-	((vec3, rotation_local, vec3::zero))
 );
 
 //MapObjectsContainer definition and deserialization for Spawner Factory

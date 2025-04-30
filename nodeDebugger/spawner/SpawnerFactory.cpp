@@ -515,6 +515,10 @@ sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 	//making unique material instance
 	auto newMatInst = RMat(meshData.material)->createInstance();
 	newMatInst->setTexture(TextureId::TEXTURE_0, newMesh->getMaterialInst()->getTexture(TextureId::TEXTURE_0));
+	if (meshData.material == "sprite_mirrored" && meshData.isNeedToTurnLeft)
+	{
+		newMatInst->setParam("mirrorMod", vec2(1, 0));
+	}
 	newMesh->setMaterialInst(newMatInst);
 	newMesh->setRenderOrder(meshData.renderOrder);
 	if (meshData.useWorldPos)
