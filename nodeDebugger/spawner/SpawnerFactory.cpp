@@ -108,6 +108,7 @@ void SpawnerFactory::SpawnObjects()
 		//if there're still remaining meshes, spawning them on m_view
 		if (!m_delayedMeshSpawn.empty())
 		{
+			//W4_LOG_ERROR("[SpawnerFactory::SpawnObjects] Mesh spawner could not place %d meshes on nodes written in MapObjects.json! Spawning on default node!", m_delayedMeshSpawn.size());
 			warn("[SpawnerFactory::SpawnObjects] Mesh spawner could not place %d meshes on nodes written in MapObjects.json! Spawning on default node!", m_delayedMeshSpawn.size());
 			for (auto& [id, meshRec] : m_delayedMeshSpawn)
 			{
@@ -643,6 +644,8 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 		//info("[Spawner] Renaming %s entity objId to %s", customMOD.className.c_str(), newEntityName.c_str());
 		newEntity->getMapObjectsData().objId = newEntityName;
 	}
+	else
+		newEntity->getMapObjectsData().objId = newEntityName;
 
 	//restoring default MOD
 	spawnData.setNewMapObjectsData(defaultMOD);
