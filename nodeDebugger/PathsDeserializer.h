@@ -111,6 +111,17 @@ static void loadPathsIntoPathfinder(
 
 	for (auto& pathData : pathsData.paths)
 	{
+		if (!pathNodes.contains(pathData.startPoint) )
+		{
+			W4_LOG_ERROR("Node %s for Path %s not found! Path not created!", pathData.startPoint.c_str(), pathData.pathName.c_str());
+			continue;
+		}
+		if (!pathNodes.contains(pathData.endPoint))
+		{
+			W4_LOG_ERROR("Node %s for Path %s not found! Path not created!", pathData.endPoint.c_str(), pathData.pathName.c_str());
+			continue;
+		}
+
 		auto path = pathfinder->createPath(pathNodes[pathData.startPoint], pathNodes[pathData.endPoint]);
 		
 		//adding mid points if path has them
