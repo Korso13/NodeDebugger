@@ -29,6 +29,7 @@ namespace ND_Util
 	void NoConflictGizmo(sptr<Node> _node, const std::string& name);
 	void ImGuiSettings();
 	bool ImGuiNodeHierarchy(sptr<Node>& _nodeToSet, const std::string nodePickerLabel = "Node");
+	bool ImGuiTextureSelector(std::string& textureName, const std::string& selectorCaption = "<-Mesh Name");
 
 	void resetImGuiRepeatElemId();
 	void resetPlotterWindowFlag();
@@ -46,13 +47,22 @@ namespace ND_Util
 	//Returns pair: bool - set to true if new item was selected this frame; T - new selected value (if no new item selected, returns value by listCurrentValue key or random if key not found)
 	template<typename T>
 	std::pair<bool, T> ImGuiComboList(const std::string& listName, const std::map<std::string, T>& list, const std::string& listCurrentValue);
+	//Returns pair: bool - set to true if new item was selected this frame; T - new selected value (if no new item selected, returns value by listCurrentValue key or random if key not found)
+	template<typename T>
+	std::pair<bool, T> ImGuiComboList(const std::string& listName, const std::vector<T>& list, const std::string& listCurrentValue, std::function<const std::string (const T&)> nameGetterPred);
+	
 	//Templated list box renderer. 
 	//Returns pair: bool - set to true if new item was selected this frame; T - new selected value (if no new item selected, returns value by listCurrentValue key or random if key not found)
 	template<typename T>
 	std::pair<bool, T> ImGuiListBox(const std::string& listName, const std::map<std::string, T>& list, const std::string& listCurrentValue);
+	//Returns pair: bool - set to true if new item was selected this frame; T - new selected value (if no new item selected, returns value by listCurrentValue key or random if key not found)
+	template<typename T>
+	std::pair<bool, T> ImGuiListBox(const std::string& listName, const std::vector<T>& list, const std::string& listCurrentValue, std::function<const std::string(const T&)> nameGetterPred);
 	//List box renderer for simple strings. 
 	//Returns pair: bool - set to true if new item was selected this frame; std::string - new selected value (if no new item selected, returns listCurrentValue)
 	std::pair<bool, std::string> ImGuiListBox(const std::string& listName, const std::set<std::string>& list, const std::string& listCurrentValue);
+	//todo: add variants of ImGuiComboList and ImGuiListBox for unordered_map (add templated iterator type checker?) 
+	
 	std::pair<bool, std::string> ImGuiMaterialSelector(const std::string& currentMaterial);
 
 	void ImGuiTweensBody(sptr<Node> _node, tweenDebugRecord& tweenRecord);
@@ -117,7 +127,48 @@ namespace ND_Util
 }
 
 template<typename T>
-std::pair<bool, T> ND_Util::ImGuiListBox(const std::string& listName, const std::map<std::string, T>& list, const std::string& listCurrentValue)
+std::pair<bool, T> ND_Util::ImGuiComboList(
+	const std::string& listName, 
+	const std::vector<T>& list, 
+	const std::string& listCurrentValue, 
+	std::function<const std::string (const T&)> nameGetterPred)
+{
+	std::pair<bool, T> result;
+	result.first = false;
+#ifndef FORCENODEDEBUG_OFF
+	if (!list.empty())
+	{
+		if (ImGui::BeginCombo(listName.c_str(), listCurrentValue.c_str()))
+		{
+			for (const auto& listValue : list)
+			{
+				auto listKey = nameGetterPred(listValue);
+				bool isSelected = listKey == listCurrentValue;
+				if (isSelected)
+					ImGui::SetItemDefaultFocus();
+
+				if (ImGui::Selectable(listKey.c_str(), &isSelected))
+				{
+					result.first = true;
+					result.second = listValue;
+				}
+				if (!result.first && isSelected)
+					result.second = listValue;
+			}
+
+			ImGui::EndCombo();
+		}
+	}
+#endif
+	return result;
+}
+
+
+template<typename T>
+std::pair<bool, T> ND_Util::ImGuiListBox(
+	const std::string& listName, 
+	const std::map<std::string, T>& list, 
+	const std::string& listCurrentValue)
 {
 	std::pair<bool, T> result;
 	result.first = false;
@@ -147,6 +198,44 @@ std::pair<bool, T> ND_Util::ImGuiListBox(const std::string& listName, const std:
 #endif
 	return result;
 }
+
+template<typename T>
+std::pair<bool, T> ND_Util::ImGuiListBox(
+	const std::string& listName, 
+	const std::vector<T>& list, 
+	const std::string& listCurrentValue, 
+	std::function<const std::string (const T&)> nameGetterPred)
+{
+	std::pair<bool, T> result;
+	result.first = false;
+#ifndef FORCENODEDEBUG_OFF
+	if (!list.empty())
+	{
+		if (ImGui::BeginListBox(listName.c_str(), ImVec2(-FLT_MIN, std::min(CastI(list.size()), IMG_LISTBOX_ENTRIESINFRAME) * ImGui::GetTextLineHeightWithSpacing()))) //use all width, IMG_LISTBOX_ENTRIESINFRAME items tall
+		{
+			for (const auto& listValue : list)
+			{
+				auto listKey = nameGetterPred(listValue);
+				bool isSelected = listKey == listCurrentValue;
+				if (isSelected)
+					ImGui::SetItemDefaultFocus();
+
+				if (ImGui::Selectable(listKey.c_str(), &isSelected))
+				{
+					result.first = true;
+					result.second = listValue;
+				}
+				if (!result.first && isSelected)
+					result.second = listValue;
+			}
+
+			ImGui::EndListBox();
+		}
+	}
+#endif
+	return result;
+}
+
 
 #ifndef FORCENODEDEBUG_OFF
 

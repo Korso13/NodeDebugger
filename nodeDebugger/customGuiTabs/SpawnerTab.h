@@ -37,6 +37,7 @@ public:
 	void addItem(std::any item, const std::string& altName = "default") override NOCOMP;
 	
 	void purgeValues() override NOCOMP;
+	void markActive(bool isActive) override ;
 
 	void initClickColliders() NOCOMP;
 
@@ -62,6 +63,7 @@ private:
 
 	bool m_needUpdateEntitiesFilter = true; 
 	bool m_clickAddModeON = false;
+	bool m_clickFiltering = false;
 	std::string m_entitiesFilter = "";
 	std::string m_meshesFilter = "";
 	std::string m_lastSelectedSpawnable = "";

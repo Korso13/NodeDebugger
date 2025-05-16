@@ -20,6 +20,20 @@ SpawnerTab::SpawnerTab()
 	Touch::Begin::subscribe(std::bind(&SpawnerTab::onTouchBegin, this, std::placeholders::_1));
 }
 
+void SpawnerTab::markActive(bool isActive)
+{
+	iGuiTab::markActive(isActive);
+	
+	if(!isActive)
+	{
+		if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
+		{
+			SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->removeFocusFrame();
+			//SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->childrenVisiter([this](Spawnable& child) {child.removeFocusFrame(); });
+		}
+	}
+}
+
 void SpawnerTab::initClickColliders()
 {
 	for (auto& [name, spawnable] : SPAWNER.getAllSpawnables())
@@ -31,6 +45,9 @@ void SpawnerTab::initClickColliders()
 			[this, &name](const CollisionInfo& hit)
 			{
 				if (!ND_CASTALLOWED)
+					return;
+
+				if(m_clickFiltering && !ND_Util::checkFilterConditions(name, m_entitiesFilter))
 					return;
 
 				if (isActiveTab() && m_lastSelectedSpawnable != name)
@@ -57,6 +74,9 @@ void SpawnerTab::initClickColliders()
 				if (!ND_CASTALLOWED)
 					return;
 
+				if (m_clickFiltering && !ND_Util::checkFilterConditions(name, m_meshesFilter))
+					return;
+
 				if (isActiveTab())
 					m_lastSelectedMesh = name;
 			};
@@ -79,7 +99,7 @@ void SpawnerTab::onGuiExportBtn()
 			if (spawnedObject && !spawnedObject->getMapObjectsData().isChildObj)
 				tempContainer.mapObjectsData.push_back(spawnedObject->getMapObjectsData());
 		for (auto& [name, spawnedMesh] : SPAWNER.getAllMeshes())
-			if (spawnedMesh.second)
+			if (spawnedMesh.second && !spawnedMesh.first.isChild)
 				tempContainer.mapMeshData.push_back(spawnedMesh.first);
 
 		nlohmann::json exportJson;
@@ -136,49 +156,9 @@ void SpawnerTab::purgeValues()
 
 void SpawnerTab::onGuiMapMeshData(MapMeshData& data)
 {
-	if (ImGui::BeginCombo("<-Mesh Name", data.meshName.c_str()))
+	if (ND_Util::ImGuiTextureSelector(data.meshName))
 	{
-		auto It = SPAWNER.getMeshesSettings().begin();
-		for (size_t i = 0; i < SPAWNER.getMeshesSettings().size(); i++)
-		{
-			auto& meshName = (*It).first;
-			auto& meshSetting = (*It++).second;
-			std::string textureName = (meshSetting.textureName.empty() ? meshName : meshSetting.textureName);
-			//Size of preview icon adjusted to plane dimentions
-			ImVec2 icoSize = ImVec2(100, 100);
-			auto normalizedPlane = meshSetting.plane.normalize();
-			icoSize.x *= normalizedPlane.x;
-			icoSize.y *= normalizedPlane.y;
-
-			bool isSelected = meshName == data.meshName;
-			if (isSelected)
-				ImGui::SetItemDefaultFocus();
-
-			//TODO: Consider replacing columns with Table
-			ImGui::Columns(2);
-			if (ImGui::Selectable(meshName.c_str(), &isSelected))
-			{
-				data.meshName = meshName;
-				data.meshId = meshName;
-			}
-			ImGui::NextColumn();
-			
-			auto texture = RT(textureName);
-			if (!texture)
-			{
-				ImGui::Columns(1);
-				continue;
-			}
-			//Clickable preview of mesh's texture (doesn't collapse Combo :( )
-			if (ImGui::ImageButton(RT(textureName), icoSize, ImVec2(0, 1), ImVec2(1, 0)))
-			{
-				data.meshName = meshName;
-				data.meshId = meshName;
-			}
-			ImGui::Columns(1);
-		}
-
-		ImGui::EndCombo();
+		data.meshId = data.meshName;
 	}
 	
 	//Combo list selector for materials
@@ -224,6 +204,9 @@ void SpawnerTab::onGuiClassPalette()
 							[this, name](const CollisionInfo& hit)
 							{
 								if (!ND_CASTALLOWED)
+									return;
+
+								if (m_clickFiltering && !ND_Util::checkFilterConditions(name, m_entitiesFilter))
 									return;
 
 								if (isActiveTab() && m_lastSelectedSpawnable != name)
@@ -281,6 +264,9 @@ void SpawnerTab::onGuiMeshPalette()
 						if (!ND_CASTALLOWED)
 							return;
 
+						if (m_clickFiltering && !ND_Util::checkFilterConditions(name, m_meshesFilter))
+							return;
+
 						if (isActiveTab())
 							m_lastSelectedMesh = name;
 					};
@@ -307,6 +293,8 @@ void SpawnerTab::onGuiSpawnedList()
 	{
 		//Exports newly spawned entities plus previously loaded from mapObjects.json
 		onGuiExportBtn();
+		ImGui::SameLine();
+		ImGui::Checkbox("Click selection with filter", &m_clickFiltering);
 
 		//list-filtering magic
 		bool isFilterChanged = false;
@@ -417,6 +405,8 @@ void SpawnerTab::onGuiSpawnedMeshesList()
 	{
 		//Exports newly spawned entities plus previously loaded from mapObjects.json
 		onGuiExportBtn();
+		ImGui::SameLine();
+		ImGui::Checkbox("Click selection with filter", &m_clickFiltering);
 
 		//list-filtering magic
 		bool isFilterChanged = false;

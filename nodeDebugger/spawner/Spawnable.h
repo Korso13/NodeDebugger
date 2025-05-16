@@ -20,9 +20,10 @@ protected:
 	//forward decl
 	struct SpawnSetting;
 
-	//Struct to hold spawnable child objects
+	//Structs to hold spawnable child objects and meshes. todo: consider moving elsewhere
 	struct SpawnableChild
 	{
+		SpawnableChild() : mod(SpawnableChild::m_defaultVal) {}; //for containers only!
 		SpawnableChild(MapObjectsData& srcMod) : mod(srcMod) {};
 		SpawnableChild(const SpawnableChild& src) : bSpawned(src.bSpawned), child(src.child), mod(src.mod) {};
 		void operator=(const SpawnableChild& src) { bSpawned = src.bSpawned; child = src.child; mod = src.mod; };
@@ -30,6 +31,23 @@ protected:
 		bool bSpawned = false;
 		wptr<Spawnable> child;
 		MapObjectsData& mod;
+
+	private:
+		inline static MapObjectsData m_defaultVal = MapObjectsData(); //for default constructor
+	};
+	struct SpawnableChildMesh
+	{
+		SpawnableChildMesh() : mmd(SpawnableChildMesh::m_defaultVal) {}; //for containers only!
+		SpawnableChildMesh(MapMeshData& srcMmd) : mmd(srcMmd) {};
+		SpawnableChildMesh(const SpawnableChildMesh& src) : bSpawned(src.bSpawned), child(src.child), mmd(src.mmd) {};
+		void operator=(const SpawnableChildMesh& src) { bSpawned = src.bSpawned; child = src.child; mmd = src.mmd; };
+		
+		bool bSpawned = false;
+		wptr<Mesh> child;
+		MapMeshData& mmd;
+
+	private:
+		inline static MapMeshData m_defaultVal = MapMeshData(); //for default constructor
 	};
 
 private:
@@ -150,20 +168,32 @@ protected:
 	void spawnAllChildren();
 
 	std::vector<SpawnableChild>& getSpawnedChildren() { return m_children; };
+	std::vector<SpawnableChildMesh>& getSpawnedChildMeshes() { return m_childMeshes; };
+	sptr<Mesh> getChildMeshByName(const std::string& name) const;
 
 private:
 
+	//renders UI of Spawnable children interface
 	void childSpawnerUI();
+	//renders UI of Mesh children interface
+	void childMeshSpawnerUI();
+	//spawns Spawnable child and registers it where nessesary
 	sptr<Spawnable> spawnChild(sptr<MapObjectsData> childData, SpawnableChild& childHolder, bool bTabSpawned = false);
+	//spawns Mesh child and registers it where nessesary
+	sptr<Mesh> spawnChildMesh(sptr<MapMeshData> childData, SpawnableChildMesh& childHolder);
 	
-	//recursively visits all descendents (child objects) of this object
+	//recursively visits all descendants (child objects) of this object
 	void childrenVisiter(const std::function<void(Spawnable&)>& visiterFunction);
+	void childrenVisiter(const std::function<void(SpawnableChildMesh&)>& visiterFunction);
 
 	//Used to render focus frame around Spawnable
 	std::array<vec3, 2> getSpawnableBounds(sptr<Node> spawnableRoot);
-	void removeFocusFrame() { if (m_framePlotter) Render::getRoot()->removeChild(m_framePlotter); };
+	void removeFocusFrame();
 
 	void initSpawnableCollider(std::function<void(const CollisionInfo&)> clickCb);
+	std::string getNewMeshIdSuffix(const std::string& meshName);
+
+	SpawnableChildMesh& getChildMeshHolder(const std::string& name);
 
 public:
 
@@ -177,6 +207,8 @@ protected:
 
 private:
 
+	inline static sptr<Plotter> m_framePlotter = nullptr;
+
 	std::map<std::string, SpawnSetting> m_spawnableSettings; //Fields exposed to the Spawner Tab Gui
 	std::map<std::string, std::function<void()>> m_spawnableBtns; //Btns exposed to the Spawner Tab Gui
 	size_t m_rootNodeTransformSubsHandler = -1;
@@ -185,11 +217,16 @@ private:
 	std::function<void(sptr<Spawnable>)> m_onChildSpawnCb = nullptr;
 
 	std::vector<SpawnableChild> m_children;
+	std::vector<SpawnableChildMesh> m_childMeshes;
 
 	sptr<Collider> m_spawnableSelectCollider = nullptr;
 
 	std::array<vec3, 2> m_cachedBounds;
-	sptr<Plotter> m_framePlotter = nullptr;
+	std::string m_lastSelectedChildMesh;
+	std::string m_lastSelectedChildObj;
+
+	std::string m_lastSelectedTextureForMesh = "";
+	wptr<Node> m_lastSelectedParentNode;
 };
 
 #include "SpawnableImpl.inl"

@@ -59,12 +59,17 @@ std::array<vec3, 2> Spawnable::getSpawnableBounds(sptr<Node> spawnableRoot)
 	return m_cachedBounds;
 }
 
+void Spawnable::removeFocusFrame()
+{
+	if (m_framePlotter) Render::getRoot()->removeChild(m_framePlotter);
+};
+
 void Spawnable::initSpawnableCollider(std::function<void(const CollisionInfo&)> clickCb)
 {
 #ifdef DEBUG
 	if (!m_spRoot)
 	{
-		warn("[Spawnable::initSpawnableCollider] Invalid root {%s}", getMapObjectsData().objId.c_str());
+		warn("[Spawnable::initSpawnableCollider] Invalid root {%s}", m_mapObjectData.objId.c_str());
 		return;
 	}
 
@@ -88,7 +93,7 @@ void Spawnable::initSpawnableCollider(std::function<void(const CollisionInfo&)> 
 		m_spRoot->addChild(colliderDebug);
 		colliderDebug->setLocalTranslation(m_spawnableSelectCollider->getLocalTranslation());
 		colliderDebug->setRenderOrder(9);
-		ND_NODE(colliderDebug, getMapObjectsData().objId + "_collider");
+		ND_NODE(colliderDebug, m_mapObjectData.objId + "_collider");
 	}
 #endif // DEBUG
 }
@@ -110,8 +115,8 @@ bool Spawnable::onGui(const char* label)
 	bool bNeedsDeletion = false; //used to communicate to SpawnerTab that the record is to be deleted via return true
 
 #ifdef DEBUG
-		ImGui::Text("%s",(m_spRoot->getName() + " Panel").c_str());
-		if (ImGui::Button(("DELETE " + m_spRoot->getName()).c_str()))
+		ImGui::Text("%s%s", label, " properties");
+		if (ImGui::Button(("DELETE " + STR(label)).c_str()))
 		{
 			bNeedsDeletion = true;
 		}
@@ -185,7 +190,16 @@ bool Spawnable::onGui(const char* label)
 		}
 
 		if(m_childrenAdderEnabled)
-			childSpawnerUI();
+		{
+			ImGui::TextColored(IMG_ORANGE, "%s", (getSpawnableRoot()->getName() + "'s Children").c_str());
+
+			if (ImGui::BeginTabBar((getSpawnableRoot()->getName() + "'s Children Bar").c_str()))
+			{
+				childSpawnerUI();
+				childMeshSpawnerUI();
+			}
+			ImGui::EndTabBar();
+		}
 	
 #endif
 
@@ -205,7 +219,19 @@ MapObjectsData& Spawnable::getMapObjectsData()
 				}
 			}
 		};
+
+	std::function<void(SpawnableChildMesh&)> visiterMesh = [](SpawnableChildMesh& meshHolder) {
+			auto child = meshHolder.child.lock();
+			meshHolder.mmd.node = SPAWNER.getNodeHierarchyAddress(child->getParent());
+			meshHolder.mmd.renderOrder = child->getRenderOrder();
+			meshHolder.mmd.useWorldPos = false;
+			meshHolder.mmd.position_local = child->getLocalTranslation();
+			meshHolder.mmd.scale_local = child->getLocalScale();
+			meshHolder.mmd.rotation_local = child->getLocalRotation().euler();
+		};
+
 	childrenVisiter(visiter);
+	childrenVisiter(visiterMesh);
 
 	return m_mapObjectData;
 }
@@ -215,7 +241,12 @@ void Spawnable::childrenVisiter(const std::function<void(Spawnable&)>& visiterFu
 	if (!visiterFunction)
 		return;
 
-	for (auto childHolder : m_children)
+	std::erase_if(m_children, [this](const SpawnableChild& childHolder)
+		{
+			return childHolder.child.expired() || !childHolder.bSpawned;
+		});
+
+	for (auto& childHolder : m_children)
 	{
 		if (childHolder.bSpawned && !childHolder.child.expired())
 		{
@@ -223,6 +254,26 @@ void Spawnable::childrenVisiter(const std::function<void(Spawnable&)>& visiterFu
 		}
 	}
 	visiterFunction(*this);
+}
+
+void Spawnable::childrenVisiter(const std::function<void(SpawnableChildMesh&)>& visiterFunction)
+{
+	if (!visiterFunction)
+		return;
+
+	std::erase_if(m_childMeshes, [this](const SpawnableChildMesh& meshHolder)
+		{
+			return meshHolder.child.expired() || !meshHolder.bSpawned;
+		});
+
+	//todo: add mesh node hierarcy traversal?
+	for (auto& childHolder : m_childMeshes)
+	{
+		if (childHolder.bSpawned && !childHolder.child.expired())
+		{
+			visiterFunction(childHolder);
+		}
+	}
 }
 
 void Spawnable::initSpawnable(sptr<Node> rootNode)
@@ -236,8 +287,8 @@ void Spawnable::initSpawnable(sptr<Node> rootNode)
 	m_spRoot = rootNode;
 	m_rootNodeTransformSubsHandler = m_spRoot->subscribeToWorldTransformChanged([this](const Transform& trans)
 		{
-			getMapObjectsData().pos = trans.translation();
-			getMapObjectsData().pos.z = 0.f; //sometimes the gizmo puts in double values into Z field breaking ROs. Disable if you need non-zero Z placement
+			m_mapObjectData.pos = trans.translation();
+			m_mapObjectData.pos.z = 0.f; //sometimes the gizmo puts in double values into Z field breaking ROs. Disable if you need non-zero Z placement
 			m_cachedBounds = std::array<w4::math::vec3, 2>(); //clearing plotter frame pos cache
 		});
 }
@@ -257,19 +308,38 @@ void Spawnable::spawnAllChildren()
 
 		spawnChild(childMod, m_children.back(), false);
 	}
+	for (auto& childMmd : m_mapObjectData.childMeshes)
+	{
+		SpawnableChildMesh childHolder = SpawnableChildMesh(*childMmd);
+		m_childMeshes.push_back(childHolder);
+
+		spawnChildMesh(childMmd, m_childMeshes.back());
+	}
+}
+
+sptr<Mesh> Spawnable::getChildMeshByName(const std::string& name) const
+{
+	for (auto& rec : m_childMeshes)
+	{
+		if (rec.mmd.meshId == name)
+			return rec.child.lock();
+	}
+
+	err("Failed to find child mesh %s for %s", name.c_str(), m_mapObjectData.objId.c_str());
+	return nullptr;
 }
 
 void Spawnable::childSpawnerUI()
 {
 #ifdef DEBUG
 
-	if (ImGui::TreeNode((getSpawnableRoot()->getName() + "'s Children").c_str()))
+	if (ImGui::BeginTabItem("Child Objects"))
 	{
 		size_t count = 0;
 		bool changed = false;
 		std::function<void()> deferredDelete = nullptr;
 
-		for (auto& childMOD : getMapObjectsData().childObjects)
+		for (auto& childMOD : m_mapObjectData.childObjects)
 		{
 			if (!childMOD)
 			{
@@ -350,9 +420,192 @@ void Spawnable::childSpawnerUI()
 		if (deferredDelete)
 			deferredDelete();
 
-		ImGui::TreePop();
+		ImGui::EndTabItem();
 	}
 
+#endif
+}
+
+std::string Spawnable::getNewMeshIdSuffix(const std::string& meshName)
+{
+	std::string zeroes = "00"; //for better sorting
+	size_t meshInstances = 0;
+	std::for_each(m_childMeshes.begin(), m_childMeshes.end(),
+		[&meshName, &meshInstances](SpawnableChildMesh& rec)
+		{
+			if (rec.mmd.meshName == meshName)
+				meshInstances++;
+		});
+	if (meshInstances > 99)
+		zeroes.clear();
+	else if (meshInstances > 9)
+		zeroes.pop_back();
+
+	return zeroes + std::to_string(meshInstances);
+}
+
+Spawnable::SpawnableChildMesh& Spawnable::getChildMeshHolder(const std::string& name)
+{
+	for (auto& rec : m_childMeshes)
+	{
+		if (rec.mmd.meshId == name)
+			return rec;
+	}
+
+	err("Failed to find child mesh record %s for %s", name.c_str(), m_mapObjectData.objId.c_str());
+	static Spawnable::SpawnableChildMesh phValue;
+	return phValue;
+}
+
+void Spawnable::childMeshSpawnerUI()
+{
+#ifdef DEBUG
+	if (ImGui::BeginTabItem("Child Meshes"))
+	{
+		//texture selector
+		ND_Util::ImGuiTextureSelector(m_lastSelectedTextureForMesh, "<-New Mesh");
+		//parent node selector
+		if (m_lastSelectedParentNode.expired())
+			m_lastSelectedParentNode = getSpawnableRoot();
+		auto resultHolder = m_lastSelectedParentNode.lock();
+		if (ND_Util::ImGuiNodeHierarchy(resultHolder, "Parent node"))
+			m_lastSelectedParentNode = resultHolder;
+
+		//Adds mesh record
+		if (ImGui::Button("Add new child mesh"))
+		{
+			//creates MapMeshData (used in export) and SpawnableChildMesh(holds mesh, its setting)
+			m_mapObjectData.childMeshes.push_back(make::sptr<MapMeshData>());
+			MapMeshData& mmd = *m_mapObjectData.childMeshes.back();
+			mmd.node = SPAWNER.getNodeHierarchyAddress(m_lastSelectedParentNode.lock());
+			mmd.isChild = true;
+			mmd.useWorldPos = false;
+			mmd.position_local = vec3::zero;
+			mmd.meshName = m_lastSelectedTextureForMesh;
+			mmd.renderOrder = 10000; //because life's too short to search for a mesh lost in low render orders!
+			mmd.meshId = m_mapObjectData.objId + "_child_" + mmd.meshName + "_" + getNewMeshIdSuffix(mmd.meshName);
+			SpawnableChildMesh childMeshHolder = SpawnableChildMesh(mmd);
+			//spawns actual mesh
+			spawnChildMesh(m_mapObjectData.childMeshes.back(), childMeshHolder);
+			m_childMeshes.push_back(childMeshHolder);
+		}
+		ImGui::Separator();
+
+		//list box with child meshes
+		if (m_childMeshes.empty())
+		{
+			ImGui::NewLine();
+			ImGui::EndTabItem();
+			return;
+		}
+
+		ImGui::TextColored(IMG_WHITE, "%s", (getSpawnableRoot()->getName() + " child meshes:").c_str());
+		//if (m_lastSelectedChildMesh.empty()) m_lastSelectedChildMesh = childList.begin()->first;
+		auto selectionResult = ND_Util::ImGuiListBox<SpawnableChildMesh>(
+			"Child Meshes", 
+			m_childMeshes, 
+			m_lastSelectedChildMesh, 
+			[this](const SpawnableChildMesh& rec) 
+			{return rec.mmd.meshId; }
+		);
+		m_lastSelectedChildMesh = selectionResult.second.mmd.meshId;
+
+		if(m_lastSelectedChildMesh.empty())
+		{
+			ImGui::NewLine();
+			ImGui::EndTabItem();
+			return;
+		}
+
+		//form for selected child mesh
+		if (ImGui::BeginChild(selectionResult.second.mmd.meshId.c_str(), ND_Util::getSizeForChild(0.5), true, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			SpawnableChildMesh& meshRec = getChildMeshHolder(m_lastSelectedChildMesh);
+			bool bNeedToDeleteSelected = false;
+
+			//delete mesh
+			if (ImGui::Button(CSTR("DELETE " + meshRec.mmd.meshId)))
+			{
+				bNeedToDeleteSelected = true;
+			}
+
+			//spawned mesh UI
+			else if(!meshRec.child.expired())
+			{
+				auto spawnedMesh = meshRec.child.lock();
+
+				//btn to focus camera on child mesh
+				if (ImGui::Button(("Focus on " + m_lastSelectedChildMesh).c_str()))
+				{
+					vec3 camPos = Render::getScreenCamera()->getWorldTranslation();
+					vec3 centerPos = spawnedMesh->getWorldTranslation();
+					camPos.x = centerPos.x; camPos.y = centerPos.y;
+					Render::getScreenCamera()->setWorldTranslation(camPos);
+				};
+				//material selector
+				auto materialSelectorResult = ND_Util::ImGuiMaterialSelector(meshRec.mmd.material);
+				if (materialSelectorResult.first)
+				{
+					meshRec.mmd.material = materialSelectorResult.second;
+					auto newMat = RMat(meshRec.mmd.material)->createInstance();
+					newMat->setTexture(TextureId::TEXTURE_0, spawnedMesh->getMaterialInst()->getTexture(TextureId::TEXTURE_0));
+					spawnedMesh->setMaterialInst(newMat);
+				}
+
+				//Render order (exportable)
+				//if (ImGui::Auto("Render Order", meshRec.mmd.renderOrder))
+				//	spawnedMesh->setRenderOrder(meshRec.mmd.renderOrder);
+				
+				//which type of tranforms is used
+				ImGui::Auto("Use World Translation?", meshRec.mmd.useWorldPos);
+				//reparenting ui
+				auto parentNode = spawnedMesh->getParent();
+				if (ND_Util::ImGuiNodeHierarchy(parentNode, "Parent Node")) //returns true if new node was selected
+				{
+					spawnedMesh->setParent(parentNode);
+					meshRec.mmd.node = SPAWNER.getNodeHierarchyAddress(spawnedMesh->as<Node>());
+				}
+				//meshId editing UI
+				if (ImGui::InputText("Mesh ID", &meshRec.mmd.meshId))
+				{
+					if (spawnedMesh && !meshRec.mmd.meshId.empty())
+						spawnedMesh->setName(meshRec.mmd.meshId);
+				}
+				//Node UI renderer
+				ND_Util::ImGuiNodeRender(spawnedMesh, m_lastSelectedChildMesh);
+				//updates render order
+				if (meshRec.mmd.renderOrder != spawnedMesh->getRenderOrder())
+					meshRec.mmd.renderOrder = spawnedMesh->getRenderOrder();
+			}
+
+			//logic for deferred deletion of child meshes
+			if (bNeedToDeleteSelected)
+			{
+				if(!selectionResult.second.child.expired())
+				{
+					if (auto parent = selectionResult.second.child.lock()->getParent(); parent)
+					{
+						parent->removeChild(selectionResult.second.child.lock());
+					}
+				}
+
+				std::erase_if(m_childMeshes, [this](SpawnableChildMesh& rec)
+					{
+						return rec.mmd.meshId == m_lastSelectedChildMesh;
+					});
+				std::erase_if(m_mapObjectData.childMeshes, [this](sptr<MapMeshData>& mmd)
+					{
+						return mmd->meshId == m_lastSelectedChildMesh;
+					});
+				m_lastSelectedChildMesh.clear();
+			}
+		}
+
+		ImGui::EndChild(); //Mesh child child form's end
+
+		ImGui::NewLine();
+		ImGui::EndTabItem(); 
+	}
 #endif
 }
 
@@ -372,6 +625,35 @@ sptr<Spawnable> Spawnable::spawnChild(sptr<MapObjectsData> childData, SpawnableC
 	childHolder.child = child;
 	childHolder.bSpawned = true;
 	childHolder.mod = child->getMapObjectsData();
+
+	return child;
+}
+
+sptr<Mesh> Spawnable::spawnChildMesh(sptr<MapMeshData> childData, SpawnableChildMesh& childHolder)
+{
+	if (!childData)
+		return nullptr;
+
+	if (childData->node.empty())
+		childData->node = SPAWNER.getNodeHierarchyAddress(getSpawnableRoot());
+	sptr<Mesh> child = SPAWNER.spawnMesh(*childData);
+
+	childHolder.child = child;
+	childHolder.bSpawned = true;
+	childHolder.mmd = *childData;
+
+	child->subscribeToWorldTransformChanged([this, childHolder](const Transform& trans)
+		{
+			if (childHolder.child.expired())
+				return;
+
+			auto child = childHolder.child.lock();
+			childHolder.mmd.position_local = child->getLocalTranslation();
+			childHolder.mmd.position_world = trans.translation();
+			childHolder.mmd.scale_local = child->getLocalScale();
+			childHolder.mmd.rotation_local = child->getLocalRotation().euler();
+			childHolder.mmd.renderOrder = child->getRenderOrder();
+		});
 
 	return child;
 }

@@ -530,29 +530,23 @@ sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 	newMesh->setLocalRotation(Rotator(meshData.rotation_local));
 
 	//Adds mesh to list of spawned entities
-	m_spawnedMeshes.insert({ uniqueName, {meshData, newMesh} });
+	if(!meshData.isChild)
+	{
+		m_spawnedMeshes.insert({ uniqueName, {meshData, newMesh} });
+		newMesh->subscribeToWorldTransformChanged([this, uniqueName](const Transform& trans)
+			{
+				if (!m_spawnedMeshes.contains(uniqueName))
+					return;
+
+				m_spawnedMeshes[uniqueName].first.position_local = m_spawnedMeshes[uniqueName].second->getLocalTranslation();
+				m_spawnedMeshes[uniqueName].first.position_world = trans.translation();
+				m_spawnedMeshes[uniqueName].first.scale_local = m_spawnedMeshes[uniqueName].second->getLocalScale();
+				m_spawnedMeshes[uniqueName].first.rotation_local = m_spawnedMeshes[uniqueName].second->getLocalRotation().euler();
+				m_spawnedMeshes[uniqueName].first.renderOrder = m_spawnedMeshes[uniqueName].second->getRenderOrder();
+			});
+	}
 
 	ND_NODE(newMesh);
-	newMesh->subscribeToWorldTransformChanged([this, uniqueName](const Transform& trans)
-		{
-			if (!m_spawnedMeshes.contains(uniqueName))
-				return;
-
-			m_spawnedMeshes[uniqueName].first.position_local = m_spawnedMeshes[uniqueName].second->getLocalTranslation();
-			m_spawnedMeshes[uniqueName].first.position_world = trans.translation();
-			m_spawnedMeshes[uniqueName].first.scale_local = m_spawnedMeshes[uniqueName].second->getLocalScale();
-			m_spawnedMeshes[uniqueName].first.rotation_local = m_spawnedMeshes[uniqueName].second->getLocalRotation().euler();
-			m_spawnedMeshes[uniqueName].first.renderOrder = m_spawnedMeshes[uniqueName].second->getRenderOrder();
-		});
-	//doesn't work because engine only uses it in SpotLight(((
-	//newMesh->registerNodeChangedCallback(
-	//	[this, uniqueName](Node& node)
-	//	{
-	//		if (!m_spawnedMeshes.contains(uniqueName))
-	//			return;
-
-	//		m_spawnedMeshes[uniqueName].first.renderOrder = m_spawnedMeshes[uniqueName].second->getRenderOrder();
-	//	});
 
 	return newMesh;
 }

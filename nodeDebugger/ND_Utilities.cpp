@@ -8,6 +8,7 @@
 #include "external/addonPlot/implot.h"
 #include "ND_ParticleEmitterEditor.h"
 #include "settings/materialSystem/materialContainer/MaterialContainer.h"
+#include "spawner/SpawnerFactory.h"
 
 ND_Settings* ND_Settings::m_instance = nullptr;
 
@@ -293,10 +294,11 @@ namespace ND_Util
         //Gizmo
         ND_Util::NoConflictGizmo(_node, name);
 
-        //visibility button
-        if (ImGui::Button("Toggle visibility"))
+        //visibility checkbox
+        bool visibleState = _node->isEnabled();
+        if (ImGui::Checkbox("Visibility", &visibleState))
         {
-            _node->setEnabled(!_node->isEnabled());
+            _node->setEnabled(visibleState);
         }
 
         if (_node->is<Mesh>())
@@ -656,6 +658,57 @@ namespace ND_Util
         ImGui::Separator();
 
         return changed;
+    }
+
+    bool ImGuiTextureSelector(std::string& selectedTextureName, const std::string& selectorCaption)
+    {
+        bool bWasPressed = false;
+        if (ImGui::BeginCombo(selectorCaption.c_str(), selectedTextureName.c_str()))
+        {
+            auto It = SPAWNER.getMeshesSettings().begin();
+            for (size_t i = 0; i < SPAWNER.getMeshesSettings().size(); i++)
+            {
+                auto& meshName = (*It).first;
+                auto& meshSetting = (*It++).second;
+                std::string textureName = (meshSetting.textureName.empty() ? meshName : meshSetting.textureName);
+                //Size of preview icon adjusted to plane dimentions
+                ImVec2 icoSize = ImVec2(100, 100);
+                auto normalizedPlane = meshSetting.plane.normalize();
+                icoSize.x *= normalizedPlane.x;
+                icoSize.y *= normalizedPlane.y;
+
+                bool isSelected = meshName == textureName;
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
+
+                //TODO: Consider replacing columns with Table
+                ImGui::Columns(2);
+                if (ImGui::Selectable(meshName.c_str(), &isSelected))
+                {
+                    selectedTextureName = meshName;
+                    bWasPressed = true;
+                }
+                ImGui::NextColumn();
+
+                auto texture = RT(textureName);
+                if (!texture)
+                {
+                    ImGui::Columns(1);
+                    continue;
+                }
+                //Clickable preview of mesh's texture (doesn't collapse Combo :( )
+                if (ImGui::ImageButton(RT(textureName), icoSize, ImVec2(0, 1), ImVec2(1, 0)))
+                {
+                    selectedTextureName = meshName;
+                    bWasPressed = true;
+                }
+                ImGui::Columns(1);
+            }
+
+            ImGui::EndCombo();
+        }
+
+        return bWasPressed;
     }
 
     bool ImGuiSearchBar(std::string& lastSearchVal)

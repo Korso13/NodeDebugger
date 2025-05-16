@@ -199,6 +199,7 @@ struct MapObjectsData : public SpawnableStr \
 	std::string className = "CLASS_NAME"; \
 	BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_FIELD_MACRO, "", fields) \
 	std::vector<sptr<MapObjectsData>> childObjects;\
+	std::vector<sptr<MapMeshData>> childMeshes;\
 \
 	bool onGui(const char* label) override \
 	{ \
@@ -207,11 +208,18 @@ struct MapObjectsData : public SpawnableStr \
 		{ \
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_ONGUID_MACRO, "", fields) \
 			if(ImGui::Button("Add child object")) childObjects.emplace_back(make::sptr<MapObjectsData>());\
+			if(ImGui::Button("Add child mesh")) childMeshes.emplace_back(make::sptr<MapMeshData>());\
 			if(!childObjects.empty())\
 			{\
 				int indx = 0;\
 				for(auto& child : childObjects)\
 				isChanged = isChanged || ImGui::Auto(("Child_" + std::to_string(indx++)).c_str(), *child);\
+			}\
+			if(!childMeshes.empty())\
+			{\
+				int indx = 0;\
+				for(auto& child : childMeshes)\
+				isChanged = isChanged || ImGui::Auto(("ChildMesh_" + std::to_string(indx++)).c_str(), *child);\
 			}\
 			ImGui::TreePop(); \
 		} \
@@ -235,12 +243,15 @@ namespace nlohmann {\
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_DESERIALIZE_MACRO, "", fields) \
 			if(j.contains("childObjects"))  \
 				 adl_serializer<decltype(obj.childObjects)>::from_json(j["childObjects"], obj.childObjects); \
+			if(j.contains("childMeshes"))  \
+				 adl_serializer<decltype(obj.childMeshes)>::from_json(j["childMeshes"], obj.childMeshes); \
 		} \
 		static void to_json(json& j, const MapObjectsData& obj) \
 		{ \
 			JSTRUCT_FIELD_SERIALIZE("className", className, "CLASS_NAME"); \
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_SERIALIZE_MACRO, "", fields) \
 			if(!obj.childObjects.empty()) j["childObjects"] = obj.childObjects; \
+			if(!obj.childMeshes.empty()) j["childMeshes"] = obj.childMeshes; \
 		} \
 	};\
 }
@@ -251,6 +262,7 @@ struct MapObjectsData : public SpawnableStr \
 	std::string className = "CLASS_NAME"; \
 	BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_FIELD_MACRO, data, fields) \
 	std::vector<sptr<MapObjectsData>> childObjects;\
+	std::vector<sptr<MapMeshData>> childMeshes;\
 	bool operator==(const MapObjectsData& rhValue) \
 	{ \
 		return (BOOST_PP_SEQ_FOR_EACH(ADD_COMPARATOR_LINE_MACRO, "", fields) \
@@ -269,12 +281,15 @@ namespace nlohmann {\
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_DESERIALIZE_MACRO, "", fields) \
 			if(j.contains("childObjects"))  \
 				 adl_serializer<decltype(obj.childObjects)>::from_json(j["childObjects"], obj.childObjects); \
+			if(j.contains("childMeshes"))  \
+				 adl_serializer<decltype(obj.childMeshes)>::from_json(j["childMeshes"], obj.childMeshes); \
 		} \
 		static void to_json(json& j, const MapObjectsData& obj) \
 		{ \
 			JSTRUCT_FIELD_SERIALIZE("className", className, "CLASS_NAME"); \
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_SERIALIZE_MACRO, "", fields) \
 			if(!obj.childObjects.empty()) j["childObjects"] = obj.childObjects; \
+			if(!obj.childMeshes.empty()) j["childMeshes"] = obj.childMeshes; \
 		} \
 	};\
 }
