@@ -2,8 +2,9 @@
 #include "common/nodeDebugger/NodeDebugger.h"
 #include "settings/CustomSettingsContainer.h"
 
-void SpawnerFactory::SpawnObjects()
+void SpawnerFactory::SpawnObjects(const std::string& mapDataFileOverride)
 {
+	getAllMapData(mapDataFileOverride, true); //loads requested or default map objects file
 	info("[SpawnerFactory]Loaded %d meshes and %d Spawnable objects(not counting child objects)", MAP_MESH_DATA.size(), MAP_DATA.size());
 
 	//Ensuring all pre-existing nodes are uniquely named! 
@@ -695,11 +696,19 @@ void SpawnerFactory::purgeSpawnedMeshes()
 	m_spawnedMeshes.clear();
 }
 
-MapObjectsContainer& SpawnerFactory::getAllMapData()
+MapObjectsContainer& SpawnerFactory::getAllMapData(const std::string& mapDataFileOverride, bool forceReloadMapData)
 {
-	if (mapData.mapObjectsData.empty())
+	if ((mapData.mapObjectsData.empty() && mapData.mapMeshData.empty()) || forceReloadMapData)
 	{
-		auto file = w4::filesystem::open("config/mapObjects.json");
+		mapData.mapMeshData.clear();
+		mapData.mapObjectsData.clear();
+		if (!mapDataFileOverride.empty())
+		{
+			m_mapDataFile = mapDataFileOverride;
+			if (m_mapDataFile.find(".json") == std::string::npos)
+				m_mapDataFile += ".json";
+		}
+		auto file = w4::filesystem::open("config/" + m_mapDataFile);
 		auto json = nlohmann::json::parse(file->data(), file->data() + file->size());
 		nlohmann::adl_serializer<MapObjectsContainer>::from_json(json, mapData);
 		W4_LOG_DEBUG("Loaded {%d} MapObjects", mapData.mapObjectsData.size());

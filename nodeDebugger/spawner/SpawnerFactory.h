@@ -98,7 +98,7 @@ public:
 		return instance;
 	}
 
-	void SpawnObjects();
+	void SpawnObjects(const std::string& mapDataFileOverride = "");
 
 	std::map<std::string, SpawnerRecord>& getClassRegistry() { return m_classesRegistry; }
 	//Use it to show a combo list with classes available in Spawner. 
@@ -151,7 +151,7 @@ public:
 	void purgeSpawnedMeshes();
 
 	//returns struct with mapObjects.json data
-	MapObjectsContainer& getAllMapData();
+	MapObjectsContainer& getAllMapData(const std::string& mapDataFileOverride = "", bool forceReloadMapData = false);
 
 	//Spawned objects getter
 	std::map<std::string, sptr<Spawnable>>& getAllSpawnables() { return m_spawnedEntities; }
@@ -197,6 +197,7 @@ private:
 private:
 
 	MapObjectsContainer mapData;
+	std::string m_mapDataFile = "mapObjects.json";
 
 	std::map<std::string, SpawnerRecord> m_classesRegistry;
 	std::map<std::string, CommonTypes::MeshesContainerSetting> m_meshesList;
