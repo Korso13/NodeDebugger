@@ -3,112 +3,41 @@
 #include "W4Framework.h"
 #include "common/Defines.h"
 #include <any>
+#include <type_traits>
 #include "SpawnerStructs.h"
 
 W4_USE_UNSTRICT_INTERFACE
 
 //forward decl
 class SpawnerTab;
+class SpawnerFactory;
+
+//template concepts
+template<typename T>
+concept AutoTypeConcept = requires(T & _value)
+{
+#ifdef DEBUG
+	ImGui::Auto("ConceptTest", _value);
+#endif
+};
+template<typename T>
+concept onGuiImplConcept = requires(T & _value)
+{
+#ifdef DEBUG
+	_value.onGui("ConceptTest");
+#endif
+};
 
 //struct MapObjectsData is defined in "common/nodeDebugger/SpawnerStructs.h"! via MOD_DEFINITION macro
 
 class Spawnable
 {
 	friend SpawnerTab;
+	friend SpawnerFactory;
 
 protected:
-	//forward decl
-	struct SpawnSetting;
-
-	//Structs to hold spawnable child objects and meshes. todo: consider moving elsewhere
-	struct SpawnableChild
-	{
-		SpawnableChild() : mod(SpawnableChild::m_defaultVal) {}; //for containers only!
-		SpawnableChild(MapObjectsData& srcMod) : mod(srcMod) {};
-		SpawnableChild(const SpawnableChild& src) : bSpawned(src.bSpawned), child(src.child), mod(src.mod) {};
-		void operator=(const SpawnableChild& src) { bSpawned = src.bSpawned; child = src.child; mod = src.mod; };
-		
-		bool bSpawned = false;
-		wptr<Spawnable> child;
-		MapObjectsData& mod;
-
-	private:
-		inline static MapObjectsData m_defaultVal = MapObjectsData(); //for default constructor
-	};
-	struct SpawnableChildMesh
-	{
-		SpawnableChildMesh() : mmd(SpawnableChildMesh::m_defaultVal) {}; //for containers only!
-		SpawnableChildMesh(MapMeshData& srcMmd) : mmd(srcMmd) {};
-		SpawnableChildMesh(const SpawnableChildMesh& src) : bSpawned(src.bSpawned), child(src.child), mmd(src.mmd) {};
-		void operator=(const SpawnableChildMesh& src) { bSpawned = src.bSpawned; child = src.child; mmd = src.mmd; };
-		
-		bool bSpawned = false;
-		wptr<Mesh> child;
-		MapMeshData& mmd;
-
-	private:
-		inline static MapMeshData m_defaultVal = MapMeshData(); //for default constructor
-	};
-
-private:
-
-	//helper structs
-	struct anyVar
-	{
-		friend SpawnSetting;
-
-		template<typename T>
-		void setValue(T val);
-
-		template<typename T>
-		void setValueByRef(T& val);
-
-		template<typename T>
-		T get() { return std::any_cast<T>(m_value); };
-
-		template<typename T>
-		T& getRef() { return std::any_cast<T&>(m_value); };
-
-		bool hasValue() const { return m_value.has_value(); }
-
-	private:
-		std::any m_value;
-		std::function<bool(const std::string&, anyVar&)> onGuiCb = nullptr;
-		std::function<void(anyVar&)> refCb = nullptr;
-	};
-
-
-protected:
-
-	//Struct containing information about exposed setting, callback for changing it and ImGui render for it
-	struct SpawnSetting
-	{
-		SpawnSetting() = delete;
-
-		//pass value by reference (will be updated automatically, no need to change in callback)
-		template<typename T>
-		explicit SpawnSetting(const std::string& name, T& value);
-		//pass value by reference (will be updated automatically, no need to change in callback)
-		template<typename T>
-		explicit SpawnSetting(const std::string& name, T& value, std::function<void(std::decay_t<T>&)>&& onChangeCB);
-		//pass value as copy
-		template<typename T>
-		explicit SpawnSetting(const std::string& name, T&& value, std::function<void(std::decay_t<T>&)>&& onChangeCB);
-
-		//Factory method(use it in case you have issues with templated constructor)
-		template<typename T>
-		static SpawnSetting makeSpawnSetting(const std::string& name, std::decay_t<T> value, std::function<void(T&)>&& onChangeCB);
-
-		std::string settingName = "setting_default_name";
-		anyVar settingValue;
-		std::function<void(anyVar)> onSettingChangeCB;
-
-		std::function<bool(const std::string&, anyVar&)>& getOnGuiCb() { return settingValue.onGuiCb; }
-		
-	private:
-
-		SpawnSetting(const std::string& name) : settingName(name) {};
-	};
+	//moved helper structs into a separate file
+#include "SpawnableHelpers.inl"
 
 	//Spawnable interface
 public:
@@ -167,12 +96,23 @@ protected:
 	//Call only once!
 	void spawnAllChildren();
 
-	std::vector<SpawnableChild>& getSpawnedChildren() { return m_children; };
+	std::vector<SpawnableChild>& getSpawnedChildren() {return m_children; };
 	std::vector<SpawnableChildMesh>& getSpawnedChildMeshes() { return m_childMeshes; };
 	sptr<Mesh> getChildMeshByName(const std::string& name) const;
 
 private:
 
+	//Called immediately after constructor
+	//Override to add class specific init behavior (better than using onSpawn callback)
+	//selfRef - sptr to this object (do not save inside class!), isTabSpawned - is true when object is spawned from Spawner tab, spawnLocation - world coord of click or camera with zero z, if tabSpawned (if not - uses .pos from MOD)
+	virtual void onBeginPlay(sptr<Spawnable> selfRef, bool isTabSpawned, vec3 spawnLocation = INVALIDPOS) {};
+	
+	//Called immediately on ordering Spawnable deletion from level (Better option than OnDeleteCallback)
+	//selfRef - sptr to this object (do not save inside class!!), objId - name, under which the object is registered in Spawner (normally == objId dield in the object's MapObjectsData)
+	virtual void onEndPlay(sptr<Spawnable> selfRef, const std::string& objId) {};
+
+	//Renders root transforms and parenting ui + any exposed SpawnableSettings
+	void SpawnableMainUi();
 	//renders UI of Spawnable children interface
 	void childSpawnerUI();
 	//renders UI of Mesh children interface
@@ -186,12 +126,14 @@ private:
 	void childrenVisiter(const std::function<void(Spawnable&)>& visiterFunction);
 	void childrenVisiter(const std::function<void(SpawnableChildMesh&)>& visiterFunction);
 
-	//Used to render focus frame around Spawnable
+	// Used to render focus frame around Spawnable. 
+	// Returns coords for approximate bounding volume around all childs of m_spRoot (except ParticleEmitter, meshes with 'target' texture, disabled VisualNodes). Spines' bounding volume data is unreliable! :(
 	std::array<vec3, 2> getSpawnableBounds(sptr<Node> spawnableRoot);
 	void removeFocusFrame();
 
 	void initSpawnableCollider(std::function<void(const CollisionInfo&)> clickCb);
 	std::string getNewMeshIdSuffix(const std::string& meshName);
+	void updateChildrensData(); //required to call before export
 
 	SpawnableChildMesh& getChildMeshHolder(const std::string& name);
 
@@ -207,13 +149,14 @@ protected:
 
 private:
 
-	inline static sptr<Plotter> m_framePlotter = nullptr;
+	inline static sptr<Plotter> m_framePlotter = nullptr; //red rectangle around selected object
 
-	std::map<std::string, SpawnSetting> m_spawnableSettings; //Fields exposed to the Spawner Tab Gui
-	std::map<std::string, std::function<void()>> m_spawnableBtns; //Btns exposed to the Spawner Tab Gui
+	std::map<std::string, SpawnSetting> m_spawnableSettings; //Fields exposed to the Spawner Tab Gui (rendered in Spawnable::onGui)
+	std::map<std::string, std::function<void()>> m_spawnableBtns; //Btns exposed to the Spawner Tab Gui (rendered in Spawnable::onGui)
 	size_t m_rootNodeTransformSubsHandler = -1;
 
 	bool m_childrenAdderEnabled = false;
+	bool m_childObjectsRenderPaused = false; //required to avoid crashes on deleting children
 	std::function<void(sptr<Spawnable>)> m_onChildSpawnCb = nullptr;
 
 	std::vector<SpawnableChild> m_children;
@@ -227,6 +170,9 @@ private:
 
 	std::string m_lastSelectedTextureForMesh = "";
 	wptr<Node> m_lastSelectedParentNode;
+
+	std::function<void()> m_deferredDeleteOrder = nullptr;
 };
 
+//implementations of template functions
 #include "SpawnableImpl.inl"

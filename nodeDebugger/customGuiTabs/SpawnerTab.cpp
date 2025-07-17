@@ -34,6 +34,54 @@ void SpawnerTab::markActive(bool isActive)
 	}
 }
 
+void SpawnerTab::setupClickCollider(const std::string& name, sptr<Spawnable> spawnable)
+{
+	if (!spawnable)
+		return;
+
+	spawnable->initSpawnableCollider(
+		[this, name](const CollisionInfo& hit)
+		{
+			if (!ND_CASTALLOWED || m_activeSubtab != SpawnedObjects)
+				return;
+
+			if (m_clickFiltering && !ND_Util::checkFilterConditions(name, m_entitiesFilter))
+				return;
+
+			if (isActiveTab() && m_lastSelectedSpawnable != name)
+			{
+				if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
+					SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->removeFocusFrame();
+				m_lastSelectedSpawnable = name;
+			}
+		});
+}
+
+void SpawnerTab::setupClickCollider(const std::string& name, sptr<Mesh> newMesh)
+{
+	if (!newMesh)
+		return;
+
+	auto collider = newMesh->addCollider<AABB>("spawner_collider", newMesh);
+	collider->setBlockRaycasts(false);
+	collider->setBlockScreencasts(false);
+	collider->setReceiveRaycasts(true);
+	auto clickCb = [this, name](const CollisionInfo& hit)
+		{
+			if (!ND_CASTALLOWED || m_activeSubtab != SpawnedMeshes)
+				return;
+
+			if (m_clickFiltering && !ND_Util::checkFilterConditions(name, m_meshesFilter))
+				return;
+
+			if (isActiveTab())
+				m_lastSelectedMesh = name;
+		};
+	collider->setRaycastCallback(clickCb);
+	collider->setScreencastCallback(ScreencastEvent::Down, clickCb);
+	collider->setLocalTranslation(vec3(0.f, 0.f, -0.01));
+}
+
 void SpawnerTab::initClickColliders()
 {
 	for (auto& [name, spawnable] : SPAWNER.getAllSpawnables())
@@ -41,22 +89,7 @@ void SpawnerTab::initClickColliders()
 		if (!spawnable)
 			continue;
 
-		spawnable->initSpawnableCollider(
-			[this, &name](const CollisionInfo& hit)
-			{
-				if (!ND_CASTALLOWED)
-					return;
-
-				if(m_clickFiltering && !ND_Util::checkFilterConditions(name, m_entitiesFilter))
-					return;
-
-				if (isActiveTab() && m_lastSelectedSpawnable != name)
-				{
-					if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
-						SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->removeFocusFrame();
-					m_lastSelectedSpawnable = name;
-				}
-			});
+		setupClickCollider(name, spawnable);
 	}
 
 	for (auto& [name, MeshData] : SPAWNER.getAllMeshes())
@@ -65,25 +98,7 @@ void SpawnerTab::initClickColliders()
 			continue;
 
 		auto& mesh = MeshData.second;
-		auto collider = mesh->addCollider<AABB>("spawner_collider", mesh);
-		collider->setBlockRaycasts(false);
-		collider->setBlockScreencasts(false);
-		collider->setReceiveRaycasts(true);
-		auto clickCb = [this, &name](const CollisionInfo& hit)
-			{
-				if (!ND_CASTALLOWED)
-					return;
-
-				if (m_clickFiltering && !ND_Util::checkFilterConditions(name, m_meshesFilter))
-					return;
-
-				if (isActiveTab())
-					m_lastSelectedMesh = name;
-			};
-		collider->setRaycastCallback(clickCb);
-		collider->setScreencastCallback(ScreencastEvent::Down, clickCb);
-
-		collider->setLocalTranslation(vec3(0.f, 0.f, -0.01));
+		setupClickCollider(name, mesh);
 	}
 }
 
@@ -97,7 +112,10 @@ void SpawnerTab::onGuiExportBtn()
 		//MapObjectsData templateRec; tempContainer.mapObjectsData.push_back(templateRec);
 		for (auto& [name, spawnedObject] : SPAWNER.getAllSpawnables())
 			if (spawnedObject && !spawnedObject->getMapObjectsData().isChildObj)
+			{
+				spawnedObject->updateChildrensData();
 				tempContainer.mapObjectsData.push_back(spawnedObject->getMapObjectsData());
+			}
 		for (auto& [name, spawnedMesh] : SPAWNER.getAllMeshes())
 			if (spawnedMesh.second && !spawnedMesh.first.isChild)
 				tempContainer.mapMeshData.push_back(spawnedMesh.first);
@@ -111,9 +129,7 @@ void SpawnerTab::onGuiExportBtn()
 
 void SpawnerTab::onUpdate(float dt)
 {
-	for (auto& [name, spawned] : SPAWNER.getAllSpawnables())
-		if (spawned->isSpawned)
-			spawned->spawnableSelfUpdate(dt);
+
 }
 
 bool SpawnerTab::isEmpty()
@@ -179,6 +195,7 @@ void SpawnerTab::onGuiClassPalette()
 {
 	if (ImGui::BeginTabItem("Class Palette"))
 	{
+		m_activeSubtab = Subtab::ClassPalette;
 		for (auto& [className, spawnerEntityRec] : SPAWNER.getClassRegistry())
 		{
 			//Rendering spawnable classes tree header
@@ -200,22 +217,7 @@ void SpawnerTab::onGuiClassPalette()
 						//Spawns new object of class and registers it to appear in Spawned subtab (kept in SpawnerFactory's getAllSpawnables())
 						auto newEntity = SPAWNER.spawnObjectOfClass(spawnerEntityRec, true);
 						auto name = SPAWNER.getLastSpawnedObjectName();
-						newEntity->initSpawnableCollider(
-							[this, name](const CollisionInfo& hit)
-							{
-								if (!ND_CASTALLOWED)
-									return;
-
-								if (m_clickFiltering && !ND_Util::checkFilterConditions(name, m_entitiesFilter))
-									return;
-
-								if (isActiveTab() && m_lastSelectedSpawnable != name)
-								{
-									if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
-										SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->removeFocusFrame();
-									m_lastSelectedSpawnable = name;
-								}
-							});
+						setupClickCollider(name, newEntity);
 						m_needUpdateEntitiesFilter = true;
 					}
 				}
@@ -233,6 +235,7 @@ void SpawnerTab::onGuiMeshPalette()
 {
 	if (ImGui::BeginTabItem("Mesh Spawner"))
 	{
+		m_activeSubtab = Subtab::MeshPalette;
 		//Mesh parent node selector
 		ND_Util::ImGuiNodeHierarchy(SPAWNER.getDefaultMeshesRoot(), "Mesh Parent Node");
 
@@ -255,24 +258,7 @@ void SpawnerTab::onGuiMeshPalette()
 				auto name = m_currentMeshSpawnerSetting.meshId;
 				m_currentMeshSpawnerSetting.meshId = m_currentMeshSpawnerSetting.meshName;
 
-				auto collider = newMesh->addCollider<AABB>("spawner_collider", newMesh);
-				collider->setBlockRaycasts(false);
-				collider->setBlockScreencasts(false);
-				collider->setReceiveRaycasts(true);
-				auto clickCb = [this, name](const CollisionInfo& hit)
-					{
-						if (!ND_CASTALLOWED)
-							return;
-
-						if (m_clickFiltering && !ND_Util::checkFilterConditions(name, m_meshesFilter))
-							return;
-
-						if (isActiveTab())
-							m_lastSelectedMesh = name;
-					};
-				collider->setRaycastCallback(clickCb);
-				collider->setScreencastCallback(ScreencastEvent::Down, clickCb);
-				collider->setLocalTranslation(vec3(0.f, 0.f, -0.01));
+				setupClickCollider(name, newMesh);
 
 				m_needUpdateEntitiesFilter = true;
 			}
@@ -291,6 +277,7 @@ void SpawnerTab::onGuiSpawnedList()
 
 	if (ImGui::BeginTabItem("Spawned Objects"))
 	{
+		m_activeSubtab = Subtab::SpawnedObjects;
 		//Exports newly spawned entities plus previously loaded from mapObjects.json
 		onGuiExportBtn();
 		ImGui::SameLine();
@@ -372,19 +359,7 @@ void SpawnerTab::onGuiSpawnedList()
 			//executing delete entry order (if any) for Spawnable
 			if (!defferedDeleteName.empty())
 			{
-				if (SPAWNER.getAllSpawnables().contains(defferedDeleteName))
-				{
-					//trying to use assignable callback to remove this object's sptr outside of Spawner (and hence from memory)
-					auto& spawnableForDeletion = SPAWNER.getAllSpawnables()[defferedDeleteName];
-					if (SPAWNER.getClassRegistry().contains(spawnableForDeletion->getMapObjectsData().className))
-					{
-						auto& spawnRecord = SPAWNER.getClassRegistry()[spawnableForDeletion->getMapObjectsData().className];
-						if (spawnRecord.m_onDeleteCb)
-							spawnRecord.m_onDeleteCb(spawnableForDeletion);
-					}
-					//removing the Spawnable from the Spawner's list of entities
-					SPAWNER.getAllSpawnables().erase(defferedDeleteName);
-				}
+				SPAWNER.removeObject(defferedDeleteName);
 				m_lastSpawnablesFilterList.erase(defferedDeleteName);
 				defferedDeleteName.clear();
 			}
@@ -403,6 +378,7 @@ void SpawnerTab::onGuiSpawnedMeshesList()
 
 	if (ImGui::BeginTabItem("Spawned Meshes"))
 	{
+		m_activeSubtab = Subtab::SpawnedMeshes;
 		//Exports newly spawned entities plus previously loaded from mapObjects.json
 		onGuiExportBtn();
 		ImGui::SameLine();
@@ -544,42 +520,47 @@ void SpawnerTab::onTouchBegin(const Touch::Begin& evt)
 	if (!m_clickAddModeON)
 		return;
 
-	auto ray = Render::getScreenCamera()->createRayFromScreen(evt.point);
-	auto hits = Render::raycastAll(ray);
-	for (auto& hit : hits)
+	if (m_activeSubtab == SpawnedObjects || m_activeSubtab == SpawnedMeshes)
+		return;
+
+	vec3 clickPos = getMouseWorldPos();
+
+	if(m_activeSubtab == ClassPalette && lastSelectedSpawnerRec.getMapObjectsData().className != "CLASS_NAME")
 	{
-		std::string hitName = hit.target->getParent()->getName();
-
-		if (hit.target != nullptr)
+		info("Spawning %s!", lastSelectedSpawnerRec.getMapObjectsData().className.c_str());
+		//Spawns new object of class and registers it to appear in Spawned subtab (kept in SpawnerFactory's getAllSpawnables())
+		auto newEntity = SPAWNER.spawnObjectOfClass(lastSelectedSpawnerRec, true, clickPos * vec3(1.f, 1.f, 0.f));
+		auto name = SPAWNER.getLastSpawnedObjectName();
+		setupClickCollider(name, newEntity);
+	}
+	else if (m_activeSubtab == MeshPalette && !m_currentMeshSpawnerSetting.meshName.empty())
+	{
+		auto newMesh = SPAWNER.spawnMesh(m_currentMeshSpawnerSetting);
+		if (newMesh)
 		{
-			auto hitName = hit.target->getParent()->getName();
-			if (hitName == "clickMesh_debug" && lastSelectedSpawnerRec.getMapObjectsData().className != "CLASS_NAME")
-			{
-				warn("Spawning %s!", lastSelectedSpawnerRec.getMapObjectsData().className.c_str());
-				//Spawns new object of class and registers it to appear in Spawned subtab (kept in SpawnerFactory's getAllSpawnables())
-				auto newEntity = SPAWNER.spawnObjectOfClass(lastSelectedSpawnerRec, true); 
-				if (newEntity && newEntity->getSpawnableRoot()) 
-					newEntity->getSpawnableRoot()->setWorldTranslation(hit.point * vec3(1.f, 1.f, 0.f));
-
-				auto name = SPAWNER.getLastSpawnedObjectName();
-				newEntity->initSpawnableCollider(
-					[this, name](const CollisionInfo& hit)
-					{
-						if (!ND_CASTALLOWED)
-							return;
-
-						if (isActiveTab() && m_lastSelectedSpawnable != name)
-						{
-							if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
-								SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->removeFocusFrame();
-							m_lastSelectedSpawnable = name;
-						}
-					});
-
-				m_needUpdateEntitiesFilter = true;
-			}
+			info("Spawning new mesh %s!", m_currentMeshSpawnerSetting.meshName.c_str());
+			newMesh->setWorldTranslation(clickPos);
+			auto name = m_currentMeshSpawnerSetting.meshId;
+			m_currentMeshSpawnerSetting.meshId = m_currentMeshSpawnerSetting.meshName;
+			setupClickCollider(name, newMesh);
 		}
 	}
+	m_needUpdateEntitiesFilter = true;
+
+	//auto ray = Render::getScreenCamera()->createRayFromScreen(evt.point);
+	//auto hits = Render::raycastAll(ray);
+	//for (auto& hit : hits)
+	//{
+	//	std::string hitName = hit.target->getParent()->getName();
+
+	//	if (hit.target != nullptr)
+	//	{
+	//		auto hitName = hit.target->getParent()->getName();
+	//		if (hitName == "clickMesh_debug" && lastSelectedSpawnerRec.getMapObjectsData().className != "CLASS_NAME")
+	//		{
+	//		}
+	//	}
+	//}
 }
 
 #endif

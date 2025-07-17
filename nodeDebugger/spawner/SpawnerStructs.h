@@ -72,7 +72,6 @@ MOD_DEFINITION(
 	((vec3, interactPos_R, vec3(666.f)))
 	((vec3, interactPos_L, vec3(666.f)))
 	((SettingsStuct, settings, SettingsStuct()))
-	((SettingsStuct, childData, SettingsStuct())) //todo: depricate this rudimentary shit!
 	((std::vector<SPK_MATERIAL>, SPARK_Materials, std::vector<SPK_MATERIAL>()))
 );
 

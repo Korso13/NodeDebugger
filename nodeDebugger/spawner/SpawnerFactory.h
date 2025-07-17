@@ -4,9 +4,11 @@
 #include <common/nodeDebugger/customGuiTabs/SpawnerTab.h>
 #include "common/MeshesContainer.h"
 
-#include "SpawnerFactoryImpl.inl"
+#include "SpawnerFactoryMacro.inl"
 
 #define SPAWNER SpawnerFactory::get()
+#define SPAWNER_REC SpawnerFactory::get().getSpawnerRecord
+#define SPAWNER_CLASS_MOD(className) SPAWNER_REC(className).getMapObjectsDataRef()
 //Data container for Spawnables from mapObjects.json
 #define MAP_DATA SpawnerFactory::get().getAllMapData().mapObjectsData
 //Data container for Meshes from mapObjects.json
@@ -21,6 +23,7 @@ public:
 	{
 		friend SpawnerTab;
 		friend SpawnerFactory;
+		//todo: consider rewriting via void pointers as was done with Spawnable's SpawnSetting
 		struct variantHolder
 		{
 			template<typename T>
@@ -41,11 +44,14 @@ public:
 			std::string paramName;
 			variantHolder paramValue;
 			bool isMapData = false;
+			wptr<Node> node; //specialized holder for node
 		};
 
 		//Sets callback executed right after spawning a Spawnable entity
 		SpawnerRecord& setOnSpawnCallback(std::function<void(sptr<Spawnable>)>&& cb);
 		std::function<void(sptr<Spawnable>)> getOnSpawnCallback() { return m_onSpawnCb; };
+
+		std::vector<std::function<void()>>& getConstructorArgsUiRender() { return m_argsOnGui; }
 
 		//Sets callback executed after entity removed from Spawnables list. 
 		//Use it to remove all of Spawnable's sptr records to allow for deleting the object from memory
@@ -53,9 +59,20 @@ public:
 		std::function<void(sptr<Spawnable>)> getOnDeleteCallback() { return m_onDeleteCb; };
 		
 		SpawnerRecord& setObjNameList(std::vector<std::string>&& listOfNames);
+		SpawnerRecord& enableObjNameTextureSelector();
+		template<typename DataType>
+		requires AutoTypeConcept<DataType> || onGuiImplConcept<DataType> //checks if DataType can be rendered in UI
+		SpawnerRecord& exposeVariableToPaletteUi(const std::string& variableName, DataType* variable);
 		
+		//use it for adding shortcuts to MOD fiends in class palette!
+		MapObjectsData& getMapObjectsDataRef();
+		//used in spawning
 		const MapObjectsData getMapObjectsData();
+		//sets alternative MOD for class spawner (usually temporarily)
 		void setNewMapObjectsData(MapObjectsData& newMOD);
+		//setter/getter for Node used in class constructor
+		sptr<Node> getContructNode() const;
+		void setNewConstructNode(sptr<Node> newNode);
 
 	private:
 
@@ -72,6 +89,7 @@ public:
 
 		//Template method adding next construction parameter for Spawnable entity, as well as generating ImGui render function for it
 		template<typename DataType>
+		requires AutoTypeConcept<DataType> || onGuiImplConcept<DataType> //checks if DataType can be rendered in UI
 		inline SpawnerRecord& addConstructorParam(const std::string& paramName, DataType defaultValue)
 		{
 			ParamPack newParam;
@@ -80,12 +98,22 @@ public:
 			constructorParams.push_back(newParam);
 			int paramIndex = constructorParams.size() - 1;
 #ifndef FORCENODEDEBUG_OFF
-			//TODO: NEEDS CHECK IF WE CAN RENDER DataType via Auto (just in case)
 			m_argsOnGui.push_back([this, paramIndex]()
 				{
 					ImGui::Auto(constructorParams[paramIndex].paramName.c_str(), constructorParams[paramIndex].paramValue.getRef<DataType>());
 				});
 #endif
+			return *this;
+		};
+
+		template<typename DataType>
+		inline SpawnerRecord& addConstructorParam(const std::string& paramName, DataType defaultValue)
+		{
+			ParamPack newParam;
+			newParam.paramName = paramName;
+			newParam.paramValue.setValue<DataType>(defaultValue);
+			constructorParams.push_back(newParam);
+			int paramIndex = constructorParams.size() - 1;
 			return *this;
 		};
 	};
@@ -103,6 +131,7 @@ public:
 	std::map<std::string, SpawnerRecord>& getClassRegistry() { return m_classesRegistry; }
 	//Use it to show a combo list with classes available in Spawner. 
 	//Returns class name on selecting a new one or selectedClass if nothing new was selected
+	//todo: use this in Class palette tab instead of list of trees?
 	std::string getClassesImGuiCombo(const std::string& selectedClass = "CLASS_NAME", const std::string& comboHeader = "Classes");
 
 	SpawnerRecord& getSpawnerRecord(const std::string& className);
@@ -140,11 +169,11 @@ public:
 	//Spawn new object or mesh based on settings. 
 	//Used by factory on SpawnObjects() and by SpawnerTab
 	sptr<Mesh> spawnMesh(MapMeshData& meshData);
-	sptr<Spawnable> spawnObjectOfClass(SpawnerRecord& spawnData, bool bTabSpawned = false);
+	sptr<Spawnable> spawnObjectOfClass(SpawnerRecord& spawnData, bool bTabSpawned = false, vec3 spawnAt = INVALIDPOS);
 	//Spawns object if class with custom MapObjectsData and optional custom onSpawnCb (default onSpawn will be used if customOnSpawnCb == nullptr)
 	sptr<Spawnable> spawnObjectOfClass(SpawnerRecord& spawnData, MapObjectsData& customMOD, std::function<void(sptr<Spawnable>)> customOnSpawnCb = nullptr, bool bTabSpawned = false);
-	void registerSpawnable(sptr<Spawnable> newSpawnable, bool useOnSpawnCb, const std::string& altName = "default");
 	const std::string& getLastSpawnedObjectName() const { return m_lastSpawnedObjectName; }
+	void removeObject(const std::string& objId);
 
 	//removes sptrs of spawned meshes/Spawnables
 	void purgeSpawnedObjects();
@@ -190,7 +219,7 @@ public:
 
 private:
 
-	SpawnerFactory() = default;
+	SpawnerFactory() : MeshesContainer(Render::getRoot()) {};
 
 	void checkNodeHierarchyNames();
 
@@ -214,63 +243,4 @@ private:
 };
 
 //Template specializations
-template<typename T> requires(std::is_base_of_v<Spawnable, T>)
-sptr<T> SpawnerFactory::getObjectByName(const std::string& spawnableName)
-{
-	if (m_spawnedEntities.contains(spawnableName))
-		return cast_sptr<T>(m_spawnedEntities[spawnableName]);
-	else
-	{
-		err("Failed to find Spawnable %s", spawnableName.c_str());
-		return nullptr;
-	}
-};
-
-template<typename T> requires(std::is_base_of_v<Spawnable, T>)
-std::vector<sptr<T>> SpawnerFactory::getAllObjectsOfClass(const std::string className)
-{
-	std::vector<sptr<T>> found;
-	for (auto& [name, Spawned] : m_spawnedEntities)
-		if (Spawned && Spawned->getMapObjectsData().className == className)
-			found.push_back(cast_sptr<T>(Spawned));
-	return found;
-}
-
-//SpawnerRecord's addConstructorParam() specialization for sptr<Node>, which utilizes ImGuiNodeHierarchy for picking the node
-template<>
-inline SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::addConstructorParam<sptr<Node>>(const std::string& paramName, sptr<Node> defaultNode)
-{
-	ParamPack newParam;
-	newParam.paramName = paramName;
-	newParam.paramValue.setValue<sptr<Node>>(defaultNode);
-	constructorParams.push_back(newParam);
-	int paramIndex = constructorParams.size() - 1;
-
-#ifndef FORCENODEDEBUG_OFF
-	m_argsOnGui.push_back([this, paramIndex]()
-		{
-			ND_Util::ImGuiNodeHierarchy(constructorParams[paramIndex].paramValue.getRef<sptr<Node>>(), constructorParams[paramIndex].paramName);
-		});
-#endif
-	return *this;
-}
-
-//SpawnerRecord's addConstructorParam() specialization for MapObjectsData
-template<>
-inline SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::addConstructorParam<MapObjectsData&>(const std::string& paramName, MapObjectsData& defaultMOD)
-{
-	ParamPack newParam;
-	newParam.paramName = paramName;
-	newParam.paramValue.setValue<MapObjectsData&>(defaultMOD);
-	newParam.isMapData = true;
-	constructorParams.push_back(newParam);
-	int paramIndex = constructorParams.size() - 1;
-
-#ifndef FORCENODEDEBUG_OFF
-	m_argsOnGui.push_back([this, paramIndex]()
-		{
-			ImGui::Auto(constructorParams[paramIndex].paramName.c_str(), constructorParams[paramIndex].paramValue.getRef<MapObjectsData>());
-		});
-#endif
-	return *this;
-}
+#include "SpawnerFactoryImpl.inl"

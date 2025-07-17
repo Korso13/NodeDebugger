@@ -11,46 +11,70 @@ std::array<vec3, 2> Spawnable::getSpawnableBounds(sptr<Node> spawnableRoot)
 	if(m_cachedBounds != std::array<w4::math::vec3, 2>())
 		return m_cachedBounds;
 
-	spawnableRoot->traversal([this](Node& node)
+	constexpr const static vec3 bDefaultMin = math::vec3(std::numeric_limits<float>::max());
+	constexpr const static vec3 bDefaultMax = math::vec3(std::numeric_limits<float>::lowest());
+	vec3 bmin = math::vec3(std::numeric_limits<float>::max());
+	vec3 bmax = math::vec3(std::numeric_limits<float>::lowest());
+	spawnableRoot->traversalChildrenTyped<VisibleNode>([&bmin, &bmax, this, spawnableRoot](const sptr<VisibleNode>& node)
 		{
-			if (node.is<Mesh>())
+			if (!node || !node->isEnabled()) return;
+			//skipping non-relevant VisibleNodes
+			if (node->getWorldTranslation() == INVALIDPOS)
+				return; 
+			if (node->is<ParticlesEmitter>())
+				return;
+			if (node->is<Mesh>())
 			{
-				auto mesh = node.as<Mesh>();
-				vec3 meshSize;
-				meshSize.x =
-					neAbs(mesh->getFirstSurface().getGeometryIndexedIterator()->pos.x) //plane half height (not scale adjusted!)
-					* mesh->getWorldScale().x 
-					* 2.f;
-				meshSize.y =
-					neAbs(mesh->getFirstSurface().getGeometryIndexedIterator()->pos.y) //plane half height (not scale adjusted!)
-					*  mesh->getWorldScale().y
-					* 2.f;
-				meshSize.z = 0.01;
-				if (meshSize.length() > (m_cachedBounds[0] - m_cachedBounds[1]).length())
+				auto mesh = node->as<Mesh>();
+				auto textureName = mesh->getMaterialInst()->getTexture(TextureId::TEXTURE_0)->getName();
+				if (textureName.find("target.png") != std::string::npos)
 				{
-					m_cachedBounds[0] = node.getWorldTranslation() - meshSize / 2.f;
-					m_cachedBounds[1] = node.getWorldTranslation() + meshSize / 2.f;
+					//info("[Spawnable::getSpawnableBounds]Skipping mesh %s with texture name %s", node->getName().c_str(), textureName.c_str());
+					return;
 				}
 			}
-			else if (node.is<Spine>())
-			{
 
-				auto spine = node.as<Spine>();
+			//special mechanism for spines
+			if (node->is<Spine>())
+			{
+				auto spine = node->as<Spine>();
 				auto& skeleton = spine->skeleton;
 				auto data = spine->skeleton->getData();
 
 				auto spineSize = vec3{ data->getWidth(), data->getHeight(), 0.01 } / 1024.f * spine->getLocalScale();  // normalize to world size
 				spineSize.z = 0.01;
-				if (spineSize.length() > (m_cachedBounds[0] - m_cachedBounds[1]).length())
-				{
-					m_cachedBounds[0] = node.getWorldTranslation() - spineSize*vec3(0.5, 0.f, 1.f);
-					m_cachedBounds[1] = node.getWorldTranslation() + spineSize * vec3(0.5, 1.f, 1.f);
-				}
+
+				vec3 leftBottom = node->getWorldTranslation() - spineSize * vec3(0.5, 0.f, 1.f);
+				vec3 rightTop = node->getWorldTranslation() + spineSize * vec3(0.5, 1.f, 1.f);
+				bmin = std::min(bmin, leftBottom);
+				bmin = std::min(bmax, leftBottom);
+				bmax = std::max(bmin, rightTop);
+				bmax = std::max(bmax, rightTop);
+				return;
 			}
+
+			//calculating visible node's bounds and matching against current min-max bounds
+			for (auto it = node->getGeometryIterator(); it; ++it)
+			{
+				bmin = std::min(bmin, it->pos*node->getWorldScale() + node->getWorldTranslation());
+				bmax = std::max(bmax, it->pos*node->getWorldScale() + node->getWorldTranslation());
+			}
+			//debug("[Spawnable::getSpawnableBounds]After node %s (of %s) \nmin: %s, max: %s", node->getName().c_str(), spawnableRoot->getName().c_str(),CVEC(bmin), CVEC(bmax));
 		});
+	bmin = std::min(bmin, spawnableRoot->getWorldTranslation());
+	bmax = std::max(bmax, spawnableRoot->getWorldTranslation());
+
+	if(bmin != bDefaultMin && bmax != bDefaultMax)
+	{
+		m_cachedBounds[0] = bmin; m_cachedBounds[0].z = -0.05;
+		m_cachedBounds[1] = bmax; m_cachedBounds[1].z =  0.05;
+		//debug("[Spawnable::getSpawnableBounds]Final bounds of %s) \nmin: %s, max: %s",
+		//	spawnableRoot->getName().c_str(),
+		//	CVEC(m_cachedBounds[0]), CVEC(m_cachedBounds[1]));
+	}
 
 	//in case we found nothing during traversal
-	if (m_cachedBounds == std::array<vec3, 2>())
+	if (m_cachedBounds == std::array<vec3, 2>() || (m_cachedBounds[1] - m_cachedBounds[0]).length() < 1.f)
 	{
 		auto pos = spawnableRoot->getWorldTranslation();
 		return { pos - vec3(0.5, 0.5, 0.01), pos + vec3(0.5, 0.5, 0.01) };
@@ -115,92 +139,72 @@ bool Spawnable::onGui(const char* label)
 	bool bNeedsDeletion = false; //used to communicate to SpawnerTab that the record is to be deleted via return true
 
 #ifdef DEBUG
-		ImGui::Text("%s%s", label, " properties");
-		if (ImGui::Button(("DELETE " + STR(label)).c_str()))
+	//heading label with DELETE btn
+	ImGui::Text("%s%s", label, " properties");
+	if (ImGui::Button(STR("DELETE " + std::string(label)).c_str()))
+	{
+		bNeedsDeletion = true;
+	}
+	//Button for focusing on the object with camera
+	if (m_spRoot)
+	{
+		if (ImGui::Button(("Focus on " + m_spRoot->getName()).c_str()))
 		{
-			bNeedsDeletion = true;
-		}
+			vec3 camPos = Render::getScreenCamera()->getWorldTranslation();
+			auto bounds = getSpawnableBounds(getSpawnableRoot());
+			vec3 centerPos = bounds[0] + (bounds[1] - bounds[0]);
+			camPos.x = centerPos.x; camPos.y = centerPos.y;
+			Render::getScreenCamera()->setWorldTranslation(camPos);
+		};
+	}
 
-		//focus frame render
-		if (m_framePlotter) Render::getRoot()->removeChild(m_framePlotter);
-		if(getSpawnableRoot())
-		{
-			m_framePlotter = w4::render::Plotter::buildCube(getSpawnableBounds(getSpawnableRoot()), vec4(1.f, 0.f, 0.f, 1.f));
-			m_framePlotter->setWorldRotation(getSpawnableRoot()->getWorldRotation());
-			Render::getRoot()->addChild(m_framePlotter);
-		}
+	//focus frame render
+	if (m_framePlotter) Render::getRoot()->removeChild(m_framePlotter);
+	if(getSpawnableRoot())
+	{
+		m_framePlotter = w4::render::Plotter::buildCube(getSpawnableBounds(getSpawnableRoot()), vec4(1.f, 0.f, 0.f, 1.f));
+		m_framePlotter->setWorldRotation(getSpawnableRoot()->getWorldRotation());
+		Render::getRoot()->addChild(m_framePlotter); //todo: consider adding DebugUiPass and attach ImGui + this to its root to always render on top
+	}
 
-		if (m_spRoot)
+	if(!m_childrenAdderEnabled)
+	{
+		SpawnableMainUi();
+	}
+	else
+	{
+		if (ImGui::BeginTabBar("Spawnable settings tabs"))
 		{
-			//Button for focusing on the object with camera
-			if (ImGui::Button(("Focus on " + m_spRoot->getName()).c_str()))
+			if (ImGui::BeginTabItem("Spawnable Settings"))
 			{
-				vec3 camPos = Render::getScreenCamera()->getWorldTranslation();
-				auto bounds = getSpawnableBounds(getSpawnableRoot());
-				vec3 centerPos = bounds[0] + (bounds[1] - bounds[0]);
-				camPos.x = centerPos.x; camPos.y = centerPos.y;
-				Render::getScreenCamera()->setWorldTranslation(camPos);
-			};
-
-			//Root node transforms
-			if (ImGui::TreeNode("Root Node Transforms"))
-			{
-				ND_Util::ImGuiNodeRender(m_spRoot, m_spRoot->getName());
-
-				ImGui::TreePop();
+				SpawnableMainUi();
+				ImGui::EndTabItem();
 			}
-			//Root node reparenting
-			if (ImGui::TreeNode("Root Node Parent"))
+			if (ImGui::BeginTabItem("Children"))
 			{
-				auto parentNode = m_spRoot->getParent();
-				if (ND_Util::ImGuiNodeHierarchy(parentNode, "Parent Node")) //returns true if new node was selected
+				//Sub TabBar for child objects and meshes tabs
 				{
-					m_spRoot->setParent(parentNode);
+					if (ImGui::BeginTabBar((getSpawnableRoot()->getName() + "'s Children Bar").c_str()))
+					{
+						childSpawnerUI();
+						childMeshSpawnerUI();
+					}
+					ImGui::EndTabBar();
 				}
 
-				ImGui::TreePop();
+				ImGui::EndTabItem(); //ends "Children" TabBar
 			}
 		}
+		ImGui::EndTabBar(); //Ends "Spawnable settings tabs" bar
+	}
 
-		//Render for exposed class fields if any
-		for (auto& [settingName, Setting] : m_spawnableSettings)
-		{
-			auto guiFunc = Setting.getOnGuiCb(); //function for rendeing setting in ImGui
-			if (guiFunc)
-			{
-				if (guiFunc((settingName.empty() ? STR(repeatElemId) : settingName), Setting.settingValue)) //checking if setting was changed
-				{
-					Setting.onSettingChangeCB(Setting.settingValue);
-				}
-			}
-
-		}
-
-		for (auto& [btnName, btnCall] : m_spawnableBtns)
-		{
-			if (btnCall)
-			{
-				if (ImGui::Button(btnName.c_str()))
-				{
-					auto tempBtnCb = btnCall;
-					tempBtnCb();
-					break;
-				}
-			}
-		}
-
-		if(m_childrenAdderEnabled)
-		{
-			ImGui::TextColored(IMG_ORANGE, "%s", (getSpawnableRoot()->getName() + "'s Children").c_str());
-
-			if (ImGui::BeginTabBar((getSpawnableRoot()->getName() + "'s Children Bar").c_str()))
-			{
-				childSpawnerUI();
-				childMeshSpawnerUI();
-			}
-			ImGui::EndTabBar();
-		}
-	
+	//executing deletion orders
+	if (m_deferredDeleteOrder)
+	{
+		m_childObjectsRenderPaused = true;
+		m_deferredDeleteOrder();
+		m_deferredDeleteOrder = nullptr;
+	}
 #endif
 
 	return bNeedsDeletion;
@@ -208,31 +212,6 @@ bool Spawnable::onGui(const char* label)
 
 MapObjectsData& Spawnable::getMapObjectsData()
 {
-	//updating m_mapObjectData.childObjects via visiter since our sptrs are separated from children's MapObjectsData
-	std::function<void(Spawnable&)> visiter = [](Spawnable& parent)
-		{
-			for (size_t i = 0; i < parent.m_children.size(); i++)
-			{
-				if (parent.m_mapObjectData.childObjects.size() > i && parent.m_children[i].bSpawned && !parent.m_children[i].child.expired())
-				{
-					*parent.m_mapObjectData.childObjects[i] = parent.m_children[i].child.lock()->m_mapObjectData;
-				}
-			}
-		};
-
-	std::function<void(SpawnableChildMesh&)> visiterMesh = [](SpawnableChildMesh& meshHolder) {
-			auto child = meshHolder.child.lock();
-			meshHolder.mmd.node = SPAWNER.getNodeHierarchyAddress(child->getParent());
-			meshHolder.mmd.renderOrder = child->getRenderOrder();
-			meshHolder.mmd.useWorldPos = false;
-			meshHolder.mmd.position_local = child->getLocalTranslation();
-			meshHolder.mmd.scale_local = child->getLocalScale();
-			meshHolder.mmd.rotation_local = child->getLocalRotation().euler();
-		};
-
-	childrenVisiter(visiter);
-	childrenVisiter(visiterMesh);
-
 	return m_mapObjectData;
 }
 
@@ -243,12 +222,12 @@ void Spawnable::childrenVisiter(const std::function<void(Spawnable&)>& visiterFu
 
 	std::erase_if(m_children, [this](const SpawnableChild& childHolder)
 		{
-			return childHolder.child.expired() || !childHolder.bSpawned;
+			return childHolder.child.expired();
 		});
 
 	for (auto& childHolder : m_children)
 	{
-		if (childHolder.bSpawned && !childHolder.child.expired())
+		if (!childHolder.child.expired())
 		{
 			childHolder.child.lock()->childrenVisiter(visiterFunction);
 		}
@@ -329,100 +308,223 @@ sptr<Mesh> Spawnable::getChildMeshByName(const std::string& name) const
 	return nullptr;
 }
 
+void Spawnable::SpawnableMainUi()
+{
+	//root transforms and re-parenting ui
+	if (m_spRoot)
+	{
+		//Root node transforms
+		if (ImGui::TreeNode("Root Node Transforms"))
+		{
+			ND_Util::ImGuiNodeRender(m_spRoot, m_spRoot->getName());
+
+			ImGui::TreePop();
+		}
+		//Root node reparenting
+		if (ImGui::TreeNode("Root Node Parent"))
+		{
+			auto parentNode = m_spRoot->getParent();
+			if (ND_Util::ImGuiNodeHierarchy(parentNode, "Parent Node")) //returns true if new node was selected
+			{
+				m_spRoot->setParent(parentNode);
+			}
+
+			ImGui::TreePop();
+		}
+	}
+
+	//Render for exposed class fields if any
+	for (auto& [settingName, Setting] : m_spawnableSettings)
+	{
+		auto guiFunc = Setting.getOnGuiCb(); //function for rendeing setting in ImGui
+		if (guiFunc)
+		{
+			if (guiFunc((settingName.empty() ? STR(repeatElemId) : settingName), Setting.settingValue)) //checking if setting was changed
+			{
+				Setting.onSettingChangeCB(Setting.settingValue);
+			}
+		}
+	}
+
+	for (auto& [btnName, btnCall] : m_spawnableBtns)
+	{
+		if (btnCall)
+		{
+			if (ImGui::Button(btnName.c_str()))
+			{
+				auto tempBtnCb = btnCall;
+				tempBtnCb();
+				break;
+			}
+		}
+	}
+}
+
 void Spawnable::childSpawnerUI()
 {
 #ifdef DEBUG
 
+	if (m_childObjectsRenderPaused)
+		return;
+
 	if (ImGui::BeginTabItem("Child Objects"))
 	{
-		size_t count = 0;
-		bool changed = false;
-		std::function<void()> deferredDelete = nullptr;
+		//Child class selector
+		static std::string childClass = "CLASS_NAME";
+		childClass = SPAWNER.getClassesImGuiCombo(childClass, "Child of Class");
 
-		for (auto& childMOD : m_mapObjectData.childObjects)
+		if(childClass != "CLASS_NAME")
 		{
-			if (!childMOD)
-			{
-				count++;
-				continue;
-			}
+			auto& spawnerRecord = SPAWNER.getSpawnerRecord(childClass);
 
-			if (ImGui::TreeNode(("Child_" + childMOD->className + "_" + STR(count)).c_str()))
+			//Validating last selected parent node
+			if (m_lastSelectedParentNode.expired())
+				m_lastSelectedParentNode = getSpawnableRoot();
+			auto defaultNode = spawnerRecord.getContructNode();
+			spawnerRecord.setNewConstructNode(m_lastSelectedParentNode.lock());
+			
+			//making a copy of default Mod and replacing with cached child spawner mod
+			if (ImGui::TreeNode("Spawn settings"))
 			{
-				if(m_children.size() > count) //m_children.size() should be ==  m_mapObjectData.childObjects.size(). Just making sure everything is ok
-				{
-					if (!m_children[count].bSpawned)
-					{
-						//Rendering MOD struct from m_mapObjectData.childObjects
-						changed = changed || ImGui::Auto(("Child_" + STR(count) + "_MOD").c_str(), *childMOD);
-						//"Spawn" button for unspawned Children
-						if (ImGui::Button(("Spawn Child_" + childMOD->className + "_" + STR(count)).c_str()))
-						{
-							spawnChild(childMOD, m_children[count], true);
-						}
-					}
-					else if (!m_children[count].child.expired())
-					{
-						//Rendering MOD struct from child itself
-						changed = changed || ImGui::Auto(("Child_" + STR(count) + "_MOD").c_str(), m_children[count].mod);
-						//Spawned child's settings (same as opeing it up in Spawned Objects subtab)
-						m_children[count].child.lock()->onGui(("Child_" + STR(count) + "_Settings").c_str());
-					}
-				}
-				else //falback logic
-					changed = changed || ImGui::Auto(("Child_" + STR(count) + "_MOD").c_str(), *childMOD);
+				//temporarily replacing spawner-record's parent node
+				
+				//New child spawn arguements gui
+				for (auto& spawnArgGui : spawnerRecord.getConstructorArgsUiRender())
+					if (spawnArgGui) spawnArgGui();
 
-				//"Delete" child
-				if (ImGui::Button(("Delete Child_" + childMOD->className + "_" + STR(count)).c_str()))
-				{
-					if (m_children.size() > count && !m_children[count].bSpawned)
-					{
-						deferredDelete = [this, count]()
-							{
-								m_mapObjectData.childObjects.erase(m_mapObjectData.childObjects.begin() + count);
-								m_children.erase((m_children.begin() + count));
-							};
-					}
-					else if (m_children.size() > count && m_children[count].bSpawned)
-					{
-						deferredDelete = [this, count]()
-							{
-								auto deleteCB = SPAWNER.getSpawnerRecord(m_mapObjectData.childObjects[count]->className).getOnDeleteCallback();
-								if (deleteCB) deleteCB(m_children[count].child.lock());
-								m_mapObjectData.childObjects.erase(m_mapObjectData.childObjects.begin() + count);
-								m_children.erase(m_children.begin() + count);
-							};
-					}
-				}
+				//restoring spawner-record's parent node
+				m_lastSelectedParentNode = spawnerRecord.getContructNode();
 
 				ImGui::TreePop();
 			}
 
-			count++;
-		}
+			if (ImGui::Button(("Spawn " + childClass + " child").c_str()))
+			{
+				//creating sptr<MapObjectsData> for parent's MOD and for spawner
+				sptr<MapObjectsData> newChildMOD = make::sptr<MapObjectsData>();
+				*newChildMOD = spawnerRecord.getMapObjectsData(); //copying data from Spawner's copy of selecetd class' MOD
+				newChildMOD->className = childClass;
+				newChildMOD->isChildObj = true;
+				if (newChildMOD->objId.empty())
+					newChildMOD->objId = "Child_" + childClass;
 
+				//adding new child holder and spawning child
+				m_mapObjectData.childObjects.push_back(newChildMOD);
+				auto newChildHolder = SpawnableChild(*m_mapObjectData.childObjects.back());
+				auto newChild = spawnChild(newChildMOD, newChildHolder, true);
+				if (!m_lastSelectedParentNode.expired() && newChild->m_spRoot)
+					m_lastSelectedParentNode.lock()->addChild(newChild->m_spRoot);
+				m_children.push_back(newChildHolder);
+			}
+			if (spawnerRecord.getMapObjectsData().objName.empty())
+			{
+				ImGui::SameLine();
+				ImGui::TextColored(IMG_ORANGE, "%s", "objName is empty!");
+			}
+			spawnerRecord.setNewConstructNode(defaultNode);
+		}
 		ImGui::Separator();
 		ImGui::Separator();
-		//Child class selector
-		static std::string childClass = "CLASS_NAME";
-		childClass = SPAWNER.getClassesImGuiCombo(childClass, "Child of Class");
-		
-		if (ImGui::Button(("Add " + childClass + " child").c_str()))
+
+		if (m_children.empty())
 		{
-			//adding new child
-			sptr<MapObjectsData> newChild = make::sptr<MapObjectsData>();
-			newChild->className = childClass;
-			newChild->isChildObj = true;
-			m_mapObjectData.childObjects.push_back(newChild);
-			m_children.push_back(SpawnableChild(*m_mapObjectData.childObjects.back()));
+			ImGui::TextColored(IMG_RED, "%s", (getSpawnableRoot()->getName() + " has no child objects").c_str());
+
+			ImGui::NewLine();
+			ImGui::EndTabItem();
+			return;
 		}
 
-		if (deferredDelete)
-			deferredDelete();
+		ImGui::TextColored(IMG_WHITE, "%s", (getSpawnableRoot()->getName() + " child objects:").c_str());
+		//if (m_lastSelectedChildMesh.empty()) m_lastSelectedChildMesh = childList.begin()->first;
+		//list box with child objects
+		auto selectionResult = ND_Util::ImGuiListBox<SpawnableChild>(
+			"Child Objects",
+			m_children,
+			m_lastSelectedChildObj,
+			[this](const SpawnableChild& rec)
+			{
+				//info("[%s] %s", m_mapObjectData.objId.c_str(), rec.mod.objId.c_str());
+				return rec.mod.objId; 
+			}
+		);
+		if(selectionResult.first)
+			m_lastSelectedChildObj = selectionResult.second.mod.objId;
+
+		if (m_lastSelectedChildObj.empty())
+		{
+			ImGui::NewLine();
+			ImGui::EndTabItem();
+			return;
+		}
+
+		//for some reason ImGuiListBox does not always return valid SpawnableChild - looking up by name instead
+		auto selectedChildIt = std::find_if(m_children.begin(), m_children.end(), 
+			[this](const SpawnableChild& childHolder) {return childHolder.mod.objId == m_lastSelectedChildObj;});
+		auto& selectedChildHolder = *selectedChildIt;
+
+		//rendering selected Child's onGui and handling deletion requests
+		if (ImGui::BeginChild(selectedChildHolder.mod.objId.c_str(), ND_Util::getSizeForChild(0.7), true, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			if (!selectedChildHolder.child.expired()) 
+			{
+				//Spawned child's settings (same as opeing it up in Spawned Objects subtab)
+				//returns true if child requested deletion (via DELETE btn)
+				bool needsToBeDeleted = selectedChildHolder.child.lock()->onGui(("Child " + selectedChildHolder.mod.objId).c_str());
+				
+				if (needsToBeDeleted)
+				{
+					std::string deletingClassName = selectedChildHolder.mod.className;
+					std::string deletingObjId = m_lastSelectedChildObj;
+					//wptr<Spawnable> deletedObjWptr = selectedChildHolder.child;
+					m_childObjectsRenderPaused = true;
+					m_deferredDeleteOrder = [this, deletingClassName, deletingObjId]()
+						{
+							SPAWNER.removeObject(deletingObjId);
+							std::erase_if(m_children, [this, deletingObjId](const SpawnableChild& childHolder)
+								{
+									if (childHolder.child.expired())
+										return true;
+									return deletingObjId == childHolder.child.lock()->getMapObjectsData().objId;
+								});
+							std::erase_if(m_mapObjectData.childObjects, [this, deletingObjId](const sptr<MapObjectsData>& childMod)
+								{
+									if (!childMod)
+										return true;
+									return deletingObjId == childMod->objId;
+								});
+							
+							m_childObjectsRenderPaused = false;
+						};
+					m_lastSelectedChildObj.clear();
+				}
+			}
+			else //child expired but for some reason the child holder persisted
+			{
+				m_childObjectsRenderPaused = true;
+				std::string deletingObjId = m_lastSelectedChildObj;
+				m_deferredDeleteOrder = [this, deletingObjId]()
+					{
+						std::erase_if(m_mapObjectData.childObjects, [this, deletingObjId](const sptr<MapObjectsData>& childMod)
+							{
+								if (!childMod)
+									return true;
+								return deletingObjId == childMod->objId;
+							});
+						std::erase_if(m_children, [this, deletingObjId](const SpawnableChild& childHolder)
+							{
+								return deletingObjId == childHolder.mod.objId;
+							});
+
+						m_childObjectsRenderPaused = false;
+					};
+				m_lastSelectedChildObj.clear();
+			}
+		}
+		ImGui::EndChild(); //ends selected child object's child form 
 
 		ImGui::EndTabItem();
 	}
-
 #endif
 }
 
@@ -442,6 +544,34 @@ std::string Spawnable::getNewMeshIdSuffix(const std::string& meshName)
 		zeroes.pop_back();
 
 	return zeroes + std::to_string(meshInstances);
+}
+
+void Spawnable::updateChildrensData()
+{
+	//updating m_mapObjectData.childObjects via visiter since our sptrs are separated from children's MapObjectsData
+	std::function<void(Spawnable&)> visiter = [](Spawnable& parent)
+		{
+			for (size_t i = 0; i < parent.m_children.size(); i++)
+			{
+				if (parent.m_mapObjectData.childObjects.size() > i && parent.m_children[i].bSpawned && !parent.m_children[i].child.expired())
+				{
+					*parent.m_mapObjectData.childObjects[i] = parent.m_children[i].child.lock()->m_mapObjectData;
+				}
+			}
+		};
+
+	std::function<void(SpawnableChildMesh&)> visiterMesh = [](SpawnableChildMesh& meshHolder) {
+		auto child = meshHolder.child.lock();
+		meshHolder.mmd.node = SPAWNER.getNodeHierarchyAddress(child->getParent());
+		meshHolder.mmd.renderOrder = child->getRenderOrder();
+		meshHolder.mmd.useWorldPos = false;
+		meshHolder.mmd.position_local = child->getLocalTranslation();
+		meshHolder.mmd.scale_local = child->getLocalScale();
+		meshHolder.mmd.rotation_local = child->getLocalRotation().euler();
+		};
+
+	childrenVisiter(visiter);
+	childrenVisiter(visiterMesh);
 }
 
 Spawnable::SpawnableChildMesh& Spawnable::getChildMeshHolder(const std::string& name)
@@ -469,7 +599,9 @@ void Spawnable::childMeshSpawnerUI()
 			m_lastSelectedParentNode = getSpawnableRoot();
 		auto resultHolder = m_lastSelectedParentNode.lock();
 		if (ND_Util::ImGuiNodeHierarchy(resultHolder, "Parent node"))
+		{
 			m_lastSelectedParentNode = resultHolder;
+		}
 
 		//Adds mesh record
 		if (ImGui::Button("Add new child mesh"))
@@ -518,7 +650,7 @@ void Spawnable::childMeshSpawnerUI()
 		}
 
 		//form for selected child mesh
-		if (ImGui::BeginChild(selectionResult.second.mmd.meshId.c_str(), ND_Util::getSizeForChild(0.5), true, ImGuiWindowFlags_AlwaysAutoResize))
+		if (ImGui::BeginChild(selectionResult.second.mmd.meshId.c_str(), ND_Util::getSizeForChild(0.6), true, ImGuiWindowFlags_AlwaysAutoResize))
 		{
 			SpawnableChildMesh& meshRec = getChildMeshHolder(m_lastSelectedChildMesh);
 			bool bNeedToDeleteSelected = false;
@@ -617,10 +749,6 @@ sptr<Spawnable> Spawnable::spawnChild(sptr<MapObjectsData> childData, SpawnableC
 		m_onChildSpawnCb, //uses default onSpawnCb if m_onChildSpawnCb == nullptr
 		bTabSpawned
 	);
-	
-	//if (m_onChildSpawnCb)
-	//	m_onChildSpawnCb(child);
-	//SPAWNER.registerSpawnable(child, false);
 
 	childHolder.child = child;
 	childHolder.bSpawned = true;

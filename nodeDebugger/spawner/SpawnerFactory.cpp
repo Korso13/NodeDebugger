@@ -150,8 +150,9 @@ SpawnerFactory::SpawnerRecord& SpawnerFactory::getSpawnerRecord(const std::strin
 		return m_classesRegistry[className];
 	else
 	{
-		err("No SpawnerRecord for %s found!", className.c_str());
-		static SpawnerRecord defaultRec;
+		//err("No SpawnerRecord for %s found!", className.c_str());
+		FATAL_ERROR("No SpawnerRecord for %s found!", className.c_str());
+		static SpawnerRecord defaultRec; //mutes compiler
 		return defaultRec;
 	}
 }
@@ -191,7 +192,6 @@ std::map<std::string, CommonTypes::MeshesContainerSetting>& SpawnerFactory::getM
 				return ret;
 			};
 	
-		//TODO: add loading multiple containers
 		nlohmann::json json;
 		if (auto file = filesystem::open("config/meshesContainerSettings.json"); file && file->good())
 		{
@@ -201,6 +201,22 @@ std::map<std::string, CommonTypes::MeshesContainerSetting>& SpawnerFactory::getM
 		{
 			auto setting = settingGetter(value);
 			m_meshesList.emplace(setting.name, setting);
+		}
+		for (size_t i = 0; i < 10; i++)
+		{
+			if (!filesystem::isPathExists("config/meshesContainerSettings" + STR(i) + ".json"))
+				break;
+
+			nlohmann::json json;
+			if (auto file = filesystem::open("config/meshesContainerSettings" + STR(i) + ".json"); file && file->good())
+			{
+				json = nlohmann::json::parse(file->data(), file->data() + file->size());
+			}
+			for (auto& value : json["settings"])
+			{
+				auto setting = settingGetter(value);
+				m_meshesList.emplace(setting.name, setting);
+			}
 		}
 	}
 
@@ -226,8 +242,8 @@ std::string SpawnerFactory::checkUniqueName(const std::string& name)
 		if (i == 10 || i == 100)
 			zeroes.pop_back();
 
-		if (!m_spawnedEntities.contains(name + "(" + zeroes + std::to_string(i) + ")"))
-			return name + "(" + zeroes + std::to_string(i) + ")";
+		if (!m_spawnedEntities.contains(name + "_" + zeroes + std::to_string(i)))
+			return name + "_" + zeroes + std::to_string(i);
 	}
 
 	return "NoUniqueName!";
@@ -566,6 +582,21 @@ const MapObjectsData SpawnerFactory::SpawnerRecord::getMapObjectsData()
 	return MapObjectsData();
 }
 
+MapObjectsData& SpawnerFactory::SpawnerRecord::getMapObjectsDataRef()
+{
+	for (auto& param : this->constructorParams)
+	{
+		if (param.isMapData)
+		{
+			return param.paramValue.getRef<MapObjectsData>();
+		}
+	}
+
+	//muting compilationError
+	static MapObjectsData stubMod;
+	return stubMod;
+}
+
 void SpawnerFactory::SpawnerRecord::setNewMapObjectsData(MapObjectsData& newMOD)
 {
 	for (auto& param : this->constructorParams)
@@ -577,19 +608,44 @@ void SpawnerFactory::SpawnerRecord::setNewMapObjectsData(MapObjectsData& newMOD)
 	}
 }
 
-sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, bool bTabSpawned)
+sptr<Node> SpawnerFactory::SpawnerRecord::getContructNode() const
+{
+	for (const auto& param : constructorParams)
+		if (!param.node.expired())
+			return param.node.lock();
+	return nullptr;
+}
+
+void SpawnerFactory::SpawnerRecord::setNewConstructNode(sptr<Node> newNode)
+{
+	for (auto& param : constructorParams)
+	{
+		if (!param.node.expired())
+		{
+			param.paramValue.setValue<sptr<Node>>(newNode);
+			param.node = newNode;
+		}
+	}
+}
+
+sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, bool bTabSpawned, vec3 spawnAt)
 {
 	auto newEntity = spawnData.m_spawnerFunc(spawnData.constructorParams);
-	newEntity->isSpawned = bTabSpawned; //marks entity as spawned via ND tab
+	if (!newEntity)
+	{
+		err("[SpawnerFactory::spawnObjectOfClass]Failed to spawn new object!");
+		return nullptr;
+	}
 
-	std::string newEntityName; 
-	if (spawnData.m_onSpawnCb)
-		spawnData.m_onSpawnCb(newEntity);
+	newEntity->isSpawned = bTabSpawned; //marks entity as spawned via ND tab
 	
-	if(!newEntity->getMapObjectsData().objName.empty())
-		newEntityName = checkUniqueName(newEntity->getMapObjectsData().objName);
-	else if (newEntity->getSpawnableRoot())
+	std::string newEntityName; 
+	if(!newEntity->getMapObjectsData().objId.empty())
+		newEntityName = checkUniqueName(newEntity->getMapObjectsData().objId);
+	else if (newEntity->getSpawnableRoot() && newEntity->getSpawnableRoot()->getName() != "Unnamed")
 		newEntityName = checkUniqueName(newEntity->getSpawnableRoot()->getName());
+	else if(!newEntity->getMapObjectsData().className.empty())
+		newEntityName = checkUniqueName(newEntity->getMapObjectsData().className);
 	if (newEntityName.empty()) newEntityName = checkUniqueName("Unnamed"); //must have unique, non-empty name!!
 	newEntity->getMapObjectsData().objId = newEntityName;
 	m_spawnedEntities.insert(
@@ -599,15 +655,30 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, boo
 		}
 	);
 
-	if (newEntity->getSpawnableRoot() && bTabSpawned)
+	if (bTabSpawned)
 	{
 		ND_NODE(newEntity->getSpawnableRoot());
-		vec3 cameraPos = Render::getScreenCamera()->getWorldTranslation();
-		cameraPos.z = 0.f;
-		newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
+		if(spawnAt == INVALIDPOS)
+		{
+			vec3 cameraPos = Render::getScreenCamera()->getWorldTranslation();
+			cameraPos.z = 0.f;
+			if(newEntity->getSpawnableRoot())
+				newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
+			spawnAt = cameraPos;
+		}
+		else if (newEntity->getSpawnableRoot())
+			newEntity->getSpawnableRoot()->setWorldTranslation(spawnAt);
 	}
 
+	newEntity->onBeginPlay(newEntity, bTabSpawned, (bTabSpawned ? spawnAt : newEntity->getMapObjectsData().pos));
+	if (spawnData.m_onSpawnCb)
+		spawnData.m_onSpawnCb(newEntity);
+
 	m_lastSpawnedObjectName = newEntityName;
+#ifndef FORCENODEDEBUG_OFF 
+	ND_SPAWNER->m_needUpdateEntitiesFilter = true;
+#endif
+
 	return newEntity;
 }
 
@@ -616,31 +687,26 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 	//Customizing Spawn's MOD
 	MapObjectsData defaultMOD = spawnData.getMapObjectsData();
 	spawnData.setNewMapObjectsData(customMOD);
+
 	//spawning new object
 	auto newEntity = spawnData.m_spawnerFunc(spawnData.constructorParams);
+	if (!newEntity)
+	{
+		err("[SpawnerFactory::spawnObjectOfClass]Failed to spawn new object!");
+		return nullptr;
+	}
 	newEntity->isSpawned = bTabSpawned; //marks object as spawned via ND tab
-	std::string newEntityName = checkUniqueName(newEntity->getMapObjectsData().objId);
-	//executing onSpawn logic
-	if (customOnSpawnCb)
-		customOnSpawnCb(newEntity);
-	else if (spawnData.m_onSpawnCb)
-		spawnData.m_onSpawnCb(newEntity);
+	std::string newEntityName;
 
 	//naming new object
-	if (newEntityName.empty())
-	{		
-		if (newEntity->getSpawnableRoot())
-			newEntityName = checkUniqueName(newEntity->getSpawnableRoot()->getName());
-		else if (!newEntity->getMapObjectsData().objName.empty())
-			newEntityName = checkUniqueName(newEntity->getMapObjectsData().objName);
-		else
-			newEntityName = checkUniqueName("Unnamed");//must have unique, non-empty name!!
-
-		//info("[Spawner] Renaming %s entity objId to %s", customMOD.className.c_str(), newEntityName.c_str());
-		newEntity->getMapObjectsData().objId = newEntityName;
-	}
-	else
-		newEntity->getMapObjectsData().objId = newEntityName;
+	if (!newEntity->getMapObjectsData().objId.empty())
+		newEntityName = checkUniqueName(newEntity->getMapObjectsData().objId);
+	else if (newEntity->getSpawnableRoot() && newEntity->getSpawnableRoot()->getName() != "Unnamed")
+		newEntityName = checkUniqueName(newEntity->getSpawnableRoot()->getName());
+	else if (!newEntity->getMapObjectsData().className.empty())
+		newEntityName = checkUniqueName(newEntity->getMapObjectsData().className);
+	if (newEntityName.empty()) newEntityName = checkUniqueName("Unnamed"); //must have unique, non-empty name!!
+	newEntity->getMapObjectsData().objId = newEntityName;
 
 	//restoring default MOD
 	spawnData.setNewMapObjectsData(defaultMOD);
@@ -651,39 +717,65 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 			newEntity
 		}
 	);
+	m_lastSpawnedObjectName = newEntityName;
 
-	//placing new object in front of camera
+	//placing new object in front of camera or at set coordinates
+	vec3 cameraPos = Render::getScreenCamera()->getWorldTranslation();
+	cameraPos.z = 0.f;
 	if (newEntity->getSpawnableRoot() && bTabSpawned)
 	{
 		ND_NODE(newEntity->getSpawnableRoot());
-		vec3 cameraPos = Render::getScreenCamera()->getWorldTranslation();
-		cameraPos.z = 0.f;
-		newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
+		if(newEntity->getMapObjectsData().pos == vec3::zero)
+		{
+			newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
+		}
+		else
+			newEntity->getSpawnableRoot()->setWorldTranslation(newEntity->getMapObjectsData().pos);
 	}
 
-	m_lastSpawnedObjectName = newEntityName;
+	newEntity->onBeginPlay(newEntity, bTabSpawned, (bTabSpawned ? cameraPos : newEntity->getMapObjectsData().pos));
+	
+	//executing onSpawn logic
+	if (customOnSpawnCb)
+		customOnSpawnCb(newEntity);
+	else if (spawnData.m_onSpawnCb)
+		spawnData.m_onSpawnCb(newEntity);
+
+#ifndef FORCENODEDEBUG_OFF 
+	ND_SPAWNER->m_needUpdateEntitiesFilter = true;
+#endif
+
 	return newEntity;
 }
 
-void SpawnerFactory::registerSpawnable(sptr<Spawnable> newSpawnable, bool useOnSpawnCB, const std::string& altName)
+void SpawnerFactory::removeObject(const std::string& objId)
 {
-	if (!m_classesRegistry.contains(newSpawnable->getMapObjectsData().className))
+	if (!SPAWNER.getAllSpawnables().contains(objId))
 		return;
 
-	auto& spawnData = getSpawnerRecord(newSpawnable->getMapObjectsData().className);
-	if (useOnSpawnCB && spawnData.m_onSpawnCb)
-		spawnData.m_onSpawnCb(newSpawnable);
+	auto& spawnableForDeletion = getAllSpawnables()[objId];
 
-	std::string newSpawnableName = (altName == "default") ? checkUniqueName(newSpawnable->getMapObjectsData().objId) : altName;
-	if (newSpawnableName.empty() && newSpawnable->getSpawnableRoot())
-		newSpawnableName = checkUniqueName(newSpawnable->getSpawnableRoot()->getName());
-	if (newSpawnableName.empty()) newSpawnableName = checkUniqueName("Unnamed"); //must have unique, non-empty name!!
-	m_spawnedEntities.insert(
+	if(spawnableForDeletion->m_childrenAdderEnabled)
+	{
+		auto childrenArrayCopy = spawnableForDeletion->getSpawnedChildren();
+		for (auto& childHolder : childrenArrayCopy)
 		{
-			newSpawnableName,
-			newSpawnable
+			if (!childHolder.child.expired())
+				removeObject(childHolder.child.lock()->getMapObjectsData().objId);
 		}
-	);
+	}
+
+	//debug("[SpawnerFactory::removeObject]Deleting %s of class %s", spawnableForDeletion->getMapObjectsData().objId.c_str(), spawnableForDeletion->getMapObjectsData().className.c_str());
+	spawnableForDeletion->onEndPlay(spawnableForDeletion, objId);
+	if (getClassRegistry().contains(spawnableForDeletion->getMapObjectsData().className))
+	{
+		auto& spawnRecord = getClassRegistry()[spawnableForDeletion->getMapObjectsData().className];
+		if (spawnRecord.m_onDeleteCb)
+			spawnRecord.m_onDeleteCb(spawnableForDeletion);
+	}
+	//removing the Spawnable from the Spawner's list of entities
+	getAllSpawnables().erase(objId);
+	ND_SPAWNER->m_needUpdateEntitiesFilter = true;
 }
 
 void SpawnerFactory::purgeSpawnedObjects()
@@ -774,6 +866,37 @@ SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::setObjNameList(std
 
 				ImGuiRenderHolder(); //render the rest of MOD struct as usual;
 			};
+	}
+#endif
+
+	return *this;
+}
+
+SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::enableObjNameTextureSelector()
+{
+#ifndef FORCENODEDEBUG_OFF
+	//searching for MapObjectData(MOD) constructor parameter
+	size_t paramIndex = -1;
+	for (ParamPack& param : constructorParams)
+	{
+		paramIndex++;
+
+		if (!param.isMapData)
+			continue;
+
+		ParamPack& MODParamPack = param;
+		//redering image selector before MOD
+		m_argsOnGui.emplace_back( 
+				[this, paramIndex]()
+				{
+					auto& MODref = constructorParams[paramIndex].paramValue.getRef<MapObjectsData>(); //MapObjectData(MOD) construct param reference
+					//rendering Combo list of possible objName values
+					if (ND_Util::ImGuiTextureSelector(MODref.objName, "ObjName selector"))
+					{
+						//constructorParams[paramIndex].paramValue.getRef<MapObjectsData>().objName = MODref.objName;
+					}
+				}		
+			);
 	}
 #endif
 

@@ -13,6 +13,7 @@
 #include <sources/common/nodeDebugger/customGuiTabs/BordersTab.h>
 #include "customGuiTabs/PathdrawerTab.h"
 #include "customGuiTabs/SpawnerTab.h"
+#include "NodeDebugger.h"
 
 ND_ImGui::ND_ImGui()
 {
@@ -32,14 +33,45 @@ ND_ImGui::ND_ImGui()
         });
     m_imguiNode->setAutomaticOnUpdate(false);
 
-    ImGui::SetWindowSize(IMG_STARTSIZE);
-
     m_editorCamera = make::sptr<EditorCamera>("Debug camera");
     m_editorCamera->setParent(Render::getRoot());
     m_editorCamera->m_lookButton = w4::event::Touch::Button::Middle;
 
+    ImGui::SetWindowSize(IMG_STARTSIZE);
+
+    // Scaling
+    const float scale = SFF("ND_scale", 1.f);
+    if(scale != 1.f)
+    {
+        ImGuiStyle& style = ImGui::GetStyle();
+        style.ScaleAllSizes(scale);
+        ImGui::GetIO().FontGlobalScale = scale;
+    }
+
+    event::Resize::subscribe(std::bind(&ND_ImGui::onResize, this, std::placeholders::_1));
+    onResize({ Render::getSize() });
+    setUiTheme(SSF("NodeDebuggerTheme", "Default"));
+
     initCustomTabs();
     TweenContainer::preloadTweenContainer();
+}
+
+void ND_ImGui::onResize(const event::Resize& evt)
+{
+    if (m_editorCamera)
+    {
+        const auto screenCamera = Render::getScreenCamera();
+        m_editorCamera->setPerspective(
+            screenCamera->getFov(), screenCamera->getAspect(), screenCamera->getNear(), screenCamera->getFar());
+    }
+
+    auto size = evt.size;
+    ImGuiIO& io = m_imguiNode->getContext().IO;
+    auto scale = (static_cast<float>(size.w) / 1920.0f + static_cast<float>(size.h) / 1080.f) / 2;
+    //scale *= 0.8f;
+    scale *= SFF("ND_scale", 1.f);
+    m_imguiNode->setScale(scale);
+    io.DisplaySize = w4::math::vec2{ static_cast<float>(size.w) / scale, static_cast<float>(size.h) / scale };
 }
 
 void ND_ImGui::addImGuiNode(sptr<Node> inNode, std::string name)
@@ -492,6 +524,54 @@ void ND_ImGui::ImGuiUpdate(float dt)
     if (dt == 0.f)
         dt = 0.01;
     m_imguiNode->onUpdate(dt);
+}
+
+void ND_ImGui::setUiTheme(const std::string themeName)
+{
+    if (themeName == "Default")
+    {
+        ImGuiStyleHelpers::setDefaultW4Style();
+    }
+    else if (themeName == "Classic")
+    {
+        ImGui::StyleColorsClassic();
+    }
+    else if (themeName == "Light")
+    {
+        ImGui::StyleColorsLight();
+    }
+    else if (themeName == "Dark")
+    {
+        ImGui::StyleColorsDark();
+    }
+    else if (themeName == "Cherry")
+    {
+        ImGuiStyleHelpers::setColorsCherry();
+    }
+    else if (themeName == "Green")
+    {
+        ImGuiStyleHelpers::setColorsLightGreen();
+    }
+    else if (themeName == "Photoshop")
+    {
+        ImGuiStyleHelpers::setColorsPhotoshop();
+    }
+    else if (themeName == "Grey")
+    {
+        ImGuiStyleHelpers::setColorsGrey();
+    }
+    else if (themeName == "DarkOrange")
+    {
+        ImGuiStyleHelpers::setColorsDarkOrange();
+    }
+    else if (themeName == "DarkExtra")
+    {
+        ImGuiStyleHelpers::setColorsDark();
+    }
+    else if (themeName == "Darcula")
+    {
+        ImGuiStyleHelpers::setColorsDarcula();
+    }
 }
 
 #endif //ends #ifndef FORCENODEDEBUG_OFF - conditional compilation macro. If FORCENODEDEBUG_OFF is defined, NOCOMP macro provides empty implementation and saves some weight in build size

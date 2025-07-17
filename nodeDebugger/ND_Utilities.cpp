@@ -677,7 +677,15 @@ namespace ND_Util
                 icoSize.x *= normalizedPlane.x;
                 icoSize.y *= normalizedPlane.y;
 
-                bool isSelected = meshName == textureName;
+                //checking if texture exists
+                if (!RESOURCES.getLoadedTexturesInfo().contains(textureName))
+                {
+                    //debug("Texture %s not found for mesh %s", textureName.c_str(), meshName.c_str());
+                    ImGui::Columns(1);
+                    continue;
+                }
+
+                bool isSelected = selectedTextureName == textureName;
                 if (isSelected)
                     ImGui::SetItemDefaultFocus();
 
@@ -802,10 +810,13 @@ namespace ND_Util
 
         if (!list.empty())
         {
-            if (ImGui::BeginListBox(listName.c_str(), ImVec2(-FLT_MIN, std::min(CastI(list.size()), IMG_LISTBOX_ENTRIESINFRAME) * ImGui::GetTextLineHeightWithSpacing()))) //use all width, IMG_LISTBOX_ENTRIESINFRAME items tall
+            if (ImGui::BeginListBox(SAFE_IMG_NAME(listName), ImVec2(-FLT_MIN, std::min(CastI(list.size()), IMG_LISTBOX_ENTRIESINFRAME) * ImGui::GetTextLineHeightWithSpacing()))) //use all width, IMG_LISTBOX_ENTRIESINFRAME items tall
             {
                 for (auto& listValue : list)
                 {
+                    if (listValue.empty())
+                        continue;
+
                     bool isSelected = listValue == listCurrentValue;
                     if (isSelected)
                         ImGui::SetItemDefaultFocus();

@@ -58,6 +58,8 @@ private:
 	void onKeyPressed(const event::Keyboard::Down& evt) NOCOMP;
 	void onKeyReleased(const event::Keyboard::Up& evt) NOCOMP;
 	void onTouchBegin(const Touch::Begin& evt) NOCOMP;
+	void setupClickCollider(const std::string& name, sptr<Spawnable> spawnedObj) NOCOMP; //for Spawnables
+	void setupClickCollider(const std::string& name, sptr<Mesh> spawnedMesh) NOCOMP; //for meshes
 
 private:
 
@@ -70,6 +72,14 @@ private:
 	std::string m_lastSelectedMesh = "";
 	std::set<std::string> m_lastSpawnablesFilterList;
 	std::set<std::string> m_lastMeshesFilterList;
+
+	enum Subtab
+	{
+		ClassPalette,
+		MeshPalette,
+		SpawnedObjects,
+		SpawnedMeshes
+	} m_activeSubtab = Subtab::ClassPalette;
 
 	MapMeshData m_currentMeshSpawnerSetting;
 };

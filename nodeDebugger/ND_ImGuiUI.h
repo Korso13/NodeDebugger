@@ -47,6 +47,9 @@ private:
 
 	//called on init
 	void initCustomTabs() NOCOMP;
+	void setUiTheme(const std::string themeName) NOCOMP;
+
+	void onResize(const event::Resize& evt) NOCOMP;
 
 	//ImGui NodeDebugger methods
 	void ImGuiCamera() NOCOMP;
@@ -77,6 +80,7 @@ protected:
 
 	//Editor camera
 	sptr<EditorCamera> m_editorCamera;
+
 };
 
 #ifndef FORCENODEDEBUG_OFF

@@ -31,6 +31,7 @@ class ImGuiNode;
 #endif
 
 #define jsprint(vec) ND_Util::jsstring(vec).c_str()
+#define SAFE_IMG_NAME(name) ((name.empty()) ? ("default_name"+std::to_string(w4::utils::UIDGenerator::get())).c_str() : name.c_str())
 
 //Switches for custom ImGui tabs
 #define NDSPINES

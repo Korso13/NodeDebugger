@@ -34,6 +34,13 @@ struct SpawnableStr
 //AUTO_SERIALIZE_ENUM_CLASS helper Macro
 #define X_DEFINE_ENUM_CLASS_FIELD(r, data, elem) elem ,
 
+template<typename T>
+inline static const char* enumToStr(const T& value)
+{
+	int val = CastI(value);
+	return nlohmann::adl_serializer<T>::getValues(val)->second;
+}
+
 //Enums must be serialized before exposing them to ImGui or mapObjects.json! 
 //Syntax sample:
 //SERIALIZE_ENUM(ViewDirection, (LEFT) (RIGHT));
@@ -207,20 +214,6 @@ struct MapObjectsData : public SpawnableStr \
 		if (ImGui::TreeNode(label)) \
 		{ \
 			BOOST_PP_SEQ_FOR_EACH(ADD_STRCT_ONGUID_MACRO, "", fields) \
-			if(ImGui::Button("Add child object")) childObjects.emplace_back(make::sptr<MapObjectsData>());\
-			if(ImGui::Button("Add child mesh")) childMeshes.emplace_back(make::sptr<MapMeshData>());\
-			if(!childObjects.empty())\
-			{\
-				int indx = 0;\
-				for(auto& child : childObjects)\
-				isChanged = isChanged || ImGui::Auto(("Child_" + std::to_string(indx++)).c_str(), *child);\
-			}\
-			if(!childMeshes.empty())\
-			{\
-				int indx = 0;\
-				for(auto& child : childMeshes)\
-				isChanged = isChanged || ImGui::Auto(("ChildMesh_" + std::to_string(indx++)).c_str(), *child);\
-			}\
 			ImGui::TreePop(); \
 		} \
 		return isChanged; \

@@ -2,50 +2,88 @@
 
 //Template methods impls. setValue is used when adding Spawnable Settings for rendering in Spawned Objects submenu
 template<typename T>
-inline void Spawnable::anyVar::setValue(T val)
+inline void Spawnable::SpawnSetting::anyVar::setValue(T* val)
 {
 	m_value = val;
 #ifdef DEBUG
 	onGuiCb =
 		[this](const std::string& name, anyVar& var) -> bool
 		{
-			return ImGui::Auto(name.c_str(), var.getRef<T>());
+			if (!var.hasValue())
+				return false;
+			return ImGui::Auto(name.c_str(), *var.getRef<T>());
 		};
 #endif
+	m_isInited = true;
 }
 
 template<typename T>
-inline void Spawnable::anyVar::setValueByRef(T& val)
+inline void Spawnable::SpawnSetting::anyVar::setValueByCopy(T val)
 {
-	m_value = val;
-	refCb = [this, val](anyVar& newValue)
-		{
-			val = newValue.getRef<T>();
-		};
+	m_isCopyValue = true;
+	m_copyValue = val;
 #ifdef DEBUG
 	onGuiCb =
 		[this](const std::string& name, anyVar& var) -> bool
 		{
-			bool changed = ImGui::Auto(name.c_str(), var.getRef<T>());
-			if (changed && refCb) refCb(var);
-			return changed;
+			if (!var.hasValue())
+				return false;
+			return ImGui::Auto(name.c_str(), *var.getRef<T>());
 		};
 #endif
+	m_isInited = true;
 }
 
-//specialisation for sptr<Node> because the engine one is shit
+inline bool Spawnable::SpawnSetting::anyVar::hasValue() const
+{
+	if (!m_isInited) 
+		return false; 
+	else if (!m_isCopyValue) 
+		return m_value != nullptr; 
+	else 
+		return m_copyValue.has_value();
+}
+
+template<typename T>
+inline T Spawnable::SpawnSetting::anyVar::get()
+{
+	if (!m_isCopyValue)
+	{
+		return static_cast<std::decay_t<T>>(m_value);
+	}
+	else
+	{
+		return std::any_cast<T>(m_copyValue);
+	}
+}
+
+template<typename T>
+inline T* Spawnable::SpawnSetting::anyVar::getRef()
+{
+	if (!m_isCopyValue)
+		return static_cast<std::decay_t<T>*>(m_value);
+	else
+		return &std::any_cast<T&>(m_copyValue);
+}
+
+//specialisations for sptr<Node> because the engine one is shit
 template<>
-inline void Spawnable::anyVar::setValue(sptr<Node> val)
+inline void Spawnable::SpawnSetting::anyVar::setValue(sptr<Node>* val)
 {
 	m_value = val;
+	wptr<Node> nodeW = *val;
+
 #ifdef DEBUG
 	onGuiCb =
-		[this](const std::string& name, anyVar& var) -> bool
+		[this, nodeW](const std::string& name, anyVar& var) -> bool
 		{
+			if (nodeW.expired())
+				return false;
+
 			bool changed = false;
 			if (ImGui::TreeNode(name.c_str()))
 			{
-				sptr<Node> node = var.get<sptr<Node>>();
+				sptr<Node> node = nodeW.lock();
 
 				Transform oldTransform = node->getWorldTransform();
 				if (node->is<VisibleNode>() || node->is<Mesh>() || node->is<ParticlesEmitter>())
@@ -85,70 +123,109 @@ inline void Spawnable::anyVar::setValue(sptr<Node> val)
 			return changed;
 		};
 #endif
+	m_isInited = true;
+}
+template<>
+inline void Spawnable::SpawnSetting::anyVar::setValueByCopy(sptr<Node> val)
+{
+	m_isCopyValue = true;
+	m_copyValue = val;
+	wptr<Node> nodeW = val;
+
+#ifdef DEBUG
+	onGuiCb =
+		[this, nodeW](const std::string& name, anyVar& var) -> bool
+		{
+			if (nodeW.expired())
+				return false;
+
+			bool changed = false;
+			if (ImGui::TreeNode(name.c_str()))
+			{
+				sptr<Node> node = nodeW.lock();
+
+				Transform oldTransform = node->getWorldTransform();
+				if (node->is<VisibleNode>() || node->is<Mesh>() || node->is<ParticlesEmitter>())
+				{
+					ND_Util::ImGuiNodeRender(node, name);
+				}
+				else
+				{
+					ND_Util::NoConflictGizmo(node, name);
+					changed = ND_Util::ImGuiTransforms(node);
+				}
+
+				//submenu for reparenting node
+				if (ImGui::TreeNode("Parent node selector"))
+				{
+					auto parentNode = node->getParent();
+					if (ND_Util::ImGuiNodeHierarchy(parentNode, "Parent Node")) //returns true if new node was selected
+					{
+						node->setParent(parentNode);
+					}
+
+					ImGui::TreePop();
+				}
+
+				//hack because we can't detect transforms done via gizmo. 
+				if (!changed) 
+				{
+					changed = 
+						node->getWorldTransform().translation() != oldTransform.translation() ||
+						node->getWorldTransform().scale() != oldTransform.scale() ||
+						node->getWorldTransform().rotation().euler() != oldTransform.rotation().euler();
+				}
+
+				ImGui::TreePop();
+			}
+			
+			return changed;
+		};
+#endif
+	m_isInited = true;
 }
 
 //Template methods impls. Used to add Spawnable Settings (object's exposed variables)
 template<typename T>
-inline Spawnable::SpawnSetting::SpawnSetting(const std::string& name, T& value, std::function<void(std::decay_t<T>&)>&& onChangeCB)
+requires AutoTypeConcept<T> || onGuiImplConcept<T>
+inline Spawnable::SpawnSetting::SpawnSetting(
+	const std::string& name, 
+	T& value,
+	std::function<void(std::decay_t<T>&)>&& onChangeCB)
 {
 	anyVar variable;
-	variable.setValue<T>(value);
+	variable.setValue<std::decay_t<T>>(&value);
 	settingName = name;
 	settingValue = variable;
 	onSettingChangeCB =
-		[onChangeCB, &value](anyVar var)
+		[onChangeCB](anyVar& var)
 		{
 			if (onChangeCB && var.hasValue())
 			{
-				value = var.getRef<T>();
-				onChangeCB(var.getRef<T>());
+				//value = var.getRef<T>();
+				onChangeCB(*var.getRef<T>());
 			}
 		};
 }
 
 template<typename T>
-inline Spawnable::SpawnSetting::SpawnSetting(const std::string& name, T& value)
+requires AutoTypeConcept<T> || onGuiImplConcept<T>
+inline Spawnable::SpawnSetting::SpawnSetting(
+	const std::string& name, 
+	T&& value,
+	std::function<void(std::decay_t<T>&)>&& onChangeCB)
 {
 	anyVar variable;
-	variable.setValue<T>(value);
-	settingName = name;
-	settingValue = variable;
-	onSettingChangeCB = [&value](anyVar var)
-		{
-			if(var.hasValue())
-				value = var.getRef<T>(); 
-		};
-}
-
-template<typename T>
-inline Spawnable::SpawnSetting::SpawnSetting(const std::string& name, T&& value, std::function<void(std::decay_t<T>&)>&& onChangeCB)
-{
-	anyVar variable;
-	variable.setValue<T>(value);
+	variable.setValueByCopy<std::decay_t<T>>(value);
 	settingName = name;
 	settingValue = variable;
 	onSettingChangeCB =
-		[onChangeCB, &value](anyVar var)
+		[onChangeCB](anyVar& var)
 		{
 			if (onChangeCB && var.hasValue())
 			{
-				onChangeCB(var.getRef<T>());
+				//value = var.getRef<T>();
+				onChangeCB(*var.getRef<T>());
 			}
 		};
-}
-
-template<typename T>
-inline Spawnable::SpawnSetting Spawnable::SpawnSetting::makeSpawnSetting(const std::string& name, std::decay_t<T> value, std::function<void(T&)>&& onChangeCB)
-{
-	SpawnSetting setting(name);
-	anyVar variable;
-	variable.setValue<T>(value);
-	setting.settingValue = variable;
-	setting.onSettingChangeCB =
-		[onChangeCB](anyVar var)
-		{
-			if (onChangeCB && var.hasValue())
-				onChangeCB(var.getRef<T>());
-		};
-	return setting;
 }

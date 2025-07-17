@@ -101,11 +101,14 @@ namespace ND_Util
 #ifndef FORCENODEDEBUG_OFF
 		if (!list.empty())
 		{
-			if (ImGui::BeginCombo(listName.c_str(), listCurrentValue.c_str()))
+			if (ImGui::BeginCombo(SAFE_IMG_NAME(listName), listCurrentValue.c_str()))
 			{
 				for (auto& [listKey, listValue] : list)
 				{
-					bool isSelected = listKey == listCurrentValue;
+					if (listKey.empty())
+						continue;
+
+					bool isSelected = (listKey == listCurrentValue);
 					if (isSelected)
 						ImGui::SetItemDefaultFocus();
 
@@ -138,12 +141,12 @@ std::pair<bool, T> ND_Util::ImGuiComboList(
 #ifndef FORCENODEDEBUG_OFF
 	if (!list.empty())
 	{
-		if (ImGui::BeginCombo(listName.c_str(), listCurrentValue.c_str()))
+		if (ImGui::BeginCombo(SAFE_IMG_NAME(listName), listCurrentValue.c_str()))
 		{
 			for (const auto& listValue : list)
 			{
 				auto listKey = nameGetterPred(listValue);
-				bool isSelected = listKey == listCurrentValue;
+				bool isSelected = (listKey == listCurrentValue);
 				if (isSelected)
 					ImGui::SetItemDefaultFocus();
 
@@ -175,11 +178,14 @@ std::pair<bool, T> ND_Util::ImGuiListBox(
 #ifndef FORCENODEDEBUG_OFF
 	if (!list.empty())
 	{
-		if (ImGui::BeginListBox(listName.c_str(), ImVec2(-FLT_MIN, std::min(CastI(list.size()), IMG_LISTBOX_ENTRIESINFRAME) * ImGui::GetTextLineHeightWithSpacing()))) //use all width, IMG_LISTBOX_ENTRIESINFRAME items tall
+		if (ImGui::BeginListBox(SAFE_IMG_NAME(listName), ImVec2(-FLT_MIN, std::min(CastI(list.size()), IMG_LISTBOX_ENTRIESINFRAME) * ImGui::GetTextLineHeightWithSpacing()))) //use all width, IMG_LISTBOX_ENTRIESINFRAME items tall
 		{
 			for (auto& [listKey, listValue] : list)
 			{
-				bool isSelected = listKey == listCurrentValue;
+				if (listKey.empty())
+					continue;
+
+				bool isSelected = (listKey == listCurrentValue);
 				if (isSelected)
 					ImGui::SetItemDefaultFocus();
 
@@ -211,16 +217,19 @@ std::pair<bool, T> ND_Util::ImGuiListBox(
 #ifndef FORCENODEDEBUG_OFF
 	if (!list.empty())
 	{
-		if (ImGui::BeginListBox(listName.c_str(), ImVec2(-FLT_MIN, std::min(CastI(list.size()), IMG_LISTBOX_ENTRIESINFRAME) * ImGui::GetTextLineHeightWithSpacing()))) //use all width, IMG_LISTBOX_ENTRIESINFRAME items tall
+		if (ImGui::BeginListBox(SAFE_IMG_NAME(listName), ImVec2(-FLT_MIN, std::min(CastI(list.size()), IMG_LISTBOX_ENTRIESINFRAME) * ImGui::GetTextLineHeightWithSpacing()))) //use all width, IMG_LISTBOX_ENTRIESINFRAME items tall
 		{
 			for (const auto& listValue : list)
 			{
 				auto listKey = nameGetterPred(listValue);
-				bool isSelected = listKey == listCurrentValue;
+				if (listKey.empty())
+					continue;
+				bool isSelected = (listKey == listCurrentValue);
 				if (isSelected)
 					ImGui::SetItemDefaultFocus();
 
-				if (ImGui::Selectable(listKey.c_str(), &isSelected))
+				//debug("[%s] %s", listName.c_str(), listKey.c_str()); //todo: remove it
+				if (ImGui::Selectable(listKey.c_str(), isSelected))
 				{
 					result.first = true;
 					result.second = listValue;
