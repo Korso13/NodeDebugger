@@ -63,6 +63,7 @@
 		std::string classID = entityName; \
 		if (!m_classesRegistry.contains(classID)) \
 		{ \
+			m_classesRegistry.emplace(classID, SpawnerRecord(classID));\
 			BOOST_PP_FOR((1, arg_count), PRED, OP, REG_PARAM_MACRO) \
 			m_classesRegistry[classID].m_spawnerFunc = [this](std::vector<SpawnerRecord::ParamPack> args) \
 			{ \

@@ -3,6 +3,7 @@
 #include "W4Framework.h"
 #include "W4JSON.h"
 #include "JsonHelpers.h"
+#include "../CustomAutos.h"
 
 W4_USE_UNSTRICT_INTERFACE
 

@@ -7,9 +7,9 @@
 #include <common/nodeDebugger/NodeDebugger.h>
 #include <common/nodeDebugger/ND_JsonTools.h>
 #include "settings/JsonDeserializator.h"
+#include "../CustomAutos.h"
 
-static SpawnerFactory::SpawnerRecord stubRec;
-SpawnerFactory::SpawnerRecord& lastSelectedSpawnerRec = stubRec;
+static std::string lastSelectedSpawnerClass = "CLASS_NAME";
 
 SpawnerTab::SpawnerTab()
 	: iGuiTab("Spawner")
@@ -201,7 +201,7 @@ void SpawnerTab::onGuiClassPalette()
 			//Rendering spawnable classes tree header
 			if (ImGui::TreeNode(className.c_str()))
 			{
-				lastSelectedSpawnerRec = spawnerEntityRec;
+				lastSelectedSpawnerClass = spawnerEntityRec.m_classID;
 				//Rendering spawn settings
 				for (auto& settingRender : spawnerEntityRec.m_argsOnGui)
 					if (settingRender)
@@ -525,14 +525,16 @@ void SpawnerTab::onTouchBegin(const Touch::Begin& evt)
 
 	vec3 clickPos = getMouseWorldPos();
 
-	if(m_activeSubtab == ClassPalette && lastSelectedSpawnerRec.getMapObjectsData().className != "CLASS_NAME")
+	if(m_activeSubtab == ClassPalette && lastSelectedSpawnerClass != "CLASS_NAME")
 	{
-		info("Spawning %s!", lastSelectedSpawnerRec.getMapObjectsData().className.c_str());
+		info("Spawning %s!", lastSelectedSpawnerClass.c_str());
 		//Spawns new object of class and registers it to appear in Spawned subtab (kept in SpawnerFactory's getAllSpawnables())
-		auto newEntity = SPAWNER.spawnObjectOfClass(lastSelectedSpawnerRec, true, clickPos * vec3(1.f, 1.f, 0.f));
+		auto newEntity = SPAWNER.spawnObjectOfClass(SPAWNER_REC(lastSelectedSpawnerClass), true, clickPos * vec3(1.f, 1.f, 0.f));
 		auto name = SPAWNER.getLastSpawnedObjectName();
 		setupClickCollider(name, newEntity);
 	}
+	//else if (m_activeSubtab == ClassPalette)
+	//	info("[SpawnerTab::onTouchBegin] Class palette tab, but class name is %s, not spawning!", lastSelectedSpawnerClass.c_str());
 	else if (m_activeSubtab == MeshPalette && !m_currentMeshSpawnerSetting.meshName.empty())
 	{
 		auto newMesh = SPAWNER.spawnMesh(m_currentMeshSpawnerSetting);
@@ -546,21 +548,6 @@ void SpawnerTab::onTouchBegin(const Touch::Begin& evt)
 		}
 	}
 	m_needUpdateEntitiesFilter = true;
-
-	//auto ray = Render::getScreenCamera()->createRayFromScreen(evt.point);
-	//auto hits = Render::raycastAll(ray);
-	//for (auto& hit : hits)
-	//{
-	//	std::string hitName = hit.target->getParent()->getName();
-
-	//	if (hit.target != nullptr)
-	//	{
-	//		auto hitName = hit.target->getParent()->getName();
-	//		if (hitName == "clickMesh_debug" && lastSelectedSpawnerRec.getMapObjectsData().className != "CLASS_NAME")
-	//		{
-	//		}
-	//	}
-	//}
 }
 
 #endif

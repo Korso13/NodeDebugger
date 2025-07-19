@@ -152,7 +152,7 @@ SpawnerFactory::SpawnerRecord& SpawnerFactory::getSpawnerRecord(const std::strin
 	{
 		//err("No SpawnerRecord for %s found!", className.c_str());
 		FATAL_ERROR("No SpawnerRecord for %s found!", className.c_str());
-		static SpawnerRecord defaultRec; //mutes compiler
+		static SpawnerRecord defaultRec("CLASS_NAME"); //mutes compiler
 		return defaultRec;
 	}
 }
@@ -568,34 +568,19 @@ sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 	return newMesh;
 }
 
-const MapObjectsData SpawnerFactory::SpawnerRecord::getMapObjectsData()
-{
-	for (auto& param : this->constructorParams)
-	{
-		if (param.isMapData)
-		{
-			return param.paramValue.get<MapObjectsData>();
-		}
-	}
-
-	//muting compilationError
-	return MapObjectsData();
-}
-
-MapObjectsData& SpawnerFactory::SpawnerRecord::getMapObjectsDataRef()
-{
-	for (auto& param : this->constructorParams)
-	{
-		if (param.isMapData)
-		{
-			return param.paramValue.getRef<MapObjectsData>();
-		}
-	}
-
-	//muting compilationError
-	static MapObjectsData stubMod;
-	return stubMod;
-}
+//const MapObjectsData SpawnerFactory::SpawnerRecord::getMapObjectsData()
+//{
+//	for (auto& param : this->constructorParams)
+//	{
+//		if (param.isMapData)
+//		{
+//			return param.paramValue.get<MapObjectsData>();
+//		}
+//	}
+//
+//	//muting compilationError
+//	return MapObjectsData();
+//}
 
 void SpawnerFactory::SpawnerRecord::setNewMapObjectsData(MapObjectsData& newMOD)
 {
@@ -603,7 +588,19 @@ void SpawnerFactory::SpawnerRecord::setNewMapObjectsData(MapObjectsData& newMOD)
 	{
 		if (param.isMapData)
 		{
+			m_defaultMod = param.paramValue.get<MapObjectsData>();
 			return param.paramValue.setValue<MapObjectsData>(newMOD);
+		}
+	}
+}
+
+void SpawnerFactory::SpawnerRecord::resetToDefaultMapObjectsData()
+{
+	for (auto& param : this->constructorParams)
+	{
+		if (param.isMapData)
+		{
+			return param.paramValue.setValue<MapObjectsData>(m_defaultMod);
 		}
 	}
 }
@@ -630,6 +627,7 @@ void SpawnerFactory::SpawnerRecord::setNewConstructNode(sptr<Node> newNode)
 
 sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, bool bTabSpawned, vec3 spawnAt)
 {
+	spawnData.resetToDefaultMapObjectsData();
 	auto newEntity = spawnData.m_spawnerFunc(spawnData.constructorParams);
 	if (!newEntity)
 	{
@@ -685,7 +683,6 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, boo
 sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, MapObjectsData& customMOD, std::function<void(sptr<Spawnable>)> customOnSpawnCb, bool bTabSpawned)
 {
 	//Customizing Spawn's MOD
-	MapObjectsData defaultMOD = spawnData.getMapObjectsData();
 	spawnData.setNewMapObjectsData(customMOD);
 
 	//spawning new object
@@ -709,7 +706,7 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 	newEntity->getMapObjectsData().objId = newEntityName;
 
 	//restoring default MOD
-	spawnData.setNewMapObjectsData(defaultMOD);
+	spawnData.resetToDefaultMapObjectsData();
 
 	m_spawnedEntities.insert(
 		{
@@ -816,6 +813,8 @@ inline SpawnerFactory::SpawnerRecord& SpawnerFactory::registerSpawnableClass(con
 	if (!m_classesRegistry.contains(classID))
 	{
 		//method to be used for spawning the spawnable entity
+		//m_classesRegistry[classID] = SpawnerRecord(classID);
+		m_classesRegistry.emplace(classID, SpawnerRecord(classID));
 		m_classesRegistry[classID].m_spawnerFunc =
 			[this](std::vector<SpawnerRecord::ParamPack> args)
 			{
@@ -823,6 +822,31 @@ inline SpawnerFactory::SpawnerRecord& SpawnerFactory::registerSpawnableClass(con
 			};
 	}
 	return m_classesRegistry[classID];
+}
+
+SpawnerFactory::SpawnerRecord::SpawnerRecord()
+{
+	warn("[SpawnerRecord::SpawnerRecord] Using default constructor! Should avoid that if possible!");
+	constructorParams.reserve(15);
+	m_argsOnGui.reserve(20);
+}
+
+SpawnerFactory::SpawnerRecord::SpawnerRecord(const std::string& className)
+	:
+	m_classID(className)
+{
+	constructorParams.reserve(15);
+	m_argsOnGui.reserve(20);
+}
+
+SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::operator=(const SpawnerRecord& rhv)
+{
+	if (&rhv == this)
+		return *this;
+
+	constructorParams.reserve(15);
+	m_argsOnGui.reserve(20);
+	return *this;
 }
 
 SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::setOnSpawnCallback(std::function<void(sptr<Spawnable>)>&& cb)
@@ -858,7 +882,7 @@ SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::setObjNameList(std
 			{
 				auto& MODref = constructorParams[paramIndex].paramValue.getRef<MapObjectsData>(); //MapObjectData(MOD) construct param reference
 				//rendering Combo list of possible objName values
-				std::pair<bool, std::string> result = ND_Util::ImGuiComboList("ObjName_" + MODref.className, m_listOfMODObjNames, MODref.objName);
+				std::pair<bool, std::string> result = ND_Util::ImGuiComboList("ObjName of " + MODref.className, m_listOfMODObjNames, MODref.objName);
 				
 				//checking if new value was selected from ComboList
 				if (result.first)

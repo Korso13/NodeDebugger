@@ -105,7 +105,7 @@ inline static const char* enumToStr(const T& value)
 //ADD_STRCT_DESERIALIZE_MACRO and ADD_STRCT_SERIALIZE_MACRO - implement de/serialization of MapObjectsData fields
 #define ADD_STRCT_FIELD_MACRO(i, data, field_tuple) JSTRUCT_F_TYPE(field_tuple) JSTRUCT_F_NAME(field_tuple) = JSTRUCT_F_DEFV(field_tuple);
 #ifdef DEBUG
-	#define ADD_STRCT_ONGUID_MACRO(i, data, field_tuple) isChanged = isChanged || ImGui::Auto(JSTRUCT_F_NAME_STR(field_tuple), JSTRUCT_F_NAME(field_tuple));
+	#define ADD_STRCT_ONGUID_MACRO(i, data, field_tuple) isChanged = isChanged || NDGui::Auto(JSTRUCT_F_NAME_STR(field_tuple), JSTRUCT_F_NAME(field_tuple));
 #endif
 #define ADD_STRCT_DESERIALIZE_MACRO(i, data, field_tuple) JSTRUCT_FIELD_DESERIALIZE(JSTRUCT_F_NAME_STR(field_tuple), JSTRUCT_F_NAME(field_tuple));
 #define ADD_STRCT_SERIALIZE_MACRO(i, data, field_tuple) JSTRUCT_FIELD_SERIALIZE(JSTRUCT_F_NAME_STR(field_tuple), JSTRUCT_F_NAME(field_tuple), JSTRUCT_F_DEFV(field_tuple));

@@ -2,6 +2,7 @@
 #include "settings/JsonDeserializator.h"
 #include "SpawnerFactory.h"
 #include <common/nodeDebugger/NodeDebugger.h>
+#include "../CustomAutos.h"
 
 std::array<vec3, 2> Spawnable::getSpawnableBounds(sptr<Node> spawnableRoot)
 {
@@ -310,6 +311,7 @@ sptr<Mesh> Spawnable::getChildMeshByName(const std::string& name) const
 
 void Spawnable::SpawnableMainUi()
 {
+#ifdef DEBUG
 	//root transforms and re-parenting ui
 	if (m_spRoot)
 	{
@@ -358,12 +360,12 @@ void Spawnable::SpawnableMainUi()
 			}
 		}
 	}
+#endif
 }
 
 void Spawnable::childSpawnerUI()
 {
 #ifdef DEBUG
-
 	if (m_childObjectsRenderPaused)
 		return;
 

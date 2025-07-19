@@ -4,6 +4,7 @@
 #include "W4Framework.h"
 #include "common/Defines.h"
 #include "common/Templates.h"
+#include "Concepts.h"
 
 W4_USE_UNSTRICT_INTERFACE
 

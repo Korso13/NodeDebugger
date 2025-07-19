@@ -1,4 +1,6 @@
 #include "Spawnable.h"
+#include "../Concepts.h"
+#include "../CustomAutos.h"
 
 //Template methods impls. setValue is used when adding Spawnable Settings for rendering in Spawned Objects submenu
 template<typename T>
@@ -11,7 +13,7 @@ inline void Spawnable::SpawnSetting::anyVar::setValue(T* val)
 		{
 			if (!var.hasValue())
 				return false;
-			return ImGui::Auto(name.c_str(), *var.getRef<T>());
+			return NDGui::Auto(name.c_str(), *var.getRef<T>());
 		};
 #endif
 	m_isInited = true;
@@ -28,7 +30,7 @@ inline void Spawnable::SpawnSetting::anyVar::setValueByCopy(T val)
 		{
 			if (!var.hasValue())
 				return false;
-			return ImGui::Auto(name.c_str(), *var.getRef<T>());
+			return NDGui::Auto(name.c_str(), *var.getRef<T>());
 		};
 #endif
 	m_isInited = true;

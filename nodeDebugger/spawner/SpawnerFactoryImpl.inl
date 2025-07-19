@@ -35,12 +35,12 @@ inline SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::addConstruc
 	int paramIndex = constructorParams.size() - 1;
 
 #ifndef FORCENODEDEBUG_OFF
-	m_argsOnGui.push_back([this, paramIndex]()
+	m_argsOnGui.push_back([this, paramIndex, paramName]()
 		{
 			if (!constructorParams[paramIndex].node.expired())
 			{
 				auto nodeHolder = constructorParams[paramIndex].node.lock();
-				if (ND_Util::ImGuiNodeHierarchy(nodeHolder, constructorParams[paramIndex].paramName))
+				if (ND_Util::ImGuiNodeHierarchy(nodeHolder, paramName))
 				{
 					setNewConstructNode(nodeHolder);
 				}
@@ -54,31 +54,37 @@ inline SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::addConstruc
 template<>
 inline SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::addConstructorParam<MapObjectsData&>(const std::string& paramName, MapObjectsData& defaultMOD)
 {
+	m_defaultMod = defaultMOD;
 	ParamPack newParam;
 	newParam.paramName = paramName;
-	newParam.paramValue.setValue<MapObjectsData&>(defaultMOD);
+	newParam.paramValue.setValue<MapObjectsData&>(m_defaultMod);
 	newParam.isMapData = true;
 	constructorParams.push_back(newParam);
 	int paramIndex = constructorParams.size() - 1;
 
 #ifndef FORCENODEDEBUG_OFF
-	m_argsOnGui.push_back([this, paramIndex]()
+	m_argsOnGui.push_back([this, paramIndex, paramName]()
 		{
-			ImGui::Auto(constructorParams[paramIndex].paramName.c_str(), constructorParams[paramIndex].paramValue.getRef<MapObjectsData>());
+			NDGui::Auto(paramName.c_str(), m_defaultMod);
 		});
 #endif
 	return *this;
 }
 
 template<typename DataType>
-	requires AutoTypeConcept<DataType> || onGuiImplConcept<DataType>
-inline SpawnerFactory::SpawnerRecord & SpawnerFactory::SpawnerRecord::exposeVariableToPaletteUi(const std::string & variableName, DataType * variable)
+requires AutoTypeConcept<DataType> || onGuiImplConcept<DataType>
+inline SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::exposeVariableToPaletteUi(const std::string& variableName, DataType* variable)
 {
 #ifndef FORCENODEDEBUG_OFF
 	m_argsOnGui.emplace_back(
 		[this, variableName, variable]()
 		{
-			ImGui::Auto(variableName.c_str(), *variable);
+			if (!variable)
+			{
+				info("[SpawnerFactory::SpawnerRecord::exposeVariableToPaletteUi][onGui] invalid pointer to variable %s for class %s!", variableName.c_str(), m_classID.c_str());
+				return;
+			}
+			NDGui::Auto(variableName.c_str(), *variable);
 		});
 #endif
 

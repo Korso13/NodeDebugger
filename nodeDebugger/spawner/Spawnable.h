@@ -5,28 +5,13 @@
 #include <any>
 #include <type_traits>
 #include "SpawnerStructs.h"
+#include "../Concepts.h"
 
 W4_USE_UNSTRICT_INTERFACE
 
 //forward decl
 class SpawnerTab;
 class SpawnerFactory;
-
-//template concepts
-template<typename T>
-concept AutoTypeConcept = requires(T & _value)
-{
-#ifdef DEBUG
-	ImGui::Auto("ConceptTest", _value);
-#endif
-};
-template<typename T>
-concept onGuiImplConcept = requires(T & _value)
-{
-#ifdef DEBUG
-	_value.onGui("ConceptTest");
-#endif
-};
 
 //struct MapObjectsData is defined in "common/nodeDebugger/SpawnerStructs.h"! via MOD_DEFINITION macro
 

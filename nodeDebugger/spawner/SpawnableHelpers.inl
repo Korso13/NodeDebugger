@@ -1,3 +1,5 @@
+#include "Spawnable.h"
+#include "../Concepts.h"
 
 	//forward decl
 	struct SpawnSetting;

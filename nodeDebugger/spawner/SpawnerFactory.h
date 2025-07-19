@@ -3,6 +3,7 @@
 #include "W4Framework.h"
 #include <common/nodeDebugger/customGuiTabs/SpawnerTab.h>
 #include "common/MeshesContainer.h"
+#include "../CustomAutos.h"
 
 #include "SpawnerFactoryMacro.inl"
 
@@ -47,6 +48,10 @@ public:
 			wptr<Node> node; //specialized holder for node
 		};
 
+		SpawnerRecord();
+		SpawnerRecord(const std::string& className);
+		SpawnerRecord& operator=(const SpawnerRecord& rhv);
+
 		//Sets callback executed right after spawning a Spawnable entity
 		SpawnerRecord& setOnSpawnCallback(std::function<void(sptr<Spawnable>)>&& cb);
 		std::function<void(sptr<Spawnable>)> getOnSpawnCallback() { return m_onSpawnCb; };
@@ -60,22 +65,27 @@ public:
 		
 		SpawnerRecord& setObjNameList(std::vector<std::string>&& listOfNames);
 		SpawnerRecord& enableObjNameTextureSelector();
+
 		template<typename DataType>
 		requires AutoTypeConcept<DataType> || onGuiImplConcept<DataType> //checks if DataType can be rendered in UI
 		SpawnerRecord& exposeVariableToPaletteUi(const std::string& variableName, DataType* variable);
 		
 		//use it for adding shortcuts to MOD fiends in class palette!
-		MapObjectsData& getMapObjectsDataRef();
+		MapObjectsData& getMapObjectsDataRef() {return m_defaultMod;};
 		//used in spawning
-		const MapObjectsData getMapObjectsData();
+		const MapObjectsData getMapObjectsData() { return m_defaultMod; };
 		//sets alternative MOD for class spawner (usually temporarily)
 		void setNewMapObjectsData(MapObjectsData& newMOD);
+		//sets alternative MOD for class spawner (usually temporarily)
+		void resetToDefaultMapObjectsData();
 		//setter/getter for Node used in class constructor
 		sptr<Node> getContructNode() const;
 		void setNewConstructNode(sptr<Node> newNode);
 
 	private:
 
+		const std::string m_classID = "CLASS_NAME";
+		MapObjectsData m_defaultMod;
 		std::vector<ParamPack> constructorParams; //construction parameters for Spawnable entity
 		std::vector<std::function<void()>> m_argsOnGui; //ImGui render for construction parameters editor
 		std::map<std::string, std::string> m_listOfMODObjNames;
@@ -98,9 +108,9 @@ public:
 			constructorParams.push_back(newParam);
 			int paramIndex = constructorParams.size() - 1;
 #ifndef FORCENODEDEBUG_OFF
-			m_argsOnGui.push_back([this, paramIndex]()
+			m_argsOnGui.push_back([this, paramName, paramIndex]()
 				{
-					ImGui::Auto(constructorParams[paramIndex].paramName.c_str(), constructorParams[paramIndex].paramValue.getRef<DataType>());
+					NDGui::Auto(paramName.c_str(), constructorParams[paramIndex].paramValue.getRef<DataType>());
 				});
 #endif
 			return *this;
@@ -219,7 +229,11 @@ public:
 
 private:
 
-	SpawnerFactory() : MeshesContainer(Render::getRoot()) {};
+	SpawnerFactory() 
+		: 
+		MeshesContainer(Render::getRoot()) 
+	{
+	};
 
 	void checkNodeHierarchyNames();
 
