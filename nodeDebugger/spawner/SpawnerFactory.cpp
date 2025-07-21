@@ -880,13 +880,13 @@ SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::setObjNameList(std
 		auto ImGuiRenderHolder = m_argsOnGui[paramIndex];
 		m_argsOnGui[paramIndex] = [this, paramIndex, ImGuiRenderHolder]()
 			{
-				auto& MODref = constructorParams[paramIndex].paramValue.getRef<MapObjectsData>(); //MapObjectData(MOD) construct param reference
+				auto& MODref = getMapObjectsDataRef(); //MapObjectData(MOD) construct param reference
 				//rendering Combo list of possible objName values
 				std::pair<bool, std::string> result = ND_Util::ImGuiComboList("ObjName of " + MODref.className, m_listOfMODObjNames, MODref.objName);
 				
 				//checking if new value was selected from ComboList
 				if (result.first)
-					constructorParams[paramIndex].paramValue.getRef<MapObjectsData>().objName = result.second;
+					getMapObjectsDataRef().objName = result.second;
 
 				ImGuiRenderHolder(); //render the rest of MOD struct as usual;
 			};
