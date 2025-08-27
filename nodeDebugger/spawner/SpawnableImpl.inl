@@ -231,3 +231,36 @@ inline Spawnable::SpawnSetting::SpawnSetting(
 			}
 		};
 }
+
+template<typename T> requires AutoTypeConcept<T> || onGuiImplConcept<T>
+void Spawnable::addSpawnableSettingList(const std::string& name, T& value,
+	std::function<std::map<std::string, std::decay_t<T>>()>&& listGetter,
+	std::function<void(std::decay_t<T>&)>&& onChangeCB)
+{
+	SpawnSetting&& newSetting = SpawnSetting(name, value, std::move(onChangeCB));
+	newSetting.getOnGuiCb() = [this, listGetter](const std::string& settingName, SpawnSetting::anyVar& settingHolder) -> bool
+		{
+			if (!settingHolder.hasValue()) return false;
+			std::map<std::string, std::decay_t<T>> mapWithValues = listGetter();
+			if (mapWithValues.empty())
+				return false;
+			std::string currentValue = "";
+			for (auto& [valueName, value] : mapWithValues)
+			{
+				if (value == *settingHolder.getRef<T>())
+				{
+					currentValue = valueName;
+					break;
+				}
+			}
+
+			std::pair<bool, T> result = ND_Util::ImGuiComboList(settingName, mapWithValues, currentValue);
+			if (result.first)
+			{
+				*settingHolder.getRef<T>() = result.second;
+				return true;
+			}
+			return false;
+		};
+	m_spawnableSettings.insert({ newSetting.settingName, std::move(newSetting)});
+}

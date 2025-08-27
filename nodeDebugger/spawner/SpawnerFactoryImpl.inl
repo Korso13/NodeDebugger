@@ -1,7 +1,7 @@
 #pragma once
 #include "SpawnerFactory.h"
 
-template<typename T> requires(std::is_base_of_v<Spawnable, T>)
+template<typename T> requires(std::is_base_of_v<Spawnable, T> || std::derived_from<T, Spawnable>)
 sptr<T> SpawnerFactory::getObjectByName(const std::string& spawnableName)
 {
 	if (m_spawnedEntities.contains(spawnableName))
@@ -13,7 +13,7 @@ sptr<T> SpawnerFactory::getObjectByName(const std::string& spawnableName)
 	}
 };
 
-template<typename T> requires(std::is_base_of_v<Spawnable, T>)
+template<typename T> requires(std::is_base_of_v<Spawnable, T> || std::derived_from<T, Spawnable>)
 std::vector<sptr<T>> SpawnerFactory::getAllObjectsOfClass(const std::string className)
 {
 	std::vector<sptr<T>> found;
@@ -82,6 +82,32 @@ inline SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::exposeVaria
 			if (!variable)
 			{
 				info("[SpawnerFactory::SpawnerRecord::exposeVariableToPaletteUi][onGui] invalid pointer to variable %s for class %s!", variableName.c_str(), m_classID.c_str());
+				return;
+			}
+			NDGui::Auto(variableName.c_str(), *variable);
+		});
+#endif
+
+	return *this;
+}
+
+template<typename DataType> requires AutoTypeConcept<DataType> || onGuiImplConcept<DataType>
+SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::exposeVariableToPaletteUi(const std::string& variableName,
+	std::function<std::decay_t<DataType>*()> variablePtrGetter)
+{
+#ifndef FORCENODEDEBUG_OFF
+	m_argsOnGui.emplace_back(
+		[this, variableName, variablePtrGetter]()
+		{
+			if (!variablePtrGetter)
+			{
+				info("[SpawnerFactory::SpawnerRecord::exposeVariableToPaletteUi][onGui] invalid variable getter for variable %s for class %s!", variableName.c_str(), m_classID.c_str());
+				return;
+			}
+			DataType* variable = variablePtrGetter();
+			if (!variable)
+			{
+				info("[SpawnerFactory::SpawnerRecord::exposeVariableToPaletteUi][onGui] nullptr variable from getter for variable %s for class %s!", variableName.c_str(), m_classID.c_str());
 				return;
 			}
 			NDGui::Auto(variableName.c_str(), *variable);

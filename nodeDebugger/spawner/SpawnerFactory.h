@@ -49,7 +49,7 @@ public:
 		};
 
 		SpawnerRecord();
-		SpawnerRecord(const std::string& className);
+		explicit SpawnerRecord(const std::string& className);
 		SpawnerRecord& operator=(const SpawnerRecord& rhv);
 
 		//Sets callback executed right after spawning a Spawnable entity
@@ -66,9 +66,14 @@ public:
 		SpawnerRecord& setObjNameList(std::vector<std::string>&& listOfNames);
 		SpawnerRecord& enableObjNameTextureSelector();
 
+		//Exposes pointer to object spawn menu (for example a field from its MapObjectsData
 		template<typename DataType>
 		requires AutoTypeConcept<DataType> || onGuiImplConcept<DataType> //checks if DataType can be rendered in UI
 		SpawnerRecord& exposeVariableToPaletteUi(const std::string& variableName, DataType* variable);
+		//More reliable method with dynamic containers
+		template<typename DataType>
+		requires AutoTypeConcept<DataType> || onGuiImplConcept<DataType> //checks if DataType can be rendered in UI
+		SpawnerRecord& exposeVariableToPaletteUi(const std::string& variableName, std::function<std::decay_t<DataType>*()> variablePtrGetter);
 		
 		//use it for adding shortcuts to MOD fiends in class palette!
 		MapObjectsData& getMapObjectsDataRef() {return m_defaultMod;};
@@ -79,7 +84,7 @@ public:
 		//sets alternative MOD for class spawner (usually temporarily)
 		void resetToDefaultMapObjectsData();
 		//setter/getter for Node used in class constructor
-		sptr<Node> getContructNode() const;
+		sptr<Node> getConstructNode() const;
 		void setNewConstructNode(sptr<Node> newNode);
 
 	private:
@@ -92,7 +97,7 @@ public:
 
 		//Func to be called on pressing "Spawn" button. Basically a factory for a specific subclass of Spawnable
 		std::function<sptr<Spawnable>(std::vector<ParamPack>)> m_spawnerFunc = nullptr;
-		//Called on spawning entity. Takes said entity as arguement for any further actions with it
+		//Called on spawning entity. Takes said entity as argument for any further actions with it
 		std::function<void(sptr<Spawnable>)> m_onSpawnCb = nullptr;		
 		//Called on deleting the entity from the Spawned entities list. 		
 		std::function<void(sptr<Spawnable>)> m_onDeleteCb = nullptr;
@@ -202,9 +207,9 @@ public:
 	std::vector<sptr<Mesh>> getAllMeshesMatching(const std::string& meshNameSearch);
 
 	//returns Spawned object of class T(must be Spawnable) by its name (how it's written in Spawned Objects subtab)
-	template<typename T> requires(std::is_base_of_v<Spawnable, T>)
+	template<typename T> requires(std::is_base_of_v<Spawnable, T> || std::derived_from<T, Spawnable>)
 	sptr<T> getObjectByName(const std::string& spawnableName);
-	template<typename T> requires(std::is_base_of_v<Spawnable, T>)
+	template<typename T> requires(std::is_base_of_v<Spawnable, T> || std::derived_from<T, Spawnable>)
 	std::vector<sptr<T>> getAllObjectsOfClass(const std::string className);
 
 	//Used by SpawnerTab::onGuiMeshPalette() to set root for newly spawned meshes
@@ -225,7 +230,7 @@ public:
 	//converts node's hierarchy place into string adress. Use as<Node>() to cast your sptr<Mesh> to Node
 	std::string getNodeHierarchyAddress(sptr<Node> node); 
 	//converts node's string adress into place in node hierarchy
-	sptr<Node> findNodeByHierarchyAddress(std::string adress); 
+	sptr<Node> findNodeByHierarchyAddress(std::string address);
 
 private:
 
@@ -236,6 +241,10 @@ private:
 	};
 
 	void checkNodeHierarchyNames();
+
+public:
+
+	bool m_nodeHierarchySearchLogging = false;
 
 private:
 
@@ -249,7 +258,6 @@ private:
 	std::map<std::string, std::pair<MapMeshData, sptr<Mesh>>> m_spawnedMeshes;
 
 	bool m_primaryMeshLoadComplete = false;
-	bool m_nodeHierarchySearchLogging = false;
 	std::map<int, MapMeshData> m_delayedMeshSpawn;
 	std::map<int, sptr<Spawnable>> m_delayedSpawnableParenting;
 

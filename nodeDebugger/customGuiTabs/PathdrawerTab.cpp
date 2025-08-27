@@ -928,6 +928,7 @@ void PathdrawerTab::tryBuildDefaultPaths()
 {
 	if (m_pathsData.pathnodes.empty())
 		return;
+	//todo: why have to use existing file? Change it! Borders can be in different files now
 	if (!w4::filesystem::isPathExists("config/staticIntersectBorderSettings.json"))
 	{
 		W4_LOG_WARNING("Couldn't find staticIntersectBorderSettings.json to build paths!");

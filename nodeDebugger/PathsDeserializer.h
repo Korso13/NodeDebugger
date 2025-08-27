@@ -80,16 +80,30 @@ namespace nlohmann {
 }
 
 #ifdef NDPATHDRAWER
-#include <game/level/Pathfinder/Pathfinder.h>
+#include <game/level/pathfinder/Pathfinder.h>
 
 static vec3 vec2toVec3(const vec2& invec) { return vec3(invec.x, invec.y, 0.f); }
 
-static void loadPathsIntoPathfinder(
-	sptr<Pathfinder> pathfinder, 
-	std::map<std::string, std::function<void(std::string)>> onPointCallbacks = std::map<std::string, std::function<void(std::string)>>(),
+static std::unordered_map<std::string, sptr<Pathfinder>> g_cachedPathfinders;
+
+static sptr<Pathfinder> loadPathfinder(
 	const std::string pathToConfig = "config/pathsContainerSettings.json",
-	bool generateAjacencyMatrix = true)
+	std::map<std::string, std::function<void(std::string)>> onPointCallbacks = std::map<std::string, std::function<void(std::string)>>())
 {
+	//loading cached pathfinder with precomputed paths and adjacency matrix
+	if (g_cachedPathfinders.contains(pathToConfig))
+	{
+		for (auto& [nodeName, nodeCb] : onPointCallbacks)
+		{
+			auto pathNode = g_cachedPathfinders[pathToConfig]->getPathNodeFromName(nodeName);
+			if (!pathNode || !pathNode->getPathNodePoint())
+				continue;
+			pathNode->getPathNodePoint()->m_cb = nodeCb;
+		}
+		return g_cachedPathfinders[pathToConfig];
+	}
+
+	sptr<Pathfinder> pathfinder = make::sptr<Pathfinder>();
 	PathsData pathsData;
 	auto file = w4::filesystem::open(pathToConfig);
 	auto json = nlohmann::json::parse(file->data(), file->data() + file->size());
@@ -134,7 +148,33 @@ static void loadPathsIntoPathfinder(
 		}
 	}
 
-	if(generateAjacencyMatrix)
-		pathfinder->updateAdjacencyMatrix();
+	pathfinder->updateAdjacencyMatrix(pathToConfig);
+	g_cachedPathfinders[pathToConfig] = pathfinder;
+
+	return pathfinder;
+}
+
+static void preloadPathfinders(const std::vector<std::string>& additionalPaths = {})
+{
+	for (int i = 0; i < 10; ++i)
+	{
+		std::string filePath = "config/pathsContainerSettings";
+		if (i > 0)
+			filePath += std::to_string(i) + ".json";
+		else
+			filePath += ".json";
+		if (!w4::filesystem::isPathExists(filePath) || g_cachedPathfinders.contains(filePath))
+			break;
+		debug("[preloadPathfinders] Preloading %s", filePath.c_str());
+		loadPathfinder(filePath);
+	}
+	for (auto& additionalPath : additionalPaths)
+	{
+		if (w4::filesystem::isPathExists(additionalPath) && !g_cachedPathfinders.contains(additionalPath))
+		{
+			debug("[preloadPathfinders] Preloading %s", additionalPath.c_str());
+			loadPathfinder(additionalPath);
+		}
+	}
 }
 #endif

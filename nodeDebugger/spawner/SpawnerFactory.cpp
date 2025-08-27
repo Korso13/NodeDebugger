@@ -34,32 +34,25 @@ void SpawnerFactory::SpawnObjects(const std::string& mapDataFileOverride)
 		if (!spawnerRec.m_spawnerFunc)
 			continue;
 
-		//spawning new object, registering in m_spawnedEntities, executing onSpawn logic
-		auto newEntity = spawnObjectOfClass(spawnerRec, obj, nullptr, false);
-
-		//reparenting object to designated node if needed
-		bool foundParentNode = obj.node.empty(); //only need to search node if it's mentioned in obj.node
-		if (newEntity->getSpawnableRoot() && !foundParentNode)
+		//setting up spawner function's parent node
+		sptr<Node> defaultClassSpawnNode = spawnerRec.getConstructNode();
+		bool foundParentNodeRecord = !obj.node.empty(); //only need to search node if it's mentioned in obj.node
+		sptr<Node> parentNode = nullptr;
+		if (foundParentNodeRecord)
 		{
-			auto parentNode = findNodeByHierarchyAddress(obj.node);
+			parentNode = findNodeByHierarchyAddress(obj.node);
 			if (parentNode)
-			{
-				foundParentNode = true;
-				newEntity->getSpawnableRoot()->setParent(parentNode);
-			}
+				spawnerRec.setNewConstructNode(parentNode);
 		}
 
-		//in case we failed to get getSpawnableRoot() after creating Spawnable (if it's not set in constructor)
-		if (!foundParentNode) 
+		//spawning new object, registering in m_spawnedEntities, executing onSpawn logic
+		auto newEntity = spawnObjectOfClass(spawnerRec, obj, nullptr, false);
+		spawnerRec.setNewConstructNode(defaultClassSpawnNode);
+
+		//in case we failed to find parent node for new entity
+		if (!parentNode)
 		{
-			if (newEntity->getSpawnableRoot() && !obj.node.empty())
-			{
-				auto parentNode = findNodeByHierarchyAddress(obj.node);
-				if (parentNode)
-					newEntity->getSpawnableRoot()->setParent(parentNode);
-				else
-					m_delayedSpawnableParenting.insert({ m_delayedSpawnableParenting.size(), newEntity });
-			}
+			m_delayedSpawnableParenting.insert({ m_delayedSpawnableParenting.size(), newEntity });
 		}
 	}
 
@@ -345,7 +338,7 @@ void recursiveNodeGetter(sptr<Node> node, std::string& hierarchyAdress)
 	}
 	if (node == Render::getHudPass().getRoot())
 	{
-		hierarchyAdress.insert(0, "HUD Root");
+		hierarchyAdress.insert(0, Render::getHudPass().getRoot()->getName());
 		return;
 	}
 
@@ -364,40 +357,41 @@ std::string SpawnerFactory::getNodeHierarchyAddress(sptr<Node> node)
 	return hierarchyAdress;
 }
 
-sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string adress)
+sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string address)
 {
-	//debug("[SpawnerFactory::findNodeByHierarchyAddress] %s", adress.c_str());
+	if (m_nodeHierarchySearchLogging)
+		debug("[SpawnerFactory::findNodeByHierarchyAddress] %s", address.c_str());
 	sptr<Node> foundNode = nullptr;
-	if (adress.empty())
+	if (address.empty())
 		return nullptr;
 	do
 	{
 		if (!foundNode) //first iteration
 		{
 			std::string firstNodeName;
-			if (adress.find("||") != std::string::npos)
+			if (address.find("||") != std::string::npos)
 			{
-				firstNodeName = adress.substr(0, adress.find("||")); //getting sub string up to the next separator
-				adress.erase(0, adress.find("||") + 2); //removing found node from the adress along with the separator
+				firstNodeName = address.substr(0, address.find("||")); //getting sub string up to the next separator
+				address.erase(0, address.find("||") + 2); //removing found node from the address along with the separator
 			}
 			else //adress is just root node
 			{
-				firstNodeName = adress;
-				adress.clear();
+				firstNodeName = address;
+				address.clear();
 			}
 			if(m_nodeHierarchySearchLogging)
-				info("\nfirstNodeName: %s", firstNodeName.c_str());
+				info("[SpawnerFactory::findNodeByHierarchyAddress]\nfirstNodeName: %s", firstNodeName.c_str());
 
 			if (firstNodeName == "Root")
 				foundNode = Render::getRoot();
-			else if (firstNodeName == "HUD Root")
+			else if (firstNodeName == "HUD Root" || firstNodeName == "ScreenSpace_Root" || firstNodeName == "Screen_Render")
 				foundNode = Render::getHudPass().getRoot();
 		}
 		else
 		{
-			std::string nextNodeName = adress.substr(0, adress.find("||")); //getting sub string up to the next separator
+			std::string nextNodeName = address.substr(0, address.find("||")); //getting sub string up to the next separator
 			if (m_nodeHierarchySearchLogging)
-				info("\nnextNodeName: %s", nextNodeName.c_str());
+				info("[SpawnerFactory::findNodeByHierarchyAddress]\nnextNodeName: %s", nextNodeName.c_str());
 			auto children = foundNode->getChildren();
 			auto childIt = children.begin();
 			bool bFound = false;
@@ -406,7 +400,7 @@ sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string adress)
 				if ((*childIt)->getName() == nextNodeName)
 				{
 					if (m_nodeHierarchySearchLogging)
-						warn("Found child %s matching name %s. It's parent %s",
+						warn("[SpawnerFactory::findNodeByHierarchyAddress]Found child %s matching name %s. It's parent %s",
 							(*childIt)->getName().c_str(),
 							nextNodeName.c_str(), 
 							(*childIt)->getParent()->getName().c_str());
@@ -420,32 +414,34 @@ sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string adress)
 			{
 				if (m_nodeHierarchySearchLogging)
 				{
-					std::string output = "Children of " + foundNode->getName() + " " + STR(children.size()) + "\n";
-					warn("%s", output.c_str());
-					for (auto& child : children)
+					std::string output = "Children of " + foundNode->getName() + " " + STR(foundNode->getChildren().size()) + "\n";
+					warn("[SpawnerFactory::findNodeByHierarchyAddress]\n%s", output.c_str());
+					for (auto& child : foundNode->getChildren())
 					{
-						info("%s", child->getName().c_str());
+						info("[SpawnerFactory::findNodeByHierarchyAddress]\n%s", child->getName().c_str());
 					}
 				}
 
-				adress.erase(0, adress.find("||") + 2); //removing found node from the adress along with the separator
+				address.erase(0, address.find("||") + 2); //removing found node from the adress along with the separator
 				if (m_nodeHierarchySearchLogging)
-					info("\n Adress after iteration: \n%s", adress.c_str());
+					info("[SpawnerFactory::findNodeByHierarchyAddress]\n Address after iteration: \n%s", address.c_str());
 			}
 			else
 			{
 				if (m_nodeHierarchySearchLogging)
-					warn("\nCoundn't find %s", nextNodeName.c_str());
+					warn("[SpawnerFactory::findNodeByHierarchyAddress]\nCoundn't find %s", nextNodeName.c_str());
 				foundNode = nullptr;
 				break;
 			}
 		}
-	} while (adress.find("||") != std::string::npos);
+	} while (address.find("||") != std::string::npos);
 	
 	//final iteration
-	if (!adress.empty())
+	if (!address.empty())
 	{
-		std::string lastNodeName = adress;
+		std::string lastNodeName = address;
+		if (m_nodeHierarchySearchLogging)
+			info("[SpawnerFactory::findNodeByHierarchyAddress]\nlastNodeName: %s, last found node %s has %d children", lastNodeName.c_str(), foundNode->getName().c_str(), foundNode->getChildren().size());
 		auto children = foundNode->getChildren();
 		auto childIt = children.begin();
 		bool bFound = false;
@@ -462,13 +458,13 @@ sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string adress)
 		{
 			if (m_nodeHierarchySearchLogging)
 			{
-				warn("\nCoundn't find last node: %s", lastNodeName.c_str());
+				warn("[SpawnerFactory::findNodeByHierarchyAddress]\nCoundn't find last node: %s", lastNodeName.c_str());
 				std::string output = "Children " + STR(children.size()) + "\n";
 				for (auto& child : children)
 				{
 					output = output + "\n" + child->getName();
 				}
-				warn("%s", output.c_str());
+				warn("[SpawnerFactory::findNodeByHierarchyAddress]\n%s", output.c_str());
 			}
 			foundNode = nullptr;
 		}
@@ -508,15 +504,24 @@ sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 	else
 		parentNode = findNodeByHierarchyAddress(meshData.node);
 
-	//nessesary hack for meshes from MapObjects.json if they rely on other mesh being spawned first
-	if (!parentNode)
+	//necessary hack for meshes from MapObjects.json if they rely on other mesh being spawned first
+	if(!parentNode && !m_primaryMeshLoadComplete && !meshData.isChild)
 	{
-		if(!m_primaryMeshLoadComplete) 
-			m_delayedMeshSpawn.insert({ CastI(m_delayedMeshSpawn.size()), meshData });
+		m_delayedMeshSpawn.insert({CastI(m_delayedMeshSpawn.size()), meshData});
+		info("[SpawnerFactory::spawnMesh] Couldn't find parent node {%s} for mesh {%s}. primaryMeshLoadComplete: %s",
+			  meshData.node.c_str(),
+			  meshData.meshId.c_str(),
+			  BOOL_STR(m_primaryMeshLoadComplete));
 		return nullptr;
 	}
+	else if (!parentNode && meshData.isChild)
+	{
+		info("[SpawnerFactory::spawnMesh] Parent {%s} not found for child mesh {%s}",
+			meshData.node.c_str(),
+			meshData.meshId.c_str());
+	}
 
-	sptr<Mesh> newMesh = createMesh(meshData.meshName, "", "sprite", true, nullptr); //material replaced with unique instance later
+	sptr<Mesh> newMesh = createMesh(meshData.meshName, "", "sprite", true, parentNode); //material replaced with unique instance later
 	
 	//naming and parenting																				 //naming and parenting
 	std::string uniqueName; 
@@ -528,7 +533,10 @@ sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 	if (uniqueName != meshData.meshId)
 		meshData.meshId = uniqueName;
 	newMesh->setName(uniqueName);
-	parentNode->addChild(newMesh, false);
+	// if (parentNode)
+	// 	parentNode->addChild(newMesh, false);
+	// else
+	// 	newMesh->setParent(nullptr); //otherwise will be spawned on default spawner node!
 
 	//making unique material instance
 	auto newMatInst = RMat(meshData.material)->createInstance();
@@ -605,7 +613,7 @@ void SpawnerFactory::SpawnerRecord::resetToDefaultMapObjectsData()
 	}
 }
 
-sptr<Node> SpawnerFactory::SpawnerRecord::getContructNode() const
+sptr<Node> SpawnerFactory::SpawnerRecord::getConstructNode() const
 {
 	for (const auto& param : constructorParams)
 		if (!param.node.expired())
@@ -913,7 +921,7 @@ SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::enableObjNameTextu
 		m_argsOnGui.emplace_back( 
 				[this, paramIndex]()
 				{
-					auto& MODref = constructorParams[paramIndex].paramValue.getRef<MapObjectsData>(); //MapObjectData(MOD) construct param reference
+					auto& MODref = getMapObjectsDataRef(); //MapObjectData(MOD) construct param reference
 					//rendering Combo list of possible objName values
 					if (ND_Util::ImGuiTextureSelector(MODref.objName, "ObjName selector"))
 					{

@@ -36,6 +36,30 @@ JSTRUCT_DEFINITION(ExtraLoot,
 	((std::string, bonus_mesh, "none"))
 );
 
+JSTRUCT_DEFINITION(TextSettings,
+	((std::string, fontName, "marvin"))
+	((vec4, color, vec4(1.f)))
+	((int, renderOrder, 100))
+	((vec3, position_local, vec3(0.f, 0.f, -0.002)))
+	((vec3, scale_local, vec3::one))
+	((int, lineSize, 32))
+	((vec3, lineOffset, vec3::down))
+	((TEXT_ALIGN, align, TEXT_ALIGN::CENTER))
+);
+//NOTE: position_local - small negative z required because of stupid TextSdfNode implementation in the engine =\
+
+JSTRUCT_DEFINITION(TextNodeSettings,
+	((std::string, text, ""))
+	((bool, usesTranslations, false))
+	((bool, needsStroke, false))
+	((bool, useFontColor, false))
+	((TextSettings, textSetting, TextSettings()))
+	((float, strokeSize, 1.0f))
+	((float, strokeEdgeCenter, 0.34f))
+	((float, strokeSmoothing, 0.37f))
+	((vec4, strokeColor, vec4(1.f)))
+);
+
 //Struct for Mesh Spawner
 JSTRUCT_DEFINITION(MapMeshData,
 	((std::string, className, "CLASS_NAME"))
@@ -68,11 +92,13 @@ MOD_DEFINITION(
 	((int, level, 0))
 	((bool, isBonusMultiplies, false))
 	((vec3, pos, vec3::zero))
+	((vec3, local_pos, vec3::zero))
 	((bool, isNeedToTurnLeft, false))
 	((bool, hasTwoActivatePoints, false))
 	((vec3, interactPos_R, vec3(666.f)))
 	((vec3, interactPos_L, vec3(666.f)))
 	((SettingsStuct, settings, SettingsStuct()))
+	((TextNodeSettings, textNodeSetting, TextNodeSettings()))
 	((std::vector<SPK_MATERIAL>, SPARK_Materials, std::vector<SPK_MATERIAL>()))
 );
 

@@ -2,6 +2,8 @@
 
 #include "SpawnerStructsImpl.h"  //Implements  MAKE_SERIALIZED_ENUM_CLASS and SERIALIZE_ENUM macros
 #include "settings/InGameTypes.h" //Common header for enums used with SERIALIZE_ENUM
+#include "common/CommonTypes.h" //Common header for enums used with SERIALIZE_ENUM
+#include "common/MonospaceDigitsPlane.h"
 
 //enum class serialisations for imgui or json export/import
 
@@ -63,5 +65,17 @@ MAKE_SERIALIZED_ENUM_CLASS(BonusType,
 
 SERIALIZE_ENUM(ViewDirection,
 	(LEFT)
+	(RIGHT)
+);
+
+SERIALIZE_ENUM(TEXT_ALIGN,
+	(LEFT)
+	(CENTER)
+	(RIGHT)
+);
+
+SERIALIZE_ENUM(Aligning,
+	(LEFT)
+	(CENTER)
 	(RIGHT)
 );

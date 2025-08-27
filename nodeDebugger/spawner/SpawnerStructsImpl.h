@@ -10,6 +10,7 @@
 #include "external/boost/preprocessor/seq/for_each.hpp"
 #include "external/boost/preprocessor/tuple/elem.hpp"
 #include "external/boost/preprocessor/tuple/eat.hpp"
+#include "common/nodeDebugger/Concepts.h"
 
 //interface struct for spawnables
 struct SpawnableStr
@@ -34,11 +35,33 @@ struct SpawnableStr
 //AUTO_SERIALIZE_ENUM_CLASS helper Macro
 #define X_DEFINE_ENUM_CLASS_FIELD(r, data, elem) elem ,
 
+//todo: consider moving to log defines?
 template<typename T>
 inline static const char* enumToStr(const T& value)
 {
-	int val = CastI(value);
-	return nlohmann::adl_serializer<T>::getValues(val)->second;
+	int val = static_cast<int>(value);
+	int size = 0;
+	return nlohmann::adl_serializer<T>::getValues(size)[std::min(size, val)].second;
+}
+
+template<typename T>
+requires serializedEnumConcept<T> && std::is_enum_v<T>
+inline static T strToEnum(const std::string& strValue)
+{
+	int val = -9999;
+	int size = 0;
+	nlohmann::adl_serializer<T>::getValues(size);
+	for (int i = 0; i < size; ++i)
+	{
+		const char* currValue = nlohmann::adl_serializer<T>::getValues(size)[std::min(size, i )].second;
+		if (currValue == strValue)
+		{
+			val = i;
+			break;
+		}
+	}
+
+	return static_cast<T>(val);
 }
 
 //Enums must be serialized before exposing them to ImGui or mapObjects.json! 

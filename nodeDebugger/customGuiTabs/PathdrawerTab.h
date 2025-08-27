@@ -107,7 +107,7 @@ private:
 	int m_selectedPathIndex = -1;
 	std::string m_selectedSearchNode = "No Node Selected";
 	int m_selectedSearchResultIndex = -1;
-	float m_nodeDefaultSpeed = 4.2;
+	float m_nodeDefaultSpeed = 1.0;
 	std::string m_lastSelectedPathName = "";
 
 	std::map<std::string, sptr<Mesh>> m_pathNodeRender; //path points' meshes

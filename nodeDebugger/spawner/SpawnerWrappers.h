@@ -3,8 +3,57 @@
 #include "W4Framework.h"
 #include "others/SPARK/SPARK_Tools.h"
 #include "Spawnable.h"
+#include "SpawnerFactory.h"
+//#include "common/nodeDebugger/customGuiTabs/SpawnerTab.h"
+#include "others/utils/Subscriber.h"
+
 
 W4_USE_UNSTRICT_INTERFACE
+
+//====================================
+// Spawnable simple wrapper
+//====================================
+
+class SceneObject : public Spawnable, public Subscriber, public CommonTypes::Movable
+{
+public:
+
+	SceneObject(MapObjectsData& mod, sptr<Node> parentNode, bool bSpawnChildren = true, bool bCallSpawnableInit = true);
+	~SceneObject() override;
+
+	sptr<Node> getRoot() override { return m_root; }
+
+	MapObjectsData& getMapObjectsData() override;
+	sptr<Mesh> getChildMesh(const std::string& name) const {return getChildMeshByName(std::forward<const std::string&>(name));}
+	std::vector<wptr<Mesh>> getAllChildMeshes(bool bForceRenewCache = false);
+	sptr<Spawnable> getChildObjectById(const std::string& name);
+
+	void spawnableSelfUpdate(float dt) override;
+
+protected:
+
+	void initSpawnable(sptr<Node> rootNode) override;
+	virtual void onChildSpawned(sptr<Spawnable> newChild);
+
+private:
+
+	void onBeginPlay(sptr<Spawnable> selfRef, bool isTabSpawned, vec3 spawnLocation) override;
+	void onEndPlay(sptr<Spawnable> selfRef, const std::string& objId) override;
+
+	void setupPlacementStrategy();
+
+protected:
+
+	sptr<Node> m_root = nullptr;
+	const bool m_needToSpawnChildren = true;
+	sptr<class PlacementStrategies> m_placementStrategy = nullptr;
+	std::vector<wptr<Mesh>> m_childMeshesCache;
+};
+
+
+//====================================
+// SPKParticle wrapper
+//====================================
 
 static SPK::BlendMode toSPKBlend(SPK_MATERIAL mat) {
 	switch (mat)
@@ -53,7 +102,7 @@ public:
 		flattenSPKSystem(node);
 
 #ifdef DEBUG
-		initSpawnable(node);
+		SPKParticle_S::initSpawnable(node);
 #else
 		Spawnable::initSpawnable(node);
 #endif // DEBUG

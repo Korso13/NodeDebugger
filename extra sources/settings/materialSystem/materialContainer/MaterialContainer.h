@@ -39,6 +39,7 @@ namespace materials
 			ADD_MATERIAL(m_materialStorage, animated				);
 			ADD_MATERIAL(m_materialStorage, animated_mirror			);
 			ADD_MATERIAL(m_materialStorage, animated_mirrored		);
+			ADD_MATERIAL(m_materialStorage, alt_sdf_material		);
 			ADD_MATERIAL(m_materialStorage, bump					);
 			ADD_MATERIAL(m_materialStorage, defaultShader			);
 			ADD_MATERIAL(m_materialStorage, digits					);

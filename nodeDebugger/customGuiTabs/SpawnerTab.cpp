@@ -113,7 +113,7 @@ void SpawnerTab::onGuiExportBtn()
 		for (auto& [name, spawnedObject] : SPAWNER.getAllSpawnables())
 			if (spawnedObject && !spawnedObject->getMapObjectsData().isChildObj)
 			{
-				spawnedObject->updateChildrensData();
+				spawnedObject->updateChildrenData();
 				tempContainer.mapObjectsData.push_back(spawnedObject->getMapObjectsData());
 			}
 		for (auto& [name, spawnedMesh] : SPAWNER.getAllMeshes())
