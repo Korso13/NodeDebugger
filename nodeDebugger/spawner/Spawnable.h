@@ -94,16 +94,24 @@ protected:
 	std::vector<SpawnableChildMesh>& getSpawnedChildMeshes() { return m_childMeshes; };
 	sptr<Mesh> getChildMeshByName(const std::string& name) const;
 
-private:
-
 	//Called immediately after constructor
 	//Override to add class specific init behavior (better than using onSpawn callback)
 	//selfRef - sptr to this object (do not save inside class!), isTabSpawned - is true when object is spawned from Spawner tab, spawnLocation - world coord of click or camera with zero z, if tabSpawned (if not - uses .pos from MOD)
 	virtual void onBeginPlay(sptr<Spawnable> selfRef, bool isTabSpawned, vec3 spawnLocation = INVALIDPOS) {};
-	
+
 	//Called immediately on ordering Spawnable deletion from level (Better option than OnDeleteCallback)
 	//selfRef - sptr to this object (do not save inside class!!), objId - name, under which the object is registered in Spawner (normally == objId dield in the object's MapObjectsData)
 	virtual void onEndPlay(sptr<Spawnable> selfRef, const std::string& objId) {};
+
+	//recursively visits all descendants (child objects) of this object
+	void childrenVisiter(const std::function<void(Spawnable&)>& visiterFunction);
+	void childrenVisiter(const std::function<void(SpawnableChildMesh&)>& visiterFunction);
+
+	// Used to render focus frame around Spawnable.
+	// Returns coords for approximate bounding volume around all childs of m_spRoot (except ParticleEmitter, meshes with 'target' texture, disabled VisualNodes). Spines' bounding volume data is unreliable! :(
+	std::array<vec3, 2> getSpawnableBounds(sptr<Node> spawnableRoot);
+
+private:
 
 	//Renders root transforms and parenting ui + any exposed SpawnableSettings
 	void SpawnableMainUi();
@@ -115,14 +123,7 @@ private:
 	sptr<Spawnable> spawnChild(sptr<MapObjectsData> childData, SpawnableChild& childHolder, bool bTabSpawned = false);
 	//spawns Mesh child and registers it where necessary
 	sptr<Mesh> spawnChildMesh(sptr<MapMeshData> childData, SpawnableChildMesh& childHolder);
-	
-	//recursively visits all descendants (child objects) of this object
-	void childrenVisiter(const std::function<void(Spawnable&)>& visiterFunction);
-	void childrenVisiter(const std::function<void(SpawnableChildMesh&)>& visiterFunction);
 
-	// Used to render focus frame around Spawnable. 
-	// Returns coords for approximate bounding volume around all childs of m_spRoot (except ParticleEmitter, meshes with 'target' texture, disabled VisualNodes). Spines' bounding volume data is unreliable! :(
-	std::array<vec3, 2> getSpawnableBounds(sptr<Node> spawnableRoot);
 	void removeFocusFrame();
 
 	void initSpawnableCollider(std::function<void(const CollisionInfo&)> clickCb);
