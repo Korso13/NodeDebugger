@@ -28,13 +28,13 @@ protected:
 public:
 
 	Spawnable() = delete;
-	Spawnable(MapObjectsData& spawnData) : m_mapObjectData(spawnData) {};
+	Spawnable(MapObjectsData& spawnData) : m_mapObjectData(spawnData), m_uid(utils::UIDGenerator::get()) {};
 	virtual ~Spawnable();
 
 	virtual sptr<Node> getSpawnableRoot() { return m_spRoot; };
 
 	//overload in main class to call its respective update method (allows spawned entities to recieve updates)
-	//Use only if your are not setting up updates for Spawnable via 
+	//Use only if you are not setting up updates for Spawnable via
 	virtual void spawnableSelfUpdate(float dt) { };
 
 	//Used by Spawner Tab. Do not call youreself!
@@ -43,6 +43,11 @@ public:
 	//used to get data for exporting spawned entities
 	//Always call Spawnable::getMapObjectsData() if your class can have children (it updates getMapObjectsData().childObjects!!)
 	virtual MapObjectsData& getMapObjectsData();
+	[[nodiscard]] size_t getUid() const { return m_uid; }
+	const std::string& getObjId() const {return m_mapObjectData.objId;}
+
+	std::vector<SpawnableChild>& getSpawnedChildren() {return m_children; };
+	std::vector<SpawnableChildMesh>& getSpawnedChildMeshes() { return m_childMeshes; };
 
 protected:
 
@@ -90,8 +95,6 @@ protected:
 	//Better to call it from onBeginPlay (otherwise children may fail to find proper node) or at least after initSpawnable!
 	void spawnAllChildren();
 
-	std::vector<SpawnableChild>& getSpawnedChildren() {return m_children; };
-	std::vector<SpawnableChildMesh>& getSpawnedChildMeshes() { return m_childMeshes; };
 	sptr<Mesh> getChildMeshByName(const std::string& name) const;
 
 	//Called immediately after constructor
@@ -110,6 +113,7 @@ protected:
 	// Used to render focus frame around Spawnable.
 	// Returns coords for approximate bounding volume around all childs of m_spRoot (except ParticleEmitter, meshes with 'target' texture, disabled VisualNodes). Spines' bounding volume data is unreliable! :(
 	std::array<vec3, 2> getSpawnableBounds(sptr<Node> spawnableRoot);
+	void renewSpawnableBounds(){m_cachedBounds = std::array<w4::math::vec3, 2>();}
 
 private:
 
@@ -146,6 +150,8 @@ protected:
 private:
 
 	inline static sptr<Plotter> m_framePlotter = nullptr; //red rectangle around selected object
+
+	const size_t m_uid;
 
 	std::map<std::string, SpawnSetting> m_spawnableSettings; //Fields exposed to the Spawner Tab Gui (rendered in Spawnable::onGui)
 	std::map<std::string, std::function<void()>> m_spawnableBtns; //Btns exposed to the Spawner Tab Gui (rendered in Spawnable::onGui)

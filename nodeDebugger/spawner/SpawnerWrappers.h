@@ -29,18 +29,17 @@ public:
 	sptr<Spawnable> getChildObjectById(const std::string& name);
 
 	void spawnableSelfUpdate(float dt) override;
+	void forceUpdatePlacementStrategy();
 
 protected:
 
 	void initSpawnable(sptr<Node> rootNode) override;
 	virtual void onChildSpawned(sptr<Spawnable> newChild);
 
-private:
-
 	void onBeginPlay(sptr<Spawnable> selfRef, bool isTabSpawned, vec3 spawnLocation) override;
 	void onEndPlay(sptr<Spawnable> selfRef, const std::string& objId) override;
 
-	void setupPlacementStrategy();
+	virtual void setupPlacementStrategy();
 
 protected:
 
@@ -77,36 +76,7 @@ static SPK::OrientationPreset toSPKOrient(SPK_ORIENTATION orientation) { return 
 class SPKParticle_S : public SPKParticle, public Spawnable
 {
 public:
-	SPKParticle_S(MapObjectsData& spawnData, sptr<Node> root = Render::getRoot())
-		:
-		Spawnable(spawnData),
-		SPKParticle(spawnData.objName, root)
-	{
-		setLocalPos(spawnData.pos);
-		loadMaterialsData();
-		node->setName(spawnData.objName);
-		if (spawnData.settings.integers["RO"] == 0)
-			spawnData.settings.integers["RO"] = 2;
-
-		spawnData.settings.integers["RO"] = 2;
-		setRenderOrder(spawnData.settings.integers["RO"]);
-
-		if (!spawnData.settings.flags["use_w_scale"] && spawnData.settings.vec3s["l_scale"] != vec3::zero)
-		{
-			node->setLocalScale(spawnData.settings.vec3s["l_scale"]);
-		}
-		else if (spawnData.settings.vec3s["w_scale"] != vec3::zero)
-		{
-			node->setWorldScale(spawnData.settings.vec3s["w_scale"]);
-		}
-		flattenSPKSystem(node);
-
-#ifdef DEBUG
-		SPKParticle_S::initSpawnable(node);
-#else
-		Spawnable::initSpawnable(node);
-#endif // DEBUG
-	}
+	SPKParticle_S(MapObjectsData& spawnData, sptr<Node> root = Render::getRoot());
 
 	static MapObjectsData& getDefaultSpawnSettings()
 	{
@@ -116,163 +86,11 @@ public:
 		return spawnSparkData;
 	}
 
+	void restart();
+
 protected:
 
-	void loadMaterialsData()
-	{
-		if (!getMapObjectsData().SPARK_Materials.empty())
-		{
-			for (size_t i = 0; i < system->getNbGroups(); i++)
-			{
-				if (getMapObjectsData().SPARK_Materials.size() <= i)
-					continue;
-
-				applySpkMaterialToGroup(system, toSPKBlend(getMapObjectsData().SPARK_Materials[i]), i);
-			}
-		}
-		else
-		{
-			//prevents memory re-allocations and crashes due to pointer invalidation
-			getMapObjectsData().SPARK_Materials.reserve(system->getNbGroups());
-			getMapObjectsData().SPARK_Materials.resize(system->getNbGroups());
-
-			for (size_t i = 0; i < system->getNbGroups(); i++)
-			{
-				//guessing correct material based on texture extension or material name (material takes priority)
-				//requires patched SparkParticleSystemQuadRenderer.h !
-				auto rendererAttrib = system->getGroup(i)->getRenderer()->exportAttributes();
-				auto TextureAttrib = rendererAttrib.getAttributeWithValue("texture");
-				auto MaterialAttrib = rendererAttrib.getAttributeWithValue("material");
-				bool setMaterial = false;
-				if (MaterialAttrib)
-				{
-					std::string materialName = MaterialAttrib->getValue<std::string>();
-					if (!materialName.empty())
-					{
-						setMaterial = true;
-						if (materialName == "add_alpha")
-							getMapObjectsData().SPARK_Materials[i] = SPK_MATERIAL::ADDALPHA;
-						else if (materialName == "alpha")
-							getMapObjectsData().SPARK_Materials[i] = SPK_MATERIAL::ALPHA;
-					}
-				}
-				if (TextureAttrib && !setMaterial)
-				{
-					auto textureName = TextureAttrib->getValue<std::string>();
-					if (textureName.find(".png") != std::string::npos)
-						getMapObjectsData().SPARK_Materials[i] = SPK_MATERIAL::ALPHA;
-					else if (textureName.find(".jpg") != std::string::npos)
-						getMapObjectsData().SPARK_Materials[i] = SPK_MATERIAL::ADDALPHA;
-				}
-			}
-		}
-	}
-
-	MapObjectsData& getMapObjectsData() override
-	{
-		m_mapObjectData.settings.vec3s["l_scale"] = node->getLocalScale();
-		m_mapObjectData.settings.vec3s["w_scale"] = node->getWorldScale();
-
-		return Spawnable::getMapObjectsData();
-	}
-
-	void initSpawnable(sptr<Node> rootNode) override
-	{
-		Spawnable::initSpawnable(rootNode);
-
-		//Orientation and material settings
-		for (size_t i = 0; i < system->getNbGroups(); i++)
-		{
-			addSpawnableSetting(SpawnSetting(
-				"Material Group " + STR(i),
-				getMapObjectsData().SPARK_Materials[i],
-				[this, i](SPK_MATERIAL& material)
-				{
-					getMapObjectsData().SPARK_Materials[i] = material; //doesn't work well without it
-					loadMaterialsData();
-				}
-			));
-
-			//for debugging, not exported for now
-			addSpawnableSetting(SpawnSetting(
-				"Group Orientation " + STR(i),
-				SPK_ORIENTATION::CAMERA_PLANE_ALIGNED,
-				[this, i](SPK_ORIENTATION orientation)
-				{
-					setRendererOrientation(system, i, toSPKOrient(orientation));
-				}
-			));
-		}
-
-		addSpawnableSetting(SpawnSetting(
-			"Render Order",
-			m_mapObjectData.settings.integers["RO"],
-			[this](int& value)
-			{
-				setRenderOrder(value);
-			}
-		));
-
-		addSpawnableSetting(SpawnSetting(
-			"Use World Scale?",
-			m_mapObjectData.settings.flags["use_w_scale"],
-			[this](bool& val)
-			{
-				if (val)
-				{
-					addSpawnableSetting(SpawnSetting(
-						"Scale World",
-						m_mapObjectData.settings.vec3s["w_scale"],
-						[this](vec3& value)
-						{
-							node->setWorldScale(value);
-							flattenSPKSystem(node);
-						}
-					));
-					removeSpawnableSetting("Scale Local");
-				}
-				else
-				{
-					addSpawnableSetting(SpawnSetting(
-						"Scale Local",
-						m_mapObjectData.settings.vec3s["l_scale"],
-						[this](vec3& value)
-						{
-							node->setLocalScale(value);
-							flattenSPKSystem(node);
-						}
-					));
-					removeSpawnableSetting("Scale World");
-				}
-			}
-		));
-
-		if(m_mapObjectData.settings.flags["use_w_scale"])
-		{
-			addSpawnableSetting(SpawnSetting(
-				"Scale World",
-				m_mapObjectData.settings.vec3s["w_scale"],
-				[this](vec3& value)
-				{
-					node->setWorldScale(value);
-					flattenSPKSystem(node);
-				}
-			));
-		}
-		else
-		{
-			addSpawnableSetting(SpawnSetting(
-				"Scale Local",
-				m_mapObjectData.settings.vec3s["l_scale"],
-				[this](vec3& value)
-				{
-					node->setLocalScale(value);
-					flattenSPKSystem(node);
-				}
-			));
-		}
-
-		addSpawnableBtn("Flatten", [this]() {flattenSPKSystem(node); });
-		addSpawnableBtn("Restart", [this]() {restartSPKEmitter(system); });
-	}
+	void loadMaterialsData();
+	MapObjectsData& getMapObjectsData() override;
+	void initSpawnable(sptr<Node> rootNode) override;
 };

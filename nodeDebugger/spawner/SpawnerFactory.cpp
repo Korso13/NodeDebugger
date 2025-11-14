@@ -1,4 +1,6 @@
 #include "SpawnerFactory.h"
+
+#include "SpawnerTools.h"
 #include "common/nodeDebugger/NodeDebugger.h"
 #include "settings/CustomSettingsContainer.h"
 
@@ -384,7 +386,7 @@ sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string address)
 
 			if (firstNodeName == "Root")
 				foundNode = Render::getRoot();
-			else if (firstNodeName == "HUD Root" || firstNodeName == "ScreenSpace_Root" || firstNodeName == "Screen_Render")
+			else if (firstNodeName == "HudPassRoot" || firstNodeName == "HUD Root" || firstNodeName == "ScreenSpace_Root" || firstNodeName == "Screen_Render")
 				foundNode = Render::getHudPass().getRoot();
 		}
 		else
@@ -521,8 +523,31 @@ sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 			meshData.meshId.c_str());
 	}
 
-	sptr<Mesh> newMesh = createMesh(meshData.meshName, "", "sprite", true, parentNode); //material replaced with unique instance later
-	
+	sptr<Mesh> newMesh;
+	if (isMeshSettingExist(meshData.meshName))
+		newMesh = createMesh(meshData.meshName, "", "sprite", true, parentNode); //material replaced with unique instance later
+	//two fallback options for cases, when we removed meshes or textures after making mapObjects.json - to prevent crashes
+	else if (ResourceLibrary::instance().getLoadedTexturesInfo().contains(meshData.meshName))
+	{
+		newMesh = Mesh::create::plane();
+		auto mat = RMat("sprite")->createInstance();
+		mat->setTexture(TextureId::TEXTURE_0, RT(meshData.meshName));
+		mat->enableBlending(true); mat->setBlendFunc(BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA);
+		newMesh->setMaterialInst(mat);
+		parentNode->addChild(newMesh);
+		warn("[SpawnerFactory::spawnMesh] No mesh data for %s! Created default mesh with same texture!", meshData.meshName.c_str());
+	}
+	else
+	{
+		newMesh = Mesh::create::plane();
+		auto mat = RMat("sprite")->createInstance();
+		mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(color::Purple));
+		mat->enableBlending(true); mat->setBlendFunc(BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA);
+		newMesh->setMaterialInst(mat);
+		parentNode->addChild(newMesh);
+		warn("[SpawnerFactory::spawnMesh] No mesh data for %s!", meshData.meshName.c_str());
+	}
+
 	//naming and parenting																				 //naming and parenting
 	std::string uniqueName; 
 	if(!meshData.meshId.empty())
@@ -541,10 +566,7 @@ sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
 	//making unique material instance
 	auto newMatInst = RMat(meshData.material)->createInstance();
 	newMatInst->setTexture(TextureId::TEXTURE_0, newMesh->getMaterialInst()->getTexture(TextureId::TEXTURE_0));
-	if (meshData.material == "sprite_mirrored" && meshData.isNeedToTurnLeft)
-	{
-		newMatInst->setParam("mirrorMod", vec2(1, 0));
-	}
+	SP_Utils::loadMaterialParams(newMatInst, meshData);
 	newMesh->setMaterialInst(newMatInst);
 	newMesh->setRenderOrder(meshData.renderOrder);
 	if (meshData.useWorldPos)

@@ -37,7 +37,7 @@ JSTRUCT_DEFINITION(ExtraLoot,
 );
 
 JSTRUCT_DEFINITION(TextSettings,
-	((std::string, fontName, "marvin"))
+	((std::string, fontName, "Arial"))
 	((vec4, color, vec4(1.f)))
 	((int, renderOrder, 100))
 	((vec3, position_local, vec3(0.f, 0.f, -0.002)))
@@ -75,6 +75,7 @@ JSTRUCT_DEFINITION(MapMeshData,
 	((vec3, position_local, vec3::zero))
 	((vec3, scale_local, vec3::one))
 	((vec3, rotation_local, vec3::zero))
+	((SettingsStuct, material_settings, SettingsStuct()))
 );
 
 //MapObjectsData struct constructor. 

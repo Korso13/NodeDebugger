@@ -2,6 +2,8 @@
 #include "settings/JsonDeserializator.h"
 #include "SpawnerFactory.h"
 #include <common/nodeDebugger/NodeDebugger.h>
+
+#include "SpawnerTools.h"
 #include "../CustomAutos.h"
 #include "others/utils/ScreenSpaceShader.h"
 
@@ -189,7 +191,10 @@ bool Spawnable::onGui(const char* label)
 	{
 		m_framePlotter = w4::render::Plotter::buildCube(getSpawnableBounds(getSpawnableRoot()), vec4(1.f, 0.f, 0.f, 1.f));
 		m_framePlotter->setWorldRotation(getSpawnableRoot()->getWorldRotation());
-		m_spRoot->getRoot()->addChild(m_framePlotter); //todo: consider adding DebugUiPass and attach ImGui + this to its root to always render on top
+		if (m_spRoot->getRoot())
+			m_spRoot->getRoot()->addChild(m_framePlotter); //todo: consider adding DebugUiPass and attach ImGui + this to its root to always render on top
+		else
+			Render::getRoot()->addChild(m_framePlotter); 
 	}
 
 	if(!m_childrenAdderEnabled)
@@ -597,13 +602,14 @@ std::string Spawnable::getNewMeshIdSuffix(const std::string& meshName)
 void Spawnable::updateChildrenData()
 {
 	std::function<void(SpawnableChildMesh&)> visiterMesh = [](SpawnableChildMesh& meshHolder) {
-		auto child = meshHolder.child.lock();
-		meshHolder.mmd.node = SPAWNER.getNodeHierarchyAddress(child->getParent());
-		meshHolder.mmd.renderOrder = child->getRenderOrder();
-		meshHolder.mmd.useWorldPos = false;
-		meshHolder.mmd.position_local = child->getLocalTranslation();
-		meshHolder.mmd.scale_local = child->getLocalScale();
-		meshHolder.mmd.rotation_local = child->getLocalRotation().euler();
+			auto child = meshHolder.child.lock();
+			meshHolder.mmd.node = SPAWNER.getNodeHierarchyAddress(child->getParent());
+			meshHolder.mmd.renderOrder = child->getRenderOrder();
+			meshHolder.mmd.useWorldPos = false;
+			meshHolder.mmd.position_local = child->getLocalTranslation();
+			meshHolder.mmd.scale_local = child->getLocalScale();
+			meshHolder.mmd.rotation_local = child->getLocalRotation().euler();
+			SP_Utils::exportMaterialParams(child->getMaterialInst(), meshHolder.mmd);
 		};
 
 	//updating m_mapObjectData.childObjects via visiter since our sptrs are separated from children's MapObjectsData
@@ -760,7 +766,19 @@ void Spawnable::childMeshSpawnerUI()
 				if (ImGui::InputText("Mesh ID", &meshRec.mmd.meshId))
 				{
 					if (spawnedMesh && !meshRec.mmd.meshId.empty())
+					{
+						//name collision check
+						for (auto& childHolder : m_childMeshes)
+						{
+							if (childHolder.mmd.meshId == meshRec.mmd.meshId && childHolder.child.lock() != meshRec.child.lock()) //names collision!
+							{
+								meshRec.mmd.meshId.insert(0, "!");
+								meshRec.mmd.meshId.push_back('!');
+							}
+						}
 						spawnedMesh->setName(meshRec.mmd.meshId);
+						m_lastSelectedChildMesh = meshRec.mmd.meshId;
+					}
 				}
 				//Node UI renderer
 				ND_Util::ImGuiNodeRender(spawnedMesh, m_lastSelectedChildMesh);

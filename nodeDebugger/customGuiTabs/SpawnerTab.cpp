@@ -8,6 +8,7 @@
 #include <common/nodeDebugger/ND_JsonTools.h>
 #include "settings/JsonDeserializator.h"
 #include "../CustomAutos.h"
+#include "common/nodeDebugger/spawner/SpawnerTools.h"
 
 static std::string lastSelectedSpawnerClass = "CLASS_NAME";
 
@@ -118,7 +119,10 @@ void SpawnerTab::onGuiExportBtn()
 			}
 		for (auto& [name, spawnedMesh] : SPAWNER.getAllMeshes())
 			if (spawnedMesh.second && !spawnedMesh.first.isChild)
+			{
+				SP_Utils::exportMaterialParams(spawnedMesh.second->getMaterialInst(), spawnedMesh.first);
 				tempContainer.mapMeshData.push_back(spawnedMesh.first);
+			}
 
 		nlohmann::json exportJson;
 		nlohmann::adl_serializer<MapObjectsContainer>::to_json(exportJson, tempContainer);
@@ -139,6 +143,7 @@ bool SpawnerTab::isEmpty()
 
 void SpawnerTab::onGuiCall()
 {
+	ND_Util::ImGuiNodeSettings();
 	if (ImGui::BeginTabBar("Spawner Tab Bar"))
 	{
 		onGuiClassPalette();

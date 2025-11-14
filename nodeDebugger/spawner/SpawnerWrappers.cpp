@@ -64,6 +64,11 @@ void SceneObject::spawnableSelfUpdate(float dt)
          child.child.lock()->spawnableSelfUpdate(dt);
 }
 
+void SceneObject::forceUpdatePlacementStrategy()
+{
+   if (m_placementStrategy) m_placementStrategy->onResize(Render::getAspect());
+}
+
 void SceneObject::initSpawnable(sptr<Node> rootNode)
 {
    Spawnable::initSpawnable(rootNode);
@@ -119,16 +124,18 @@ void SceneObject::onChildSpawned(sptr<Spawnable> newChild)
 
 void SceneObject::onBeginPlay(sptr<Spawnable> selfRef, bool isTabSpawned, vec3 spawnLocation)
 {
-   if (isTabSpawned)
+   if (isTabSpawned && !m_mapObjectData.isChildObj)
       setWorldPos(spawnLocation);
+   else if (m_mapObjectData.isChildObj)
+      setLocalPos(m_mapObjectData.local_pos);
    else
       setWorldPos(m_mapObjectData.pos);
-   //SPAWNER.m_nodeHierarchySearchLogging = true;
+
    if (m_needToSpawnChildren)
       spawnAllChildren();
-   //SPAWNER.m_nodeHierarchySearchLogging = false;
+
    if (!m_mapObjectData.settings.strs["SO_meshForPS"].empty())
-      setupPlacementStrategy();
+      SceneObject::setupPlacementStrategy();
    PLAYER_CONTROLLER.addObject(selfRef);
 }
 
@@ -150,4 +157,197 @@ void SceneObject::setupPlacementStrategy()
 
    m_placementStrategy = PlacementStrategies::makeStrategyFromMOD(m_mapObjectData, m_root, meshForPS);
    addSpawnableSetting(SpawnSetting("Placement Strategy",m_placementStrategy));
+}
+
+SPKParticle_S::SPKParticle_S(MapObjectsData& spawnData, sptr<Node> root)
+      :
+      Spawnable(spawnData),
+      SPKParticle(spawnData.objName, root)
+{
+   setLocalPos(spawnData.pos);
+   loadMaterialsData();
+   node->setName(spawnData.objName);
+   if (spawnData.settings.integers["RO"] == 0)
+      spawnData.settings.integers["RO"] = 2;
+
+   setRenderOrder(spawnData.settings.integers["RO"]);
+
+   if (!spawnData.settings.flags["use_w_scale"] && spawnData.settings.vec3s["l_scale"] != vec3::zero)
+   {
+      node->setLocalScale(spawnData.settings.vec3s["l_scale"]);
+   }
+   else if (spawnData.settings.vec3s["w_scale"] != vec3::zero)
+   {
+      node->setWorldScale(spawnData.settings.vec3s["w_scale"]);
+   }
+   flattenSPKSystem(node);
+
+#ifdef DEBUG
+   SPKParticle_S::initSpawnable(node);
+#else
+   Spawnable::initSpawnable(node);
+#endif // DEBUG
+}
+
+void SPKParticle_S::restart()
+{
+   restartSPKEmitter(system);
+}
+
+void SPKParticle_S::loadMaterialsData()
+{
+   if (!getMapObjectsData().SPARK_Materials.empty())
+   {
+      for (size_t i = 0; i < system->getNbGroups(); i++)
+      {
+         if (getMapObjectsData().SPARK_Materials.size() <= i)
+            continue;
+
+         applySpkMaterialToGroup(system, toSPKBlend(getMapObjectsData().SPARK_Materials[i]), i);
+      }
+   }
+   else
+   {
+      //prevents memory re-allocations and crashes due to pointer invalidation
+      getMapObjectsData().SPARK_Materials.reserve(system->getNbGroups());
+      getMapObjectsData().SPARK_Materials.resize(system->getNbGroups());
+
+      for (size_t i = 0; i < system->getNbGroups(); i++)
+      {
+         //guessing correct material based on texture extension or material name (material takes priority)
+         //requires patched SparkParticleSystemQuadRenderer.h !
+         auto rendererAttrib = system->getGroup(i)->getRenderer()->exportAttributes();
+         auto TextureAttrib = rendererAttrib.getAttributeWithValue("texture");
+         auto MaterialAttrib = rendererAttrib.getAttributeWithValue("material");
+         bool setMaterial = false;
+         if (MaterialAttrib)
+         {
+            std::string materialName = MaterialAttrib->getValue<std::string>();
+            if (!materialName.empty())
+            {
+               setMaterial = true;
+               if (materialName == "add_alpha")
+                  getMapObjectsData().SPARK_Materials[i] = SPK_MATERIAL::ADDALPHA;
+               else if (materialName == "alpha")
+                  getMapObjectsData().SPARK_Materials[i] = SPK_MATERIAL::ALPHA;
+            }
+         }
+         if (TextureAttrib && !setMaterial)
+         {
+            auto textureName = TextureAttrib->getValue<std::string>();
+            if (textureName.find(".png") != std::string::npos)
+               getMapObjectsData().SPARK_Materials[i] = SPK_MATERIAL::ALPHA;
+            else if (textureName.find(".jpg") != std::string::npos)
+               getMapObjectsData().SPARK_Materials[i] = SPK_MATERIAL::ADDALPHA;
+         }
+      }
+   }
+}
+
+MapObjectsData& SPKParticle_S::getMapObjectsData()
+{
+   m_mapObjectData.settings.vec3s["l_scale"] = node->getLocalScale();
+   m_mapObjectData.settings.vec3s["w_scale"] = node->getWorldScale();
+
+   return Spawnable::getMapObjectsData();
+}
+
+void SPKParticle_S::initSpawnable(sptr<Node> rootNode)
+{
+	Spawnable::initSpawnable(rootNode);
+
+	//Orientation and material settings
+	for (size_t i = 0; i < system->getNbGroups(); i++)
+	{
+		addSpawnableSetting(SpawnSetting(
+			"Material Group " + STR(i),
+			getMapObjectsData().SPARK_Materials[i],
+			[this, i](SPK_MATERIAL& material)
+			{
+				getMapObjectsData().SPARK_Materials[i] = material; //doesn't work well without it
+				loadMaterialsData();
+			}
+		));
+
+		//for debugging, not exported for now
+		addSpawnableSetting(SpawnSetting(
+			"Group Orientation " + STR(i),
+			SPK_ORIENTATION::CAMERA_PLANE_ALIGNED,
+			[this, i](SPK_ORIENTATION orientation)
+			{
+				setRendererOrientation(system, i, toSPKOrient(orientation));
+			}
+		));
+	}
+
+	addSpawnableSetting(SpawnSetting(
+		"Render Order",
+		m_mapObjectData.settings.integers["RO"],
+		[this](int& value)
+		{
+			setRenderOrder(value);
+		}
+	));
+
+	addSpawnableSetting(SpawnSetting(
+		"Use World Scale?",
+		m_mapObjectData.settings.flags["use_w_scale"],
+		[this](bool& val)
+		{
+			if (val)
+			{
+				addSpawnableSetting(SpawnSetting(
+					"Scale World",
+					m_mapObjectData.settings.vec3s["w_scale"],
+					[this](vec3& value)
+					{
+						node->setWorldScale(value);
+						flattenSPKSystem(node);
+					}
+				));
+				removeSpawnableSetting("Scale Local");
+			}
+			else
+			{
+				addSpawnableSetting(SpawnSetting(
+					"Scale Local",
+					m_mapObjectData.settings.vec3s["l_scale"],
+					[this](vec3& value)
+					{
+						node->setLocalScale(value);
+						flattenSPKSystem(node);
+					}
+				));
+				removeSpawnableSetting("Scale World");
+			}
+		}
+	));
+
+	if(m_mapObjectData.settings.flags["use_w_scale"])
+	{
+		addSpawnableSetting(SpawnSetting(
+			"Scale World",
+			m_mapObjectData.settings.vec3s["w_scale"],
+			[this](vec3& value)
+			{
+				node->setWorldScale(value);
+				flattenSPKSystem(node);
+			}
+		));
+	}
+	else
+	{
+		addSpawnableSetting(SpawnSetting(
+			"Scale Local",
+			m_mapObjectData.settings.vec3s["l_scale"],
+			[this](vec3& value)
+			{
+				node->setLocalScale(value);
+				flattenSPKSystem(node);
+			}
+		));
+	}
+
+	addSpawnableBtn("Flatten", [this]() {flattenSPKSystem(node); });
+	addSpawnableBtn("Restart", [this]() {restartSPKEmitter(system); });
 }

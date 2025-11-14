@@ -38,12 +38,12 @@ class ImGuiNode;
 #define NDSPINES
 #define NDVARIABLES
 #define NDBORDERS
-//#define NDPATHDRAWER
+#define NDPATHDRAWER
 //#define NDSPOTLIGHTS
 //#define NDCONSOLE
 
 //Other settings
-#define JSON_FLOAT_ACCURACY 4
+#define JSON_FLOAT_ACCURACY 5
 
 //=========================================================================================
 // Node Debugger SETTINGS and Global Variables
