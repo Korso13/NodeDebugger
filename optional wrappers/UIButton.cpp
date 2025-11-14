@@ -140,7 +140,10 @@ void UIButton::setReleaseCollider(std::function<void(const CollisionInfo& hitInf
 			}
 			//if btn is based on Hud - check if screencast originated from HudPass (see ScreenSpaceShader class)
 			if (m_root->getRoot() == Render::getHudPass().getRoot() && !(hitInfo.source && hitInfo.source->getParent()->getName() == "screenFx_camera"))
+			{
+				info("[%s]Hud based btn, but not ScreenFX screencast! Ignoring", getUpdatableName().c_str());
 				return;
+			}
 
 			if (onReleaseCallback) onReleaseCallback(hitInfo);
 			playReleaseAnim();
@@ -229,8 +232,11 @@ void UIButton::playPressAnim()
 	float animTime = (UI_CLICK_TIME / 2.f) * ((startScale - vec3(0.8)).length() / vec3(0.2).length());
 	m_press = make::sptr<CustomTweens::Tween<vec3>>(
 		startScale,
-		[this](vec3 newScale) 
-		{m_root->setLocalScale(newScale); }
+		[this](vec3 newScale)
+			{
+				m_root->setLocalScale(newScale);
+				m_collider->setLocalScale(vec3::one/newScale);
+			}
 	); 
 	m_press->addMore(
 		vec3(0.8), 
@@ -253,7 +259,10 @@ void UIButton::playReleaseAnim()
 	m_press = make::sptr<CustomTweens::Tween<vec3>>(
 		vec3(0.8),
 		[this](vec3 newScale)
-		{m_root->setLocalScale(newScale); }
+			{
+				m_root->setLocalScale(newScale);
+				m_collider->setLocalScale(vec3::one/newScale);
+			}
 	);
 	m_press->addMore(
 		vec3::one,

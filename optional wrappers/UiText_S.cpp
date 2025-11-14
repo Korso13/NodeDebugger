@@ -16,6 +16,18 @@ SettingsText convertToSettingsText(TextSettings& importedSettings)
    return result;
 }
 
+void UiText_S::textNodeRebuilder(sptr<UiText> textNode, const std::string text, TextSettings& textSettings)
+{
+   textNode->m_setting.color = textSettings.color;
+   textNode->m_setting.fontName = textSettings.fontName;
+   textNode->m_setting.renderOrder = textSettings.renderOrder;
+   textNode->m_setting.lineSize = textSettings.lineSize;
+   textNode->m_setting.lineOffset = textSettings.lineOffset;
+   textNode->buildTextNodes(text, textSettings.fontName, textSettings.color, textSettings.renderOrder);
+   textNode->m_textRoot->setLocalScale(textSettings.scale_local);
+   textNode->m_textRoot->setLocalTranslation(textSettings.position_local);
+};
+
 UiText_S::UiText_S(MapObjectsData& mod, sptr<Node> parentNode)
    :
    SceneObject(mod, parentNode, false, true)
@@ -32,11 +44,11 @@ UiText_S::UiText_S(MapObjectsData& mod, sptr<Node> parentNode)
    if (!bDoOnce)
    {
       bDoOnce = true;
-      TextSdfNode::setOverrideMaterial(RMat("alt_sdf_material"));
+      //TextSdfNode::setOverrideMaterial(RMat("alt_sdf_material"));
    }
 
    m_text = M_SPTR<UiText>(m_root,
-      textNodeSettings.usesTranslations ? TR(textNodeSettings.text).version : textNodeSettings.text,
+      textNodeSettings.usesTranslations ? TR(textNodeSettings.text).getCurr(TR_INST.getCurrentLang()) : textNodeSettings.text,
       settingsForText);
 
    //setting stroke if needed
@@ -55,6 +67,13 @@ MapObjectsData& UiText_S::getMapObjectsData()
    return SceneObject::getMapObjectsData();
 }
 
+void UiText_S::changeText(const std::string& newText)
+{
+   m_mapObjectData.textNodeSetting.text = newText;
+   textNodeRebuilder(m_text, newText, m_mapObjectData.textNodeSetting.textSetting);
+   triggerEvent("onTextChanged", SubscriberEventPayload{.stringPayload = newText});
+}
+
 void UiText_S::initSpawnable(sptr<Node> rootNode)
 {
    //don't need to call parent method
@@ -62,24 +81,13 @@ void UiText_S::initSpawnable(sptr<Node> rootNode)
    return;
 #endif
 
-   static auto textNodeRebuilder = [](sptr<UiText> textNode, const std::string text, TextSettings& textSettings)
-      {
-         textNode->m_textInfo.color = textSettings.color;
-         textNode->m_textInfo.fontName = textSettings.fontName;
-         textNode->m_textInfo.renderOrder = textSettings.renderOrder;
-         textNode->m_lineSize = textSettings.lineSize;
-         textNode->m_lineOffset = textSettings.lineOffset;
-         textNode->buildTextNodes(text, textSettings.fontName, textSettings.color, textSettings.renderOrder);
-         textNode->m_textRoot->setLocalScale(textSettings.scale_local);
-         textNode->m_textRoot->setLocalTranslation(textSettings.position_local);
-      };
-
    addSpawnableSetting(SpawnSetting(
       "Text",
       m_mapObjectData.textNodeSetting.text,
       [this](auto& var)
          {
-            auto text = m_mapObjectData.textNodeSetting.usesTranslations ? TR(m_mapObjectData.textNodeSetting.text).version : m_mapObjectData.textNodeSetting.text;
+            auto text = m_mapObjectData.textNodeSetting.usesTranslations ? TR(m_mapObjectData.textNodeSetting.text).getCurr(TR_INST.getCurrentLang()) : m_mapObjectData.textNodeSetting.text;
+            triggerEvent("onTextChanged", SubscriberEventPayload{.stringPayload = text});
             textNodeRebuilder(m_text, text, m_mapObjectData.textNodeSetting.textSetting);
             applyStroke();
             m_sdfCommonMaterial = m_text->m_textLines[0]->getMaterialInst();
@@ -91,7 +99,7 @@ void UiText_S::initSpawnable(sptr<Node> rootNode)
       m_mapObjectData.textNodeSetting.textSetting,
       [this](auto& var)
          {
-            auto text = m_mapObjectData.textNodeSetting.usesTranslations ? TR(m_mapObjectData.textNodeSetting.text).version : m_mapObjectData.textNodeSetting.text;
+            auto text = m_mapObjectData.textNodeSetting.usesTranslations ? TR(m_mapObjectData.textNodeSetting.text).getCurr(TR_INST.getCurrentLang()) : m_mapObjectData.textNodeSetting.text;
             textNodeRebuilder(m_text, text, m_mapObjectData.textNodeSetting.textSetting);
             applyStroke();
             m_sdfCommonMaterial = m_text->m_textLines[0]->getMaterialInst();

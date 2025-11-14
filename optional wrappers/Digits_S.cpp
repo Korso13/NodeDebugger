@@ -146,7 +146,8 @@ void Digits_S::initSpawnable(sptr<Node> rootNode)
    //SceneObject::initSpawnable(rootNode); don't need it here
    static auto rebuildDigits = [](sptr<MonospaceDigitsPlane> digits, SettingsStuct& settings)
       {
-         if (!digits)
+         if (!digits) return;
+         warn("Digits mesh: %s", digits->m_meshName.c_str());
          digits->m_offset = settings.vec3s["MDP_digitsOffset"];
          digits->m_categoriesSpaceOffset = settings.vec3s["MDP_categoriesOffset"];
          digits->m_digitInCategory = settings.integers["MDP_categoriesDigits"];

@@ -11,7 +11,7 @@ public:
 		std::unordered_map<std::string, Type> tmpStore = data.get<std::unordered_map<std::string, Type>>();
 		for (auto& element : tmpStore)
 		{
-//			W4_LOG_DEBUG("[GAME SETTINGS] add element {%s}", element.first.c_str());
+			//			W4_LOG_DEBUG("[GAME SETTINGS] add element {%s}", element.first.c_str());
 			m_dataStore.emplace(element.first, element.second);
 		}
 	}
@@ -25,7 +25,8 @@ public:
 		auto it = m_dataStore.find(key);
 		if (it == m_dataStore.end())
 		{
-			FATAL_ERROR("[RESOURCE ERROR] Unable to find resource key '%s'", key.c_str());
+			W4_LOG_ERROR("[RESOURCE ERROR] Unable to find resource key '%s'", key.c_str());
+			return Type();
 		}
 		return it->second;
 	}
