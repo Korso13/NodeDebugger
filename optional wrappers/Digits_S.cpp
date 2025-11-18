@@ -13,20 +13,20 @@ SceneObject(mod, rootNode, false, true)
 
    std::pair<int, int> intFloatValues = breakFloatIntoInts(settings.floats["MDP_value"]);
    m_digits = M_SPTR<MonospaceDigitsPlane>(
-      intFloatValues.first,
-      settings.integers["MDP_ro"],
-      m_root,
-      settings.vec3s["MDP_localPos"],
-      settings.vec3s["MDP_digitsOffset"],
-      settings.vec3s["MDP_digitsScale"],
-      true,
-      strToEnum<Aligning>(settings.strs["MDP_alignment"]),
-      settings.vec4s["MDP_color"].asVec3(),
-      "digits",
-      mod.objName,
-      settings.vec3s["MDP_categoriesOffset"],
-      settings.integers["MDP_categoriesDigits"]
-   );
+     intFloatValues.first,
+     SettingsDigits{
+       .renderOrder = settings.integers["MDP_ro"],
+       .rootNode = m_root,
+       .pos = settings.vec3s["MDP_localPos"],
+       .offset = settings.vec3s["MDP_digitsOffset"],
+       .scale = settings.vec3s["MDP_digitsScale"],
+       .isRenderOrderUp = true,
+       .aligning = strToEnum<Aligning>(settings.strs["MDP_alignment"]),
+       .color = settings.vec4s["MDP_color"].asVec3(),
+       .meshName = mod.objName,
+       .categoriesSpaceOffset = settings.vec3s["MDP_categoriesOffset"],
+       .digitInCategory = settings.integers["MDP_categoriesDigits"]
+       });
    m_digits->setColorDigits(settings.vec4s["MDP_color"]); //allows setting start alpha
 
    if (m_renderFloatingPart)
@@ -146,8 +146,7 @@ void Digits_S::initSpawnable(sptr<Node> rootNode)
    //SceneObject::initSpawnable(rootNode); don't need it here
    static auto rebuildDigits = [](sptr<MonospaceDigitsPlane> digits, SettingsStuct& settings)
       {
-         if (!digits) return;
-         warn("Digits mesh: %s", digits->m_meshName.c_str());
+         if (!digits)
          digits->m_offset = settings.vec3s["MDP_digitsOffset"];
          digits->m_categoriesSpaceOffset = settings.vec3s["MDP_categoriesOffset"];
          digits->m_digitInCategory = settings.integers["MDP_categoriesDigits"];
@@ -167,7 +166,7 @@ void Digits_S::initSpawnable(sptr<Node> rootNode)
    addSpawnableSetting(SpawnSetting(
       "Value",
       m_mapObjectData.settings.floats["MDP_value"],
-      [this](auto& var)
+      [this](float& var)
          {
             setValue(var);
          }));
@@ -399,24 +398,23 @@ void Digits_S::onEndPlay(sptr<Spawnable> selfRef, const std::string& objId)
 
 void Digits_S::createFloatingPointPart()
 {
-   auto& settings = m_mapObjectData.settings;
-   std::pair<int, int> intFloatValues = breakFloatIntoInts(settings.floats["MDP_value"]);
-
-   m_floatingPoint = M_SPTR<MonospaceDigitsPlane>(
+    auto& settings = m_mapObjectData.settings;
+    std::pair<int, int> intFloatValues = breakFloatIntoInts(settings.floats["MDP_value"]);
+    m_floatingPoint = M_SPTR<MonospaceDigitsPlane>(
       intFloatValues.second,
-      settings.integers["MDP_ro"],
-      m_root,
-      settings.vec3s["MDP_localPos"],
-      settings.vec3s["MDP_digitsOffset"],
-      settings.vec3s["MDP_digitsScale"],
-      true,
-      Aligning::LEFT,
-      settings.vec4s["MDP_color"].asVec3(),
-      "digits",
-      m_mapObjectData.objName,
-      settings.vec3s["MDP_categoriesOffset"],
-      settings.integers["MDP_categoriesDigits"]
-   );
+       SettingsDigits{
+       .renderOrder = settings.integers["MDP_ro"],
+       .rootNode = m_root,
+       .pos = settings.vec3s["MDP_localPos"],
+       .offset = settings.vec3s["MDP_digitsOffset"],
+       .scale = settings.vec3s["MDP_digitsScale"],
+       .isRenderOrderUp = true,
+       .aligning = Aligning::LEFT,
+       .color = settings.vec4s["MDP_color"].asVec3(),
+       .meshName = m_mapObjectData.objName,
+       .categoriesSpaceOffset = settings.vec3s["MDP_categoriesOffset"],
+       .digitInCategory = settings.integers["MDP_categoriesDigits"]
+        });
    m_floatingPoint->getNode()->setName(m_floatingPoint->getNode()->getName() + "_floatingPoint");
    m_digits->getRightEdgeNode()->addChild(m_floatingPoint->getNode());
    m_floatingPoint->setPos(settings.vec3s["MDP_floatOffset"]);

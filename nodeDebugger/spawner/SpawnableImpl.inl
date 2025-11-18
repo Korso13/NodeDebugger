@@ -215,10 +215,33 @@ requires AutoTypeConcept<T> || onGuiImplConcept<T>
 inline Spawnable::SpawnSetting::SpawnSetting(
 	const std::string& name, 
 	T&& value,
-	std::function<void(std::decay_t<T>&)>&& onChangeCB)
+	std::function<void(std::decay_t<T>)>&& onChangeCB)
 {
 	anyVar variable;
 	variable.setValueByCopy<std::decay_t<T>>(value);
+	settingName = name;
+	settingValue = variable;
+	onSettingChangeCB =
+		[onChangeCB](anyVar& var)
+		{
+			if (onChangeCB && var.hasValue())
+			{
+				//value = var.getRef<T>();
+				onChangeCB(*var.getRef<T>());
+			}
+		};
+}
+
+template<typename T>
+requires AutoTypeConcept<T> || onGuiImplConcept<T>
+inline Spawnable::SpawnSetting::SpawnSetting(
+	const std::string& name,
+	const std::decay_t<T> value,
+	std::function<void(std::decay_t<T>)>&& onChangeCB)
+{
+	anyVar variable;
+	T copy = value;
+	variable.setValueByCopy<std::decay_t<T>>(copy);
 	settingName = name;
 	settingValue = variable;
 	onSettingChangeCB =

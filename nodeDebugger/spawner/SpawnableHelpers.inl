@@ -45,7 +45,7 @@
 
 			template<typename T>
 			void setValue(T* val);
-			//rarely used
+
 			template<typename T>
 			void setValueByCopy(T val);
 
@@ -74,7 +74,11 @@
 		
 		template<typename T>
 		requires AutoTypeConcept<T> || onGuiImplConcept<T>
-		explicit  SpawnSetting(const std::string& name, T&& value, std::function<void(std::decay_t<T>&)>&& onChangeCB);
+		explicit SpawnSetting(const std::string& name, T&& value, std::function<void(std::decay_t<T>)>&& onChangeCB);
+
+		template<typename T>
+		requires AutoTypeConcept<T> || onGuiImplConcept<T>
+		explicit SpawnSetting(const std::string& name, const std::decay_t<T> value, std::function<void(std::decay_t<T>)>&& onChangeCB);
 
 		std::string settingName = "setting_default_name";
 		anyVar settingValue;
