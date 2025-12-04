@@ -802,7 +802,7 @@ namespace ND_Util
         }
     }
 
-    std::pair<bool, std::string> ImGuiListBox(const std::string& listName, const std::set<std::string>& list, const std::string& listCurrentValue)
+    std::pair<bool, std::string> ImGuiListBox(const std::string& listName, const std::set<std::string>& list, const std::string& listCurrentValue, std::function<bool(std::string value)>&& onRightMouseClickPopUpRender)
     {
         std::pair<bool, std::string> result;
         result.first = false;
@@ -825,6 +825,12 @@ namespace ND_Util
                     {
                         result.first = true;
                         result.second = listValue;
+                    }
+                    if (onRightMouseClickPopUpRender && ImGui::BeginPopupContextItem())
+                    {
+                        if (onRightMouseClickPopUpRender(listValue))
+                            ImGui::CloseCurrentPopup();
+                        ImGui::EndPopup();
                     }
                     if (!result.first && isSelected)
                         result.second = listValue;

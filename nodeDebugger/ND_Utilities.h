@@ -51,16 +51,17 @@ namespace ND_Util
 	template<typename T>
 	std::pair<bool, T> ImGuiComboList(const std::string& listName, const std::vector<T>& list, const std::string& listCurrentValue, std::function<const std::string (const T&)> nameGetterPred);
 	
-	//Templated list box renderer. 
+	//Templated list box renderer. onRightMouseClickPopUpRender - allows adding ImGui contents to popup window triggered by right mouse click (return true to close the popup)
 	//Returns pair: bool - set to true if new item was selected this frame; T - new selected value (if no new item selected, returns value by listCurrentValue key or random if key not found)
 	template<typename T>
-	std::pair<bool, T> ImGuiListBox(const std::string& listName, const std::map<std::string, T>& list, const std::string& listCurrentValue);
+	std::pair<bool, T> ImGuiListBox(const std::string& listName, const std::map<std::string, T>& list, const std::string& listCurrentValue, std::function<bool(std::string key)>&& onRightMouseClickPopUpRender = nullptr);
+	//Templated list box renderer. onRightMouseClickPopUpRender - allows adding ImGui contents to popup window triggered by right mouse click (return true to close the popup)
 	//Returns pair: bool - set to true if new item was selected this frame; T - new selected value (if no new item selected, returns value by listCurrentValue key or random if key not found)
 	template<typename T>
-	std::pair<bool, T> ImGuiListBox(const std::string& listName, const std::vector<T>& list, const std::string& listCurrentValue, std::function<const std::string(const T&)> nameGetterPred);
-	//List box renderer for simple strings. 
+	std::pair<bool, T> ImGuiListBox(const std::string& listName, const std::vector<T>& list, const std::string& listCurrentValue, std::function<const std::string(const T&)> nameGetterPred, std::function<bool(const T& value)>&& onRightMouseClickPopUpRender = nullptr);
+	//List box renderer for simple strings. onRightMouseClickPopUpRender - allows adding ImGui contents to popup window triggered by right mouse click (return true to close the popup)
 	//Returns pair: bool - set to true if new item was selected this frame; std::string - new selected value (if no new item selected, returns listCurrentValue)
-	std::pair<bool, std::string> ImGuiListBox(const std::string& listName, const std::set<std::string>& list, const std::string& listCurrentValue);
+	std::pair<bool, std::string> ImGuiListBox(const std::string& listName, const std::set<std::string>& list, const std::string& listCurrentValue, std::function<bool(std::string value)>&& onRightMouseClickPopUpRender = nullptr);
 	//todo: add variants of ImGuiComboList and ImGuiListBox for unordered_map (add templated iterator type checker?) 
 	
 	std::pair<bool, std::string> ImGuiMaterialSelector(const std::string& currentMaterial);
@@ -171,7 +172,8 @@ template<typename T>
 std::pair<bool, T> ND_Util::ImGuiListBox(
 	const std::string& listName, 
 	const std::map<std::string, T>& list, 
-	const std::string& listCurrentValue)
+	const std::string& listCurrentValue,
+	std::function<bool(std::string key)>&& onRightMouseClickPopUpRender)
 {
 	std::pair<bool, T> result;
 	result.first = false;
@@ -194,6 +196,12 @@ std::pair<bool, T> ND_Util::ImGuiListBox(
 					result.first = true;
 					result.second = listValue;
 				}
+				if (onRightMouseClickPopUpRender && ImGui::BeginPopupContextItem())
+				{
+					if (onRightMouseClickPopUpRender(listKey))
+						ImGui::CloseCurrentPopup();
+					ImGui::EndPopup();
+				}
 				if (!result.first && isSelected)
 					result.second = listValue;
 			}
@@ -210,7 +218,8 @@ std::pair<bool, T> ND_Util::ImGuiListBox(
 	const std::string& listName, 
 	const std::vector<T>& list, 
 	const std::string& listCurrentValue, 
-	std::function<const std::string (const T&)> nameGetterPred)
+	std::function<const std::string (const T&)> nameGetterPred,
+	std::function<bool(const T& value)>&& onRightMouseClickPopUpRender)
 {
 	std::pair<bool, T> result;
 	result.first = false;
@@ -233,6 +242,12 @@ std::pair<bool, T> ND_Util::ImGuiListBox(
 				{
 					result.first = true;
 					result.second = listValue;
+				}
+				if (onRightMouseClickPopUpRender && ImGui::BeginPopupContextItem())
+				{
+					if (onRightMouseClickPopUpRender(listValue))
+						ImGui::CloseCurrentPopup();
+					ImGui::EndPopup();
 				}
 				if (!result.first && isSelected)
 					result.second = listValue;

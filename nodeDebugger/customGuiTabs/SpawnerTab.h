@@ -70,8 +70,8 @@ private:
 	std::string m_meshesFilter = "";
 	std::string m_lastSelectedSpawnable = "";
 	std::string m_lastSelectedMesh = "";
-	std::set<std::string> m_lastSpawnablesFilterList;
-	std::set<std::string> m_lastMeshesFilterList;
+	std::map<std::string, std::string> m_lastSpawnablesFilterList; //first is objId (UI name), second is spawned name
+	std::map<std::string, std::string> m_lastMeshesFilterList; //first is meshId (UI name), second is spawned name
 
 	enum Subtab
 	{

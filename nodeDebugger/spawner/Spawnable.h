@@ -48,6 +48,8 @@ public:
 
 	std::vector<SpawnableChild>& getSpawnedChildren() {return m_children; };
 	std::vector<SpawnableChildMesh>& getSpawnedChildMeshes() { return m_childMeshes; };
+	sptr<Spawnable> getParent() const;
+	bool hasParent() const {return m_mapObjectData.isChildObj && !m_parent.expired();}
 
 protected:
 
@@ -100,7 +102,7 @@ protected:
 	//Called immediately after constructor
 	//Override to add class specific init behavior (better than using onSpawn callback)
 	//selfRef - sptr to this object (do not save inside class!), isTabSpawned - is true when object is spawned from Spawner tab, spawnLocation - world coord of click or camera with zero z, if tabSpawned (if not - uses .pos from MOD)
-	virtual void onBeginPlay(sptr<Spawnable> selfRef, bool isTabSpawned, vec3 spawnLocation = INVALIDPOS) {};
+	virtual void onBeginPlay(sptr<Spawnable> selfRef, bool isTabSpawned, vec3 spawnLocation = INVALIDPOS){};
 
 	//Called immediately on ordering Spawnable deletion from level (Better option than OnDeleteCallback)
 	//selfRef - sptr to this object (do not save inside class!!), objId - name, under which the object is registered in Spawner (normally == objId dield in the object's MapObjectsData)
@@ -162,6 +164,8 @@ private:
 	bool m_childObjectsRenderPaused = false; //required to avoid crashes on deleting children
 	std::function<void(sptr<Spawnable>)> m_onChildSpawnCb = nullptr;
 
+	wptr<Spawnable> m_self;
+	wptr<Spawnable> m_parent;
 	std::vector<SpawnableChild> m_children;
 	std::vector<SpawnableChildMesh> m_childMeshes;
 
@@ -175,6 +179,7 @@ private:
 	wptr<Node> m_lastSelectedParentNode;
 
 	std::function<void()> m_deferredDeleteOrder = nullptr;
+	std::function<void()> m_deferredSpawnChildrenCall = nullptr;
 };
 
 //implementations of template functions

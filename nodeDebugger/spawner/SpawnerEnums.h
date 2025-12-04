@@ -26,6 +26,7 @@ MAKE_SERIALIZED_ENUM_CLASS(SPK_ORIENTATION,
 //Bonuses enum
 MAKE_SERIALIZED_ENUM_CLASS(BonusType,
 	(Starter)
+	(Astharot)
 	(AngelSword)
 	(AngelicSword)
 	(AngelicArmor)
@@ -36,6 +37,7 @@ MAKE_SERIALIZED_ENUM_CLASS(BonusType,
 	(StandartArmor)
 	(FireSword)
 	(IronSword)
+	(SamuraiSword)
 	(CosmicSword)
 	(Bow)
 	(Potion)
@@ -43,10 +45,16 @@ MAKE_SERIALIZED_ENUM_CLASS(BonusType,
 	(Feather)
 	(ChampionArmor)
 	(ChampionSword)
+	(ChampionHelmet)
 	(ChampionSet)
 	(GreenArmor)
 	(GreenSword)
+	(GreenHelmet)
+	(NephriteHelmet)
 	(GreenSet)
+	(GoldenSword)
+	(GoldenAxe)
+	(Scythe)
 	(x5)
 	(x10)
 	(x50)
@@ -94,4 +102,22 @@ SERIALIZE_ENUM(Aligning,
 	(LEFT)
 	(CENTER)
 	(RIGHT)
+);
+
+MAKE_SERIALIZED_ENUM_CLASS(GAL_ATTACK_TYPE,
+	(DEFAULT) //standard attack
+	(LAST_USED) //last used attack or ultimate
+	(LAST_LOOT_DEFINED) //last attack type set via loot
+	(LAST_REGULAR_USED) //last used non-ultimate attack
+	(LAST_ULT_USED) //last used ultimate attack
+	(ULT_ORANGE)
+	(ULT_PINK)
+	(ULT_ORANGE_OR_PINK)
+	(ULT_RANDOM)
+	(ULT_BLUE)
+	(ULT_SCYTHE)
+	(ATTACK_SIDE)
+	(ATTACK_DOUBLE)
+	(ATTACK_COMBO)
+	(ATTACK_FLYING)
 );

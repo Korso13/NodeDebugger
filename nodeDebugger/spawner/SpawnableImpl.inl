@@ -1,6 +1,21 @@
+#pragma once
 #include "Spawnable.h"
 #include "../Concepts.h"
 #include "../CustomAutos.h"
+
+template<typename T>
+bool operator==(const wptr<T>& lhw, const wptr<T>& rhw)
+{
+	if (lhw.expired() && rhw.expired()) return true;
+	return lhw.lock() == rhw.lock();
+}
+
+template<typename T>
+bool operator==(wptr<T>& lhw, wptr<T>& rhw)
+{
+	if (lhw.expired() && rhw.expired()) return true;
+	return lhw.lock() == rhw.lock();
+}
 
 //Template methods impls. setValue is used when adding Spawnable Settings for rendering in Spawned Objects submenu
 template<typename T>

@@ -75,6 +75,7 @@ private:
 
 	void exportAsJson(nlohmann::json& inJson) NOCOMP;
 	void loadJson() NOCOMP;
+	void importPathfinderData() NOCOMP;
 
 	static void onJSONLoadCB(void* self, char* result)
 	{

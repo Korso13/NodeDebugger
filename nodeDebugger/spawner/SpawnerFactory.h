@@ -133,6 +133,9 @@ public:
 		};
 	};
 
+	//=====================
+	//Spawner factory code
+	//=====================
 public:
 
 	static SpawnerFactory& get()
@@ -187,6 +190,7 @@ public:
 	sptr<Spawnable> spawnObjectOfClass(SpawnerRecord& spawnData, bool bTabSpawned = false, vec3 spawnAt = INVALIDPOS);
 	//Spawns object if class with custom MapObjectsData and optional custom onSpawnCb (default onSpawn will be used if customOnSpawnCb == nullptr)
 	sptr<Spawnable> spawnObjectOfClass(SpawnerRecord& spawnData, MapObjectsData& customMOD, std::function<void(sptr<Spawnable>)> customOnSpawnCb = nullptr, bool bTabSpawned = false);
+	sptr<Spawnable> spawnCopyOfObject(MapObjectsData& objectsMOD, vec3 spawnAt = INVALIDPOS, bool bTabSpawned = false);
 	const std::string& getLastSpawnedObjectName() const { return m_lastSpawnedObjectName; }
 	void removeObject(const std::string& objId);
 

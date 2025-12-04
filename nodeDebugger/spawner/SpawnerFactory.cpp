@@ -666,7 +666,9 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, boo
 	}
 
 	newEntity->isSpawned = bTabSpawned; //marks entity as spawned via ND tab
-	
+	newEntity->m_self = newEntity;
+	if (newEntity->m_deferredSpawnChildrenCall) newEntity->m_deferredSpawnChildrenCall(); //here and below - try to execute delayed children spawning
+
 	std::string newEntityName; 
 	if(!newEntity->getMapObjectsData().objId.empty())
 		newEntityName = checkUniqueName(newEntity->getMapObjectsData().objId);
@@ -699,8 +701,11 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, boo
 	}
 
 	newEntity->onBeginPlay(newEntity, bTabSpawned, (bTabSpawned ? spawnAt : newEntity->getMapObjectsData().pos));
+	if (newEntity->m_deferredSpawnChildrenCall) newEntity->m_deferredSpawnChildrenCall();
+
 	if (spawnData.m_onSpawnCb)
 		spawnData.m_onSpawnCb(newEntity);
+	if (newEntity->m_deferredSpawnChildrenCall) newEntity->m_deferredSpawnChildrenCall();
 
 	m_lastSpawnedObjectName = newEntityName;
 #ifndef FORCENODEDEBUG_OFF 
@@ -723,6 +728,9 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 		return nullptr;
 	}
 	newEntity->isSpawned = bTabSpawned; //marks object as spawned via ND tab
+	newEntity->m_self = newEntity;
+	if (newEntity->m_deferredSpawnChildrenCall) newEntity->m_deferredSpawnChildrenCall(); //here and below - try to execute delayed children spawning
+
 	std::string newEntityName;
 
 	//naming new object
@@ -761,18 +769,45 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 	}
 
 	newEntity->onBeginPlay(newEntity, bTabSpawned, (bTabSpawned ? cameraPos : newEntity->getMapObjectsData().pos));
-	
+	if (newEntity->m_deferredSpawnChildrenCall) newEntity->m_deferredSpawnChildrenCall();
+
 	//executing onSpawn logic
 	if (customOnSpawnCb)
 		customOnSpawnCb(newEntity);
 	else if (spawnData.m_onSpawnCb)
 		spawnData.m_onSpawnCb(newEntity);
+	if (newEntity->m_deferredSpawnChildrenCall) newEntity->m_deferredSpawnChildrenCall();
 
 #ifndef FORCENODEDEBUG_OFF 
 	ND_SPAWNER->m_needUpdateEntitiesFilter = true;
 #endif
 
 	return newEntity;
+}
+
+sptr<Spawnable> SpawnerFactory::spawnCopyOfObject(MapObjectsData& objectsMOD, vec3 spawnAt, bool bTabSpawned)
+{
+	if (objectsMOD.className.empty()) return nullptr;
+	auto& SpawnerRec = getSpawnerRecord(objectsMOD.className);
+	MapObjectsData modCopy = objectsMOD;
+	if (modCopy.objId.find("_copy") == std::string::npos)
+		modCopy.objId = modCopy.objId + "_copy_000";
+
+	auto copy = spawnObjectOfClass(SpawnerRec, modCopy, nullptr, bTabSpawned);
+	if (!copy)
+	{
+		err("[SpawnerFactory::spawnCopyOfObject]Failed to spawn object copy!");
+		return nullptr;
+	}
+
+	if (copy->getSpawnableRoot())
+	{
+		if (spawnAt != INVALIDPOS)
+			copy->getSpawnableRoot()->setWorldTranslation(spawnAt);
+		else
+			copy->getSpawnableRoot()->setWorldTranslation(Render::getScreenCamera()->getWorldTranslation()*vec3(1.f, 1.f, 0.f));
+	}
+	return copy;
 }
 
 void SpawnerFactory::removeObject(const std::string& objId)

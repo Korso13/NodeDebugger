@@ -307,14 +307,21 @@ void Spawnable::initSpawnable(sptr<Node> rootNode)
 
 void Spawnable::addChildSpawner(std::function<void(sptr<Spawnable>)> onChildSpawnCb, bool childrenSpawnerOn)
 {
-	m_childrenAdderEnabled = childrenSpawnerOn; 
+	m_childrenAdderEnabled = childrenSpawnerOn;
 	m_onChildSpawnCb = onChildSpawnCb;
 }
 
 void Spawnable::spawnAllChildren()
 {
+	if (m_self.expired()) //need self to be valid before making children. SpawnerFactory will manage the deferred call
+	{
+		m_deferredSpawnChildrenCall = [this](){spawnAllChildren();};
+		return;
+	}
+
 	if (m_childrenInited) return;
 	m_childrenInited = true;
+	m_deferredSpawnChildrenCall = nullptr;
 
 	for (auto& childMod : m_mapObjectData.childObjects)
 	{
@@ -330,6 +337,12 @@ void Spawnable::spawnAllChildren()
 
 		spawnChildMesh(childMmd, m_childMeshes.back());
 	}
+}
+
+sptr<Spawnable> Spawnable::getParent() const
+{
+	if (!hasParent()) return nullptr;
+	return m_parent.lock();
 }
 
 sptr<Mesh> Spawnable::getChildMeshByName(const std::string& name) const
@@ -610,6 +623,7 @@ void Spawnable::updateChildrenData()
 			meshHolder.mmd.scale_local = child->getLocalScale();
 			meshHolder.mmd.rotation_local = child->getLocalRotation().euler();
 			SP_Utils::exportMaterialParams(child->getMaterialInst(), meshHolder.mmd);
+			if (neAbs(meshHolder.mmd.position_local.z) < 0.001) meshHolder.mmd.position_local.z = 0.f;
 		};
 
 	//updating m_mapObjectData.childObjects via visiter since our sptrs are separated from children's MapObjectsData
@@ -832,6 +846,7 @@ sptr<Spawnable> Spawnable::spawnChild(sptr<MapObjectsData> childData, SpawnableC
 		m_onChildSpawnCb, //uses default onSpawnCb if m_onChildSpawnCb == nullptr
 		bTabSpawned
 	);
+	child->m_parent = m_self;
 
 	if (spawnParentNode) //restoring default spawn node
 		spawnerRecord.setNewConstructNode(defaultNode);

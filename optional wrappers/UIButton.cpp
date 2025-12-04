@@ -343,8 +343,11 @@ void UIButton_S::initSpawnable(sptr<Node> rootNode)
 
 void UIButton_S::onChildSpawned(sptr<Spawnable> newChild)
 {
-	m_root->addChild(newChild->getSpawnableRoot());
-	newChild->getSpawnableRoot()->setLocalTranslation(newChild->getMapObjectsData().local_pos);
+	if (newChild->getSpawnableRoot())
+	{
+		m_root->addChild(newChild->getSpawnableRoot());
+		newChild->getSpawnableRoot()->setLocalTranslation(newChild->getMapObjectsData().local_pos);
+	}
 	//SceneObject::onChildSpawned(newChild);
 }
 

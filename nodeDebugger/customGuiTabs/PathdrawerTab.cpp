@@ -1,5 +1,6 @@
 #include "PathdrawerTab.h"
 #include "../ND_JsonTools.h"
+#include "game/playerController/PlayerController.h"
 
 std::function<void(nlohmann::json)> PathdrawerTab::m_onJsonLoaded = nullptr;
 
@@ -14,7 +15,7 @@ void PathdrawerTab::onGuiCall()
 	ImGui::SameLine();
 	if (ImGui::Button("Export paths to JSON"))
 	{
-		nlohmann::json exportJson; 
+		nlohmann::json exportJson;
 		auto pathDataCleared = m_pathsData;
 		//removing empty paths
 		std::erase_if(pathDataCleared.paths, [this](const plottedPath& pathRec) {
@@ -22,6 +23,11 @@ void PathdrawerTab::onGuiCall()
 		});
 		nlohmann::adl_serializer<PathsData>::to_json(exportJson, pathDataCleared);
 		exportAsJson(exportJson);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Draw paths from Pathfinder"))
+	{
+		importPathfinderData();
 	}
 	ImGui::Spacing();
 	ImGui::Separator();
@@ -329,6 +335,45 @@ void PathdrawerTab::loadJson()
 				}
 
 		};
+	}
+}
+
+void PathdrawerTab::importPathfinderData()
+{
+	//purge old data
+	m_pathsData = PathsData();
+	for (auto& [name, mesh] : m_pathNodeRender)
+		if (auto parent = mesh->getParent(); parent)
+			parent->removeChild(mesh);
+	m_pathNodeRender.clear();
+	for (auto& [name, meshVector] : m_pathLinesRender)
+		for (auto& mesh : meshVector)
+			if (auto parent = mesh->getParent(); parent)
+				parent->removeChild(mesh);
+	m_pathLinesRender.clear();
+
+	m_selectedPathIndex = -1;
+	m_selectedSearchNode = "No Node Selected";
+	m_selectedSearchResultIndex = -1;
+	m_lastSelectedPathName = "";
+	m_pathDragBuildStartPoint = "";
+	m_pathDragBuildEndPoint = "";
+
+	//load data from pathfinder
+	auto pathfinder = PLAYER_CONTROLLER.getCurrentPathfinder();
+	for (const auto& node : pathfinder->getAllPathNodes())
+	{
+		m_pathsData.pathnodes[node->getName()] = {node->getPathNodePoint()->m_point.withoutZ(), node->getPathNodePoint()->m_speed};
+		renderPathNode(node->getName(), m_pathsData.pathnodes[node->getName()]);
+	}
+	for (const auto& path : pathfinder->getAllPaths())
+	{
+		auto importedPath = m_pathsData.paths.emplace_back(plottedPath{
+			.pathName = path->getNodeFrom()->getName() + "->" + path->getNodeTo()->getName(),
+			.startPoint = path->getNodeFrom()->getName(),
+			.endPoint = path->getNodeTo()->getName()
+		});
+		renderPathLines(importedPath);
 	}
 }
 

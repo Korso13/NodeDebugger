@@ -121,6 +121,8 @@ void SpawnerTab::onGuiExportBtn()
 			if (spawnedMesh.second && !spawnedMesh.first.isChild)
 			{
 				SP_Utils::exportMaterialParams(spawnedMesh.second->getMaterialInst(), spawnedMesh.first);
+				if (neAbs(spawnedMesh.first.position_local.z) < 0.001) spawnedMesh.first.position_local.z = 0.f;
+				if (neAbs(spawnedMesh.first.position_world.z) < 0.001) spawnedMesh.first.position_world.z = 0.f;
 				tempContainer.mapMeshData.push_back(spawnedMesh.first);
 			}
 
@@ -308,26 +310,58 @@ void SpawnerTab::onGuiSpawnedList()
 		if (isFilterChanged || m_needUpdateEntitiesFilter)
 		{
 			m_lastSpawnablesFilterList.clear();
-			m_lastMeshesFilterList.clear();
 			for (auto& [name, spawnedObject] : SPAWNER.getAllSpawnables())
 			{
-				if (ND_Util::checkFilterConditions(name, m_entitiesFilter))
-					m_lastSpawnablesFilterList.insert(name);
-			}
-			for (auto& [name, spawnedMesh] : SPAWNER.getAllMeshes())
-			{
-				if (ND_Util::checkFilterConditions(name, m_entitiesFilter))
-				{
-					m_lastMeshesFilterList.insert(name);
-				}
+				if (ND_Util::checkFilterConditions(spawnedObject->getObjId(), m_entitiesFilter)) //filtering by objId as it's how we show the object in ui
+					m_lastSpawnablesFilterList.insert({spawnedObject->getObjId(), name});
 			}
 		}
 		if (m_needUpdateEntitiesFilter) m_needUpdateEntitiesFilter = false;
 
 		//============================================================
-		//renders filtered list of spawned objects with their exposed settings
+		//renders filtered list of spawned objects
 		//============================================================
-		auto listResult = ND_Util::ImGuiListBox("Spawned", m_lastSpawnablesFilterList, m_lastSelectedSpawnable);
+		bool bNeedDeletion = false;
+		std::string defferedDeleteName;
+		//pair - is changed? - internal Spawner name
+		auto listResult = ND_Util::ImGuiListBox("Spawned", m_lastSpawnablesFilterList, m_lastSelectedSpawnable,
+				//RMB-triggered popup menu render
+				//todo: export to separate function
+			[this, &bNeedDeletion, &defferedDeleteName, &isFilterChanged](std::string key)
+				{
+					ImGui::Text("%s", key.c_str());
+					ImGui::Separator();
+					if (ImGui::Button("Make a copy"))
+					{
+						if (SPAWNER.getAllSpawnables().contains(m_lastSpawnablesFilterList[key]))
+						{
+							auto& originalObject = SPAWNER.getAllSpawnables()[m_lastSpawnablesFilterList[key]];
+							if (!originalObject->getMapObjectsData().isChildObj)
+							{
+								auto copy = SPAWNER.spawnCopyOfObject(originalObject->getMapObjectsData(), originalObject->m_spRoot->getWorldTranslation());
+							}
+							//NOTE: child obj needs separate handler
+							else if (auto parent = originalObject->getParent(); parent)
+							{
+								auto& childCopyMod = parent->getMapObjectsData().childObjects.emplace_back(M_SPTR<MapObjectsData>(originalObject->getMapObjectsData()));
+								Spawnable::SpawnableChild childHolder = Spawnable::SpawnableChild(*childCopyMod);
+								parent->m_children.push_back(childHolder);
+								parent->spawnChild(childCopyMod, parent->m_children.back(), false);
+							}
+							isFilterChanged = true;
+						}
+						return true;
+					}
+					if (ImGui::Button("Delete"))
+					{
+						bNeedDeletion = true;
+						defferedDeleteName = m_lastSpawnablesFilterList[key];
+						isFilterChanged = true;
+						return true;
+					}
+					return false;
+				});
+
 		//updating spawned entity's selection
 		if(listResult.first)
 		{
@@ -335,26 +369,24 @@ void SpawnerTab::onGuiSpawnedList()
 				SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->removeFocusFrame();
 			m_lastSelectedSpawnable = listResult.second;
 		}
-
 		//scrollable child panel
 		if (ImGui::BeginChild("Spawned Objects Panel", ND_Util::getSizeForChild(0.7), true, ImGuiWindowFlags_AlwaysAutoResize))
 		{
-			std::string defferedDeleteName;
 			//============================================================
 			//Selected spawned object with its exposed settings
 			//============================================================
 			if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
 			{
 				auto& spawnedObject = SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable];
-				bool bNeedDeletion = false;
 				if (spawnedObject)
 				{
 					//onGui call renders exposed settings for the Spawnable object
-					//failsafe in case object was not named
-					if (m_lastSelectedSpawnable.empty())
-						spawnedObject->onGui(SPAWNER.checkUniqueName("Unnamed").c_str()); //can't be deleted if the name is empty, so we're not using return value
 					//render Spawnable's settings
-					bNeedDeletion = spawnedObject->onGui(m_lastSelectedSpawnable.c_str());
+					//failsafe in case object was not named
+					if (spawnedObject->getObjId().empty())
+						bNeedDeletion = spawnedObject->onGui(SPAWNER.checkUniqueName("Unnamed").c_str()); //can't be deleted if the name is empty, so we're not using return value
+					else //correct default behavior
+						bNeedDeletion = spawnedObject->onGui(spawnedObject->getObjId().c_str());
 				}
 				//if 'x' button was pressed for current record
 				if (bNeedDeletion)
@@ -409,9 +441,9 @@ void SpawnerTab::onGuiSpawnedMeshesList()
 			m_lastMeshesFilterList.clear();
 			for (auto& [name, spawnedMesh] : SPAWNER.getAllMeshes())
 			{
-				if (ND_Util::checkFilterConditions(name, m_meshesFilter))
+				if (ND_Util::checkFilterConditions(spawnedMesh.first.meshId, m_entitiesFilter)) //filtering by meshId as it's how we show the mesh in ui
 				{
-					m_lastMeshesFilterList.insert(name);
+					m_lastMeshesFilterList.insert({spawnedMesh.first.meshId, name});
 				}
 			}
 		}
@@ -441,12 +473,12 @@ void SpawnerTab::onGuiSpawnedMeshesList()
 				if (spawnedMesh.second)
 				{
 					ImGui::SameLine();
-					if (ImGui::Button(("DELETE " + m_lastSelectedMesh).c_str()))
+					if (ImGui::Button(("DELETE " + spawnedMesh.first.meshId).c_str()))
 					{
 						defferedDeleteName = m_lastSelectedMesh;
 					}
 					//Button for focusing on the object with camera
-					if (ImGui::Button(("Focus on " + m_lastSelectedMesh).c_str()))
+					if (ImGui::Button(("Focus on " + spawnedMesh.first.meshId).c_str()))
 					{
 						vec3 camPos = Render::getScreenCamera()->getWorldTranslation();
 						vec3 centerPos = spawnedMesh.second->getWorldTranslation();
