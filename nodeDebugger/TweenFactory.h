@@ -137,6 +137,8 @@ namespace TweenContainer
         else //used by ImGui TweenEditor
         {
             tweenStart = tweenRecord.tweenStart;
+            if (tweenRecord.transformType == tweenTransformType::ROTATE)
+                tweenStart *= DEG2RAD; //hardcoded to degree, because no one is using radians in NodeDebugger
             nodeValueSetter(tweenStart, _node, tweenRecord);
         }
 

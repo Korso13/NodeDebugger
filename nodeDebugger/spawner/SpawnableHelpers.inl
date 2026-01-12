@@ -85,8 +85,14 @@
 		std::function<void(anyVar&)> onSettingChangeCB;
 
 		std::function<bool(const std::string&, anyVar&)>& getOnGuiCb() { return settingValue.onGuiCb; }
+		void setSettingEnabledChecker(std::function<bool()>&& enabledCheckPredicate){ m_enableCheckCB = std::move(enabledCheckPredicate); }
+		bool isEnabled() const
+		{
+			if(!m_enableCheckCB) return true;
+			return m_enableCheckCB();
+		};
 
 	private:
-
+		std::function<bool()> m_enableCheckCB;
 		//SpawnSetting(const std::string& name) : settingName(name) {};
 	};

@@ -60,24 +60,55 @@ protected:
 
 	//Exposes class variable to the Spawner tab (Enums must be first serialized via AUTO_SERIALIZE_ENUM or W4_NLOHMANN_JSON_SERIALIZE_ENUM macro!).
 	//SpawnSetting ctor arguments: 1) Variable name 2) Variable ref or value 3) Callback on value change
-	void addSpawnableSetting(SpawnSetting&& newSetting)
+	//You can use returned SpawnSetting& to set predicate for easy enabling/disabling setting rendering via setSettingEnabledChecker() method
+	SpawnSetting& addSpawnableSetting(SpawnSetting&& newSetting)
 	{
-		m_spawnableSettings.insert({ newSetting.settingName, std::move(newSetting)});
-	}	
+		auto folderName = ND_Util::tryGetFolderName(newSetting.settingName);
+		if (folderName)
+		{
+			auto result = m_spawnableSettings[*folderName].insert({ newSetting.settingName, std::move(newSetting)});
+			return result.first->second; //return ref to freshly added setting
+		}
+		else
+		{
+			auto result = m_spawnableSettings[""].insert({ newSetting.settingName, std::move(newSetting)});
+			return result.first->second; //return ref to freshly added setting
+		}
+	}
+
 	void removeSpawnableSetting(const std::string& settingName)
 	{
-		m_spawnableSettings.erase(settingName);
+		auto editableCopy = settingName;
+		auto folderName = ND_Util::tryGetFolderName(editableCopy);
+		if (folderName)
+			m_spawnableSettings[*folderName].erase(editableCopy);
+		else
+			m_spawnableSettings[""].erase(editableCopy);
 	}
 
 	//Exposes the value as a drop-down list with values provided by the listGetter param
 	//listGetter - func that returns unordered_map with available items (value) paired with their name (key)
 	template<typename T>
 	requires AutoTypeConcept<T> || onGuiImplConcept<T>
-	void addSpawnableSettingList(
+	SpawnSetting& addSpawnableSettingList(
 		const std::string& name,
 		T& value,
 		std::function<std::map<std::string, std::decay_t<T>>()>&& listGetter,
 		std::function<void(std::decay_t<T>&)>&& onChangeCB = nullptr);
+
+	// Special case of addSpawnableSettingList that automatically lists all child meshes and returns selected meshId in onChangeCB
+	SpawnSetting& addChildMeshSelectorSetting(
+		const std::string& name,
+		std::string& value,
+		std::function<void(std::string&)>&& onChangeCB = nullptr);
+
+	// Special case of addSpawnableSettingList that automatically lists all child objects of classes in classNameFilters
+	// Returns selected child objId in onChangeCB
+	SpawnSetting& addChildSelectorSetting(
+		const std::string& name,
+		std::string& value,
+		std::vector<std::string> classNameFilters,
+		std::function<void(std::string&)>&& onChangeCB = nullptr);
 
 	//Exposes method of the spawned object to its spawner tab
 	void addSpawnableBtn(const std::string& btnName, std::function<void()>&& btnCall)
@@ -97,7 +128,9 @@ protected:
 	//Better to call it from onBeginPlay (otherwise children may fail to find proper node) or at least after initSpawnable!
 	void spawnAllChildren();
 
+
 	sptr<Mesh> getChildMeshByName(const std::string& name) const;
+	sptr<Spawnable> getChildByName(const std::string& name) const;
 
 	//Called immediately after constructor
 	//Override to add class specific init behavior (better than using onSpawn callback)
@@ -117,6 +150,13 @@ protected:
 	std::array<vec3, 2> getSpawnableBounds(sptr<Node> spawnableRoot);
 	void renewSpawnableBounds(){m_cachedBounds = std::array<w4::math::vec3, 2>();}
 
+	bool hasChildMesh(const std::string& name) const;
+	bool hasChildObj(const std::string& name) const;
+
+	//required to call before export - updates data relevant to children export
+	//override it in case you need some specific logic on exporting to JSON only (don't forget to call Spawnable's impl too!)
+	virtual void updateChildrenData();
+
 private:
 
 	//Renders root transforms and parenting ui + any exposed SpawnableSettings
@@ -134,9 +174,7 @@ private:
 
 	void initSpawnableCollider(std::function<void(const CollisionInfo&)> clickCb);
 	std::string getNewMeshIdSuffix(const std::string& meshName);
-	void updateChildrenData(); //required to call before export
 
-	bool hasChildMesh(const std::string& name) const;
 	SpawnableChildMesh& getChildMeshHolder(const std::string& name);
 
 public:
@@ -155,7 +193,8 @@ private:
 
 	const size_t m_uid;
 
-	std::map<std::string, SpawnSetting> m_spawnableSettings; //Fields exposed to the Spawner Tab Gui (rendered in Spawnable::onGui)
+	//std::map<std::string, SpawnSetting> m_spawnableSettings; //Fields exposed to the Spawner Tab Gui (rendered in Spawnable::onGui)
+	std::map<std::string, std::map<std::string, SpawnSetting>> m_spawnableSettings; //Fields exposed to the Spawner Tab Gui (rendered in Spawnable::onGui)
 	std::map<std::string, std::function<void()>> m_spawnableBtns; //Btns exposed to the Spawner Tab Gui (rendered in Spawnable::onGui)
 	size_t m_rootNodeTransformSubsHandler = -1;
 

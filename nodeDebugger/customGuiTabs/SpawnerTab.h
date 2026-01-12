@@ -66,6 +66,7 @@ private:
 	bool m_needUpdateEntitiesFilter = true; 
 	bool m_clickAddModeON = false;
 	bool m_clickFiltering = false;
+	bool m_showChildObjects = true;
 	std::string m_entitiesFilter = "";
 	std::string m_meshesFilter = "";
 	std::string m_lastSelectedSpawnable = "";

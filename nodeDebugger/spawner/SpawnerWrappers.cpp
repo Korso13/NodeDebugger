@@ -113,13 +113,13 @@ void SceneObject::initSpawnable(sptr<Node> rootNode)
 
 void SceneObject::onChildSpawned(sptr<Spawnable> newChild)
 {
-   if (!newChild)
-      return;
-   if (m_root && newChild->getSpawnableRoot())
-   {
-      m_root->addChild(newChild->getSpawnableRoot());
-      newChild->getSpawnableRoot()->setLocalTranslation(newChild->getMapObjectsData().pos);
-   }
+    if (!newChild)
+        return;
+    if (m_root && newChild->getSpawnableRoot())
+    {
+        m_root->addChild(newChild->getSpawnableRoot());
+        newChild->getSpawnableRoot()->setLocalTranslation(newChild->getMapObjectsData().local_pos);
+    }
 }
 
 void SceneObject::onBeginPlay(sptr<Spawnable> selfRef, bool isTabSpawned, vec3 spawnLocation)

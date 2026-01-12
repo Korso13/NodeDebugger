@@ -286,15 +286,19 @@ void SpawnerTab::onGuiSpawnedList()
 	{
 		m_activeSubtab = Subtab::SpawnedObjects;
 		//Exports newly spawned entities plus previously loaded from mapObjects.json
+		bool isFilterChanged = false;
 		onGuiExportBtn();
 		ImGui::SameLine();
 		ImGui::Checkbox("Click selection with filter", &m_clickFiltering);
+		ImGui::SameLine();
+		if (ImGui::Checkbox("Show child objects", &m_showChildObjects))
+			isFilterChanged = true;
+
 
 		//list-filtering magic
-		bool isFilterChanged = false;
 		if (SPAWNER.getAllSpawnables().size() > 6)
 		{
-			isFilterChanged = ND_Util::ImGuiSearchBar(m_entitiesFilter);
+			isFilterChanged = isFilterChanged || ND_Util::ImGuiSearchBar(m_entitiesFilter);
 		}
 		else if (!m_entitiesFilter.empty())
 		{
@@ -312,7 +316,8 @@ void SpawnerTab::onGuiSpawnedList()
 			m_lastSpawnablesFilterList.clear();
 			for (auto& [name, spawnedObject] : SPAWNER.getAllSpawnables())
 			{
-				if (ND_Util::checkFilterConditions(spawnedObject->getObjId(), m_entitiesFilter)) //filtering by objId as it's how we show the object in ui
+				if (ND_Util::checkFilterConditions(spawnedObject->getObjId(), m_entitiesFilter) //filtering by objId as it's how we show the object in ui
+					&& !(!m_showChildObjects && spawnedObject->getMapObjectsData().isChildObj)) //removing child objects if checkbox is unchecked
 					m_lastSpawnablesFilterList.insert({spawnedObject->getObjId(), name});
 			}
 		}
@@ -324,7 +329,8 @@ void SpawnerTab::onGuiSpawnedList()
 		bool bNeedDeletion = false;
 		std::string defferedDeleteName;
 		//pair - is changed? - internal Spawner name
-		auto listResult = ND_Util::ImGuiListBox("Spawned", m_lastSpawnablesFilterList, m_lastSelectedSpawnable,
+		auto listResult = ND_Util::ImGuiListBox(
+			"Spawned", m_lastSpawnablesFilterList, m_lastSelectedSpawnable,
 				//RMB-triggered popup menu render
 				//todo: export to separate function
 			[this, &bNeedDeletion, &defferedDeleteName, &isFilterChanged](std::string key)
@@ -441,7 +447,7 @@ void SpawnerTab::onGuiSpawnedMeshesList()
 			m_lastMeshesFilterList.clear();
 			for (auto& [name, spawnedMesh] : SPAWNER.getAllMeshes())
 			{
-				if (ND_Util::checkFilterConditions(spawnedMesh.first.meshId, m_entitiesFilter)) //filtering by meshId as it's how we show the mesh in ui
+				if (ND_Util::checkFilterConditions(spawnedMesh.first.meshId, m_meshesFilter)) //filtering by meshId as it's how we show the mesh in ui
 				{
 					m_lastMeshesFilterList.insert({spawnedMesh.first.meshId, name});
 				}

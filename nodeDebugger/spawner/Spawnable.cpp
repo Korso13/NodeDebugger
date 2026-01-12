@@ -4,8 +4,8 @@
 #include <common/nodeDebugger/NodeDebugger.h>
 
 #include "SpawnerTools.h"
-#include "../CustomAutos.h"
 #include "others/utils/ScreenSpaceShader.h"
+#include "common/Digits_S.h"
 
 std::array<vec3, 2> Spawnable::getSpawnableBounds(sptr<Node> spawnableRoot)
 {
@@ -42,11 +42,23 @@ std::array<vec3, 2> Spawnable::getSpawnableBounds(sptr<Node> spawnableRoot)
 			//special mechanism for spines
 			if (node->is<Spine>())
 			{
+				vec3 spineSize;
 				auto spine = node->as<Spine>();
-				auto& skeleton = spine->skeleton;
-				auto data = spine->skeleton->getData();
 
-				auto spineSize = vec3{ data->getWidth(), data->getHeight(), 0.01 } / 1024.f * spine->getLocalScale();  // normalize to world size
+				spine::SkeletonBounds boundingBox;
+				boundingBox.update(*(spine->skeleton.get()), true);
+				if (boundingBox.getWidth() != std::numeric_limits<float>::lowest() || boundingBox.getWidth() != std::numeric_limits<float>::max())
+				{
+					spineSize = vec3(boundingBox.getWidth()/1024.f * spine->getLocalScale().x,
+														boundingBox.getHeight()/1024.f * spine->getLocalScale().y,
+														0.1);
+				}
+				else
+				{
+					auto matrix = spine->getSkeletonCurrentBounds().getMatrix();
+					vec3 scale = spine->getSkeletonCurrentBounds().scale();
+					spineSize = (matrix * vec4(scale.x, scale.y, scale.z, 1)).asVec3();  // normalize to world size
+				}
 				spineSize.z = 0.01;
 
 				vec3 leftBottom = node->getWorldTranslation() - spineSize * vec3(0.5, 0.f, 1.f);
@@ -299,10 +311,80 @@ void Spawnable::initSpawnable(sptr<Node> rootNode)
 			m_mapObjectData.pos = trans.translation();
 			if (neAbs(m_mapObjectData.pos.z) < 0.0001f)
 				m_mapObjectData.pos.z = 0.f; //sometimes the gizmo puts in double values into Z field breaking ROs. Disable if you need non-zero Z placement
+
 			if (m_mapObjectData.isChildObj && m_spRoot)
+			{
 				m_mapObjectData.local_pos = m_spRoot->getLocalTranslation();
+				m_mapObjectData.local_scale = m_spRoot->getLocalScale();
+				m_mapObjectData.local_rotation = m_spRoot->getLocalRotation().euler();
+			}
+			else
+			{
+				m_mapObjectData.scale = m_spRoot->getWorldScale();
+				m_mapObjectData.rotation = m_spRoot->getWorldRotation().euler();
+			}
 			m_cachedBounds = std::array<w4::math::vec3, 2>(); //clearing plotter frame pos cache
 		});
+}
+
+Spawnable::SpawnSetting& Spawnable::addChildMeshSelectorSetting(const std::string& name,
+	std::string& value,
+	std::function<void(std::string&)>&& onChangeCB)
+{
+	auto meshListGetter =
+		[this, cachedMap = std::map<std::string, std::string>(), lastChildCount = getSpawnedChildMeshes().size()]() mutable
+		-> std::map<std::string, std::string>
+		{
+			if (lastChildCount != getSpawnedChildMeshes().size())
+			{
+				cachedMap.clear();
+				cachedMap["NONE"] = "NONE"; //should always have this
+				for (auto& childHolder : getSpawnedChildMeshes())
+				{
+					if (childHolder.child.expired()) continue;
+					cachedMap.try_emplace(childHolder.mmd.meshId, childHolder.mmd.meshId);
+				}
+				lastChildCount = getSpawnedChildMeshes().size() - 1;
+			}
+			if (cachedMap.empty()) cachedMap["NONE"] = "NONE";
+			return cachedMap;
+		};
+
+	return addSpawnableSettingList(name, value, meshListGetter, std::move(onChangeCB));
+}
+
+Spawnable::SpawnSetting& Spawnable::addChildSelectorSetting(const std::string& name,
+	std::string& value,
+	std::vector<std::string> classNameFilters,
+	std::function<void(std::string&)>&& onChangeCB)
+{
+	auto childrenListGetter =
+		[this, classNameFilters, cachedMap = std::map<std::string, std::string>(), lastChildCount = getSpawnedChildren().size()]() mutable
+		-> std::map<std::string, std::string>
+		{
+			if (lastChildCount != getSpawnedChildren().size())
+			{
+				cachedMap.clear();
+				cachedMap["NONE"] = "NONE"; //should always have this
+				for (auto& childHolder : getSpawnedChildren())
+				{
+					if (childHolder.child.expired()) continue;
+					for (const auto& filter : classNameFilters)
+					{
+						if (childHolder.mod.className == filter)
+						{
+							auto child = childHolder.child.lock();
+							cachedMap.try_emplace(child->getMapObjectsData().objId, child->getMapObjectsData().objId);
+						}
+					}
+				}
+				lastChildCount = getSpawnedChildMeshes().size() - 1;
+			}
+			if (cachedMap.empty()) cachedMap["NONE"] = "NONE";
+			return cachedMap;
+		};
+
+	return addSpawnableSettingList(name, value, childrenListGetter, std::move(onChangeCB));
 }
 
 void Spawnable::addChildSpawner(std::function<void(sptr<Spawnable>)> onChildSpawnCb, bool childrenSpawnerOn)
@@ -364,6 +446,25 @@ sptr<Mesh> Spawnable::getChildMeshByName(const std::string& name) const
 	return nullptr;
 }
 
+sptr<Spawnable> Spawnable::getChildByName(const std::string& name) const
+{
+	for (auto& rec : m_children)
+	{
+		if (rec.mod.objId == name)
+		{
+			if (rec.child.expired())
+			{
+				err("[Spawnable::getChildByName]Found child object {%s} for {%s}, but wptr expired!", name.c_str(), m_mapObjectData.objId.c_str());
+				return nullptr;
+			}
+			return rec.child.lock();
+		}
+	}
+
+	err("[Spawnable::getChildByName]Failed to find child object {%s} for {%s}", name.c_str(), m_mapObjectData.objId.c_str());
+	return nullptr;
+}
+
 void Spawnable::SpawnableMainUi()
 {
 #ifdef DEBUG
@@ -391,18 +492,35 @@ void Spawnable::SpawnableMainUi()
 	}
 
 	//Render for exposed class fields if any
-	for (auto& [settingName, Setting] : m_spawnableSettings)
-	{
-		auto guiFunc = Setting.getOnGuiCb(); //function for rendeing setting in ImGui
-		if (guiFunc)
+	// Universal setting render function
+	static auto renderSetting = [](const std::string& settingName, SpawnSetting& Setting)
 		{
-			if (guiFunc((settingName.empty() ? STR(repeatElemId) : settingName), Setting.settingValue)) //checking if setting was changed
+			if (!Setting.isEnabled()) return;
+			auto guiFunc = Setting.getOnGuiCb(); //function for rendeing setting in ImGui
+			if (guiFunc)
 			{
-				Setting.onSettingChangeCB(Setting.settingValue);
+				if (guiFunc((settingName.empty() ? STR(repeatElemId) : settingName), Setting.settingValue)) //checking if setting was changed
+				{
+					Setting.onSettingChangeCB(Setting.settingValue);
+				}
 			}
+		};
+	//First rendering settings in folders
+	for (auto& [folderName, SettingsMap] : m_spawnableSettings)
+	{
+		if (folderName == "") continue; //render this last
+		if (ImGui::TreeNode(folderName.c_str()))
+		{
+			for (auto& [settingName, Setting] : SettingsMap)
+				renderSetting(settingName, Setting);
+			ImGui::TreePop();
 		}
 	}
+	//then rendering settings without a folder
+	for (auto& [settingName, Setting] : m_spawnableSettings[""])
+		renderSetting(settingName, Setting);
 
+	//last - we render buttons
 	for (auto& [btnName, btnCall] : m_spawnableBtns)
 	{
 		if (btnCall)
@@ -652,6 +770,16 @@ bool Spawnable::hasChildMesh(const std::string& name) const
 	return false;
 }
 
+bool Spawnable::hasChildObj(const std::string& name) const
+{
+	for (const auto& rec : m_children)
+	{
+		if (rec.mod.objId == name)
+			return true;
+	}
+	return false;
+}
+
 Spawnable::SpawnableChildMesh& Spawnable::getChildMeshHolder(const std::string& name)
 {
 	for (auto& rec : m_childMeshes)
@@ -857,6 +985,8 @@ sptr<Spawnable> Spawnable::spawnChild(sptr<MapObjectsData> childData, SpawnableC
 	{
 		child->getSpawnableRoot()->setLocalTranslation(local_pos);
 		childData->local_pos = local_pos; //in case it was overridden
+		child->getSpawnableRoot()->setLocalScale((childData->local_scale));
+		child->getSpawnableRoot()->setLocalRotation(Rotator(childData->local_rotation));
 	}
 
 	childHolder.child = child;

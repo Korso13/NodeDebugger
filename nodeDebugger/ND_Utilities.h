@@ -66,6 +66,9 @@ namespace ND_Util
 	
 	std::pair<bool, std::string> ImGuiMaterialSelector(const std::string& currentMaterial);
 
+	//if variableName contains [FolderName] returns FolderName and removes [FolderName] from variableName
+	std::optional<std::string> tryGetFolderName(std::string& variableName);
+
 	void ImGuiTweensBody(sptr<Node> _node, tweenDebugRecord& tweenRecord);
 	void ImGuiTweenPlotter(sptr<Node> _node, tweenDebugRecord& tweenRecord);
 	void plotterDockWindowWrapper();

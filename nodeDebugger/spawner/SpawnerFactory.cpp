@@ -685,7 +685,7 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, boo
 		}
 	);
 
-	if (bTabSpawned)
+	if (bTabSpawned && newEntity->getSpawnableRoot())
 	{
 		ND_NODE(newEntity->getSpawnableRoot());
 		if(spawnAt == INVALIDPOS)
@@ -696,8 +696,21 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, boo
 				newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
 			spawnAt = cameraPos;
 		}
-		else if (newEntity->getSpawnableRoot())
+		else
+		{
 			newEntity->getSpawnableRoot()->setWorldTranslation(spawnAt);
+		}
+
+		if (newEntity->getMapObjectsData().isChildObj)
+		{
+			newEntity->getSpawnableRoot()->setLocalScale((newEntity->getMapObjectsData().local_scale));
+			newEntity->getSpawnableRoot()->setLocalRotation(Rotator(newEntity->getMapObjectsData().local_rotation));
+		}
+		else
+		{
+			newEntity->getSpawnableRoot()->setWorldScale((newEntity->getMapObjectsData().scale));
+			newEntity->getSpawnableRoot()->setWorldRotation(Rotator(newEntity->getMapObjectsData().rotation));
+		}
 	}
 
 	newEntity->onBeginPlay(newEntity, bTabSpawned, (bTabSpawned ? spawnAt : newEntity->getMapObjectsData().pos));
@@ -757,15 +770,31 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 	//placing new object in front of camera or at set coordinates
 	vec3 cameraPos = Render::getScreenCamera()->getWorldTranslation();
 	cameraPos.z = 0.f;
-	if (newEntity->getSpawnableRoot() && bTabSpawned)
+	if (newEntity->getSpawnableRoot())
 	{
-		ND_NODE(newEntity->getSpawnableRoot());
-		if(newEntity->getMapObjectsData().pos == vec3::zero)
+		if (bTabSpawned)
 		{
-			newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
+			ND_NODE(newEntity->getSpawnableRoot());
+			if(newEntity->getMapObjectsData().pos == vec3::zero)
+			{
+				newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
+			}
+			else if (newEntity->getMapObjectsData().pos != INVALIDPOS)
+				newEntity->getSpawnableRoot()->setWorldTranslation(newEntity->getMapObjectsData().pos);
+		}
+
+		if (newEntity->getMapObjectsData().isChildObj)
+		{
+			if (!bTabSpawned) newEntity->getSpawnableRoot()->setLocalTranslation((newEntity->getMapObjectsData().local_pos));
+			newEntity->getSpawnableRoot()->setLocalScale((newEntity->getMapObjectsData().local_scale));
+			newEntity->getSpawnableRoot()->setLocalRotation(Rotator(newEntity->getMapObjectsData().local_rotation));
 		}
 		else
-			newEntity->getSpawnableRoot()->setWorldTranslation(newEntity->getMapObjectsData().pos);
+		{
+			if (!bTabSpawned) newEntity->getSpawnableRoot()->setWorldTranslation((newEntity->getMapObjectsData().pos));
+			newEntity->getSpawnableRoot()->setWorldScale((newEntity->getMapObjectsData().scale));
+			newEntity->getSpawnableRoot()->setWorldRotation(Rotator(newEntity->getMapObjectsData().rotation));
+		}
 	}
 
 	newEntity->onBeginPlay(newEntity, bTabSpawned, (bTabSpawned ? cameraPos : newEntity->getMapObjectsData().pos));
@@ -792,6 +821,39 @@ sptr<Spawnable> SpawnerFactory::spawnCopyOfObject(MapObjectsData& objectsMOD, ve
 	MapObjectsData modCopy = objectsMOD;
 	if (modCopy.objId.find("_copy") == std::string::npos)
 		modCopy.objId = modCopy.objId + "_copy_000";
+
+	for (auto& childRec : modCopy.childObjects)
+	{
+		if (!childRec) continue;
+		childRec = M_SPTR<MapObjectsData>(*childRec); //creating true copy from underlying object of MOD sptr
+		//todo: needs better solution :(
+		if (size_t parentNamePos = childRec->node.find("||" + objectsMOD.objId + "||"); parentNamePos != std::string::npos)
+		{
+			//trying to fix child node parenting to target new parent
+			auto oldNode = childRec->node;
+			childRec->node.replace(parentNamePos, 4 + objectsMOD.objId.size(), "||" + modCopy.objId + "||");
+			info("[SpawnerFactory::spawnCopyOfObject] Fixed child {%s} node from \n%s\nto\n%s",
+				childRec->objId.c_str(), oldNode.c_str(), childRec->node.c_str());
+		}
+		else
+			childRec->node.clear(); //defaulting to parent's root node
+	}
+	for (auto& childRec : modCopy.childMeshes)
+	{
+		if (!childRec) continue;
+		childRec = M_SPTR<MapMeshData>(*childRec); //creating true copy from underlying object of MMD sptr
+		//todo: needs better solution :(
+		if (size_t parentNamePos = childRec->node.find("||" + objectsMOD.objId + "||"); parentNamePos != std::string::npos)
+		{
+			//trying to fix child node parenting to target new parent
+			auto oldNode = childRec->node;
+			childRec->node.replace(parentNamePos, 4 + objectsMOD.objId.size(), "||" + modCopy.objId + "||");
+			info("[SpawnerFactory::spawnCopyOfObject] Fixed child mesh {%s} node from \n%s\nto\n%s",
+				childRec->meshId.c_str(), oldNode.c_str(), childRec->node.c_str());
+		}
+		else
+			childRec->node.clear(); //defaulting to parent's root node
+	}
 
 	auto copy = spawnObjectOfClass(SpawnerRec, modCopy, nullptr, bTabSpawned);
 	if (!copy)

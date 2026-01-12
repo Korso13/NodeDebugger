@@ -271,17 +271,26 @@ inline Spawnable::SpawnSetting::SpawnSetting(
 }
 
 template<typename T> requires AutoTypeConcept<T> || onGuiImplConcept<T>
-void Spawnable::addSpawnableSettingList(const std::string& name, T& value,
+Spawnable::SpawnSetting& Spawnable::addSpawnableSettingList(const std::string& name, T& value,
 	std::function<std::map<std::string, std::decay_t<T>>()>&& listGetter,
 	std::function<void(std::decay_t<T>&)>&& onChangeCB)
 {
 	SpawnSetting&& newSetting = SpawnSetting(name, value, std::move(onChangeCB));
 	newSetting.getOnGuiCb() = [this, listGetter](const std::string& settingName, SpawnSetting::anyVar& settingHolder) -> bool
 		{
+#ifdef DEBUG
 			if (!settingHolder.hasValue()) return false;
 			std::map<std::string, std::decay_t<T>> mapWithValues = listGetter();
 			if (mapWithValues.empty())
+			{
+				if (ImGui::BeginCombo(SAFE_IMG_NAME(settingName), "NONE"))
+				{
+					static bool s_falseFlag = false;
+					ImGui::Selectable("No valid items found for this setting!\nCheck filter of children!", &s_falseFlag, ImGuiSelectableFlags_Disabled);
+					ImGui::EndCombo();
+				}
 				return false;
+			}
 			std::string currentValue = "";
 			for (auto& [valueName, value] : mapWithValues)
 			{
@@ -298,7 +307,9 @@ void Spawnable::addSpawnableSettingList(const std::string& name, T& value,
 				*settingHolder.getRef<T>() = result.second;
 				return true;
 			}
+#endif
 			return false;
 		};
-	m_spawnableSettings.insert({ newSetting.settingName, std::move(newSetting)});
+
+	return addSpawnableSetting(std::move(newSetting));
 }

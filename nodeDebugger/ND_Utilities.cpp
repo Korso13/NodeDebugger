@@ -1474,4 +1474,26 @@ namespace ND_Util
 
         return std::regex_search(itemName, name_match, regex);
     }
+
+    std::optional<std::string> tryGetFolderName(std::string& variableName)
+    {
+        std::regex reg(R"(\[.+\])", std::regex::icase);
+        std::smatch folder_found;
+        if (std::regex_search(variableName, folder_found, reg))
+        {
+            //warn("%s", folder_found.str().c_str());
+            std::optional<std::string> folderName;
+            if (folder_found.str().size() > 2) //non-empty folder syntax
+            {
+                folderName = folder_found.str();
+                (*folderName).pop_back(); (*folderName).erase(0, 1); //remove brackets []
+                variableName = std::regex_replace(variableName, reg, "");
+                return folderName;
+            }
+            else
+                return std::nullopt;
+        }
+        else
+            return std::nullopt;
+    }
 }
