@@ -35,6 +35,7 @@ class ImGuiNode;
 #define SAFE_IMG_NAME(name) ((name.empty()) ? ("default_name"+std::to_string(w4::utils::UIDGenerator::get())).c_str() : name.c_str())
 
 //Switches for custom ImGui tabs
+#define NDNODES
 #define NDSPINES
 #define NDVARIABLES
 #define NDBORDERS
@@ -92,13 +93,6 @@ static float	sliderSensivity = 0.01;
 template<typename T>
 using ParamPair = std::pair<std::string, T>;
 
-struct ImG_Node
-{
-	wptr<Node> node;
-	std::string name;
-	bool markedForDeletion = false;
-};
-
 enum class LogLevel
 {
 	All = 0,
@@ -131,21 +125,6 @@ struct tweenDebugRecord
 
 	sptr<CustomTweens::Tween<vec3>> tween;
 	sptr<CustomTweens::EndlessTween<vec3>> tweenEndless;
-};
-
-struct SpineDebugging
-{
-	std::string spineName;
-	sptr<Spine> spine;
-	std::vector<std::string> animationNames;
-	int lastSelected = 0;
-	std::vector<float> animationLength;
-	std::vector<std::string> skinNames = { "none" };
-	int selectedSkin1 = 0;
-	int selectedSkin2 = 0;
-	int selectedSkin3 = 0;
-	int selectedSkin4 = 0;
-	std::map<int, std::string> slots;
 };
 
 //Helper struct for using std::visit with vector of variants

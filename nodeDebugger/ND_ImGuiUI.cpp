@@ -14,6 +14,7 @@
 #include "customGuiTabs/PathdrawerTab.h"
 #include "customGuiTabs/SpawnerTab.h"
 #include "NodeDebugger.h"
+#include "customGuiTabs/NodesTab.h"
 
 ND_ImGui::ND_ImGui()
 {
@@ -74,88 +75,29 @@ void ND_ImGui::onResize(const event::Resize& evt)
     io.DisplaySize = w4::math::vec2{ static_cast<float>(size.w) / scale, static_cast<float>(size.h) / scale };
 }
 
-void ND_ImGui::addImGuiNode(sptr<Node> inNode, std::string name)
+void ND_ImGui::addImGuiNode(sptr<Node> inNode, const std::string& name)
 {
-    if (!inNode)
-        return;
-
-    if (inNode->is<Spine>())
-    {
-        addSpine(inNode->as<Spine>(), name);
-        return;
-    }
-    if (inNode->is<SpotLight>())
-    {
-        addSpotLight(inNode->as<SpotLight>(), name);
-        return;
-    }
-
-    if (name == "default")
-        name = inNode->getName();
-    m_needUpdateNodesFilter = true;
-
-    //prevents duplicate names
-    std::string zeroes = "00"; //for better sorting
-    if (m_staticNodes.contains(name))
-    {
-        //checks if the list contains this node already
-        if (!m_staticNodes.at(name).node.expired() && m_staticNodes.at(name).node.lock().get() == inNode.get())
-            return;
-
-        for (size_t i = 0; i < 500; i++) 
-        {
-            if (i == 10 || i == 100)
-                zeroes.pop_back();
-            
-            if (!m_staticNodes.contains(name + "(" + zeroes + STR(i) + ")"))
-            {
-
-                name += "(" + zeroes + STR(i) + ")";
-                break;
-            }
-            //checks if the list contains this node already
-            else if (!m_staticNodes.at(name + "(" + zeroes + STR(i) + ")").node.expired() && 
-                     m_staticNodes.at(name + "(" + zeroes + STR(i) + ")").node.lock().get() == inNode.get())
-                return;
-        }
-    }
-
-    ImG_Node nodeStruct = { 
-        .node = inNode,
-        .name = name,
-        .markedForDeletion = false 
-    };
-    m_staticNodes.insert({ name, nodeStruct });
+#ifndef NDNODES
+    return;
+#endif
+    sptr<iGuiTab> nodesTab = getCustomTabByName("Nodes");
+    if (!nodesTab) return;
+    nodesTab->addItem(inNode, name);
 }
 
-void ND_ImGui::removeImGuiNode(const std::string nodeName)
+void ND_ImGui::removeImGuiNode(const std::string& nodeName)
 {
-    if (m_staticNodes.contains(nodeName))
-    {
-        m_staticNodes.erase(nodeName);
-        return;
-    }
-
-#ifdef NDSPINES
-    if (getCustomTabByName("Spines"))
-    {
-        getCustomTabByName("Spines")->removeItem(nodeName);
-    }
-#endif
-
-    for (auto& [name, ImG_NodeStruct] : m_staticNodes)
-    {
-        if (!ImG_NodeStruct.node.expired() && ImG_NodeStruct.node.lock()->getName() == nodeName)
-        {
-            m_staticNodes.erase(ImG_NodeStruct.name);
-            return;
-        }
-    }
+    sptr<iGuiTab> nodesTab = getCustomTabByName("Nodes");
+    if (!nodesTab) return;
+    nodesTab->removeItem(nodeName);
 }
 
 void ND_ImGui::removeAllImGuiNodes()
 {
-    m_staticNodes.clear();
+    sptr<iGuiTab> nodesTab = getCustomTabByName("Nodes");
+    if (!nodesTab) return;
+    nodesTab->purgeValues();
+
     ND_Util::debugTweensMove.clear();
     ND_Util::debugTweensScale.clear();
 }
@@ -187,7 +129,14 @@ void ND_ImGui::initCustomTabs()
 {
     //Order of adding determines order of ImGui tabs!
     
+    //Nodes and hierarchy tab
+#ifdef NDNODES
+    m_extraTabs.push_back(make::sptr<NodesTab>());
+#endif // NDNODES
+
+    //Spawner Tab
     m_extraTabs.push_back(make::sptr<SpawnerTab>());
+
     //Spines tab
 #ifdef NDSPINES
     m_extraTabs.push_back(make::sptr<SpinesTab>());
@@ -312,14 +261,6 @@ void ND_ImGui::onGui(float dt)
 
                 ImGui::EndTabItem();
             }
-            //debug nodes and meshes tab
-            if (!m_staticNodes.empty())
-                if (ImGui::BeginTabItem("Nodes,Meshes"))
-                {
-                    ImGuiNodes();
-
-                    ImGui::EndTabItem();
-                }
             //debug calls tab
             if (!m_debugCallbacks.empty())
                 if (ImGui::BeginTabItem("Debug calls"))
@@ -374,146 +315,6 @@ void ND_ImGui::onGui(float dt)
     ImGui::End();
 
     ND_Util::plotterDockWindowWrapper();
-}
-
-void ND_ImGui::ImGuiNodes()
-{
-    ND_Util::ImGuiNodeSettings();
-    bool isFilterChanged = false;
-    if (m_staticNodes.size() > 6)
-        isFilterChanged = (ND_Util::ImGuiSearchBar(m_nodesFilter) || m_needUpdateNodesFilter);
-    else if (!m_nodesFilter.empty())
-        m_nodesFilter.clear();
-
-    if (m_needUpdateNodesFilter) m_needUpdateNodesFilter = false;
-
-    ImGui::SameLine();
-    if (ImGui::Button("Add all existing nodes"))
-    {
-        Render::getRoot()->traversalTyped<Node>([this](sptr<Node> _node)
-            {
-                if (_node && _node != Render::getRoot() && _node != Render::getScreenCamera())
-                    addImGuiNode(_node);
-            });
-        Render::getHudPass().getRoot()->traversalTyped<Node>([this](sptr<Node> _node)
-            {
-                if (_node && _node != Render::getRoot() && _node != Render::getScreenCamera())
-                    addImGuiNode(_node);
-            });
-        for (auto& [name, ImG_NodeStruct] : m_staticNodes)
-        {
-            if (ImG_NodeStruct.node.expired())
-                ImG_NodeStruct.markedForDeletion = true;
-        }
-    }
-    ImGui::SameLine();
-    ImGui::Text("Nodes shown: %d", m_nodeFilterItems);
-
-    if (ImGui::BeginChild("Filtered Nodes"))
-    {
-        if (m_nodesFilter.empty()) //no filter applied
-        {
-            m_nodeFilterItems = m_staticNodes.size();
-            for (auto& [name, ImG_NodeStruct] : m_staticNodes)
-            {
-                if (!ImG_NodeStruct.node.expired() && !ImG_NodeStruct.markedForDeletion)
-                {
-                    //Node item render code
-                    if (ImGui::TreeNode(name.c_str()))
-                    {
-                        ImGui::SameLine();
-                        if (ImGui::Button("x"))
-                        {
-                            m_staticNodes[name].markedForDeletion = true;
-                        }
-
-                        ND_Util::ImGuiNodeRender(ImG_NodeStruct.node.lock(), name);
-
-                        ImGui::TreePop();
-                    }
-
-                    m_nodeFilterItems++;
-                }
-                else if (ImG_NodeStruct.node.expired())
-                    ImG_NodeStruct.markedForDeletion = true;
-            }
-        }
-        else
-        {
-            if (isFilterChanged) //filter changed. resetting list of matching node names
-            {
-                m_nodeFilterItems = 0;
-                m_lastNodeFilterList.clear();
-
-                for (auto& [name, ImG_NodeStruct] : m_staticNodes)
-                {
-                    if (!ImG_NodeStruct.node.expired() && !ImG_NodeStruct.markedForDeletion)
-                    {
-                        if (ND_Util::checkFilterConditions(name, m_nodesFilter))
-                        {
-                            //Node item render code
-                            if (ImGui::TreeNode(name.c_str()))
-                            {
-                                ImGui::SameLine();
-                                if (ImGui::Button("x"))
-                                {
-                                    m_staticNodes[name].markedForDeletion = true;
-                                }
-
-                                ND_Util::ImGuiNodeRender(ImG_NodeStruct.node.lock(), name);
-
-                                ImGui::TreePop();
-                            }
-
-                            m_lastNodeFilterList.insert(name);
-                            m_nodeFilterItems++;
-                        }
-                    }
-                    else if (ImG_NodeStruct.node.expired())
-                        ImG_NodeStruct.markedForDeletion = true;
-                }
-            }
-            else //filter has't changed sonce last render. Less compute overhead
-            {
-                //m_nodeFilterItems = m_lastNodeFilterList.size();
-                for (auto& [name, ImG_NodeStruct] : m_staticNodes)
-                {
-                    if (
-                        !ImG_NodeStruct.node.expired()
-                        && !ImG_NodeStruct.markedForDeletion
-                        && m_lastNodeFilterList.contains(name)
-                        )
-                    {
-                        //Node item render code
-                        if (ImGui::TreeNode(name.c_str()))
-                        {
-                            ImGui::SameLine();
-                            if (ImGui::Button("x"))
-                            {
-                                m_staticNodes[name].markedForDeletion = true;
-                            }
-
-                            ND_Util::ImGuiNodeRender(ImG_NodeStruct.node.lock(), name);
-                            
-                            ImGui::TreePop();
-                        }
-                        ImGui::Separator();
-                        ImGui::Spacing();
-                        //ImGui::Separator();
-                    }
-                    else if (ImG_NodeStruct.node.expired())
-                        ImG_NodeStruct.markedForDeletion = true;
-                }
-            }
-        }
-    }
-    ImGui::EndChild(); //ends nodes list scrollable zone
-
-    std::erase_if(m_staticNodes,
-        [](const auto& record)
-        {
-            return record.second.markedForDeletion;
-        });
 }
 
 void ND_ImGui::ImGuiUpdate(float dt)

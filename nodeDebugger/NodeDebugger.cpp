@@ -91,9 +91,7 @@ void NodeDebugger::purgeDebugger()
         if (tab) tab->purgeValues();
     }
     m_buttonCb.clear();
-    m_staticNodes.clear();
-    ND_Util::debugTweensMove.clear();
-    ND_Util::debugTweensScale.clear();
+    removeAllImGuiNodes();
     m_debugCallbacks.clear();
 }
 

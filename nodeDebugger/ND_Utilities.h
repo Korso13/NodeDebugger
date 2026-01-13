@@ -22,13 +22,14 @@ namespace ND_Util
 	void setSkin(sptr<Spine> spine, const std::string& name);
 	void addSkin(sptr<Spine> spine, const std::string& name);
 
-	void ImGuiNodeRender(sptr<Node> _node, const std::string& name);
+	void ImGuiNodeRender(sptr<Node> _node, const std::string& name); //todo: consider adding template with node subclass hint, because is<T>() might not work properly
+	void ImGuiSpineRender(sptr<Spine> _spine, const std::string& name);
 	bool ImGuiTransforms(sptr<Node> _node);
 	void ImGuiCopyVec3Btn(vec3 vec);
 	void ImGuiNodeSettings(bool bNoGizmoSettings = false);
 	void NoConflictGizmo(sptr<Node> _node, const std::string& name);
 	void ImGuiSettings();
-	bool ImGuiNodeHierarchy(sptr<Node>& _nodeToSet, const std::string nodePickerLabel = "Node");
+	bool ImGuiNodeHierarchy(sptr<Node>& _nodeToSet, const std::string& nodePickerLabel = "Node");
 	bool ImGuiTextureSelector(std::string& textureName, const std::string& selectorCaption = "<-Mesh Name");
 
 	void resetImGuiRepeatElemId();

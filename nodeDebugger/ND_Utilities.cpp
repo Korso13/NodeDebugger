@@ -7,6 +7,8 @@
 #include <utils/EditorCamera.h>
 #include "external/addonPlot/implot.h"
 #include "ND_ParticleEmitterEditor.h"
+#include "NodeDebugger.h"
+#include "customGuiTabs/SpinesTab.h"
 #include "settings/materialSystem/materialContainer/MaterialContainer.h"
 #include "spawner/SpawnerFactory.h"
 
@@ -348,6 +350,7 @@ namespace ND_Util
                 }
             }
             if (_node->is<Mesh>())
+            {
                 if (ImGui::BeginTabItem("Material"))
                 {
                     const auto mesh = cast_sptr<Mesh>(_node);
@@ -362,6 +365,16 @@ namespace ND_Util
 
                     ImGui::EndTabItem();
                 }
+            }
+            if (std::string(_node->getTypeInfo().name()) == "Object_Spine")
+            {
+                if (ImGui::BeginTabItem("Spine Properties"))
+                {
+                    ImGuiSpineRender(cast_sptr<Spine>(_node), name);
+
+                    ImGui::EndTabItem();
+                }
+            }
             if (ImGui::BeginTabItem("Tween Builder"))
             {
                 ND_Util::ImGuiTweens(_node);
@@ -370,6 +383,37 @@ namespace ND_Util
             }
         }
         ImGui::EndTabBar();
+    }
+
+    void ImGuiSpineRender(sptr<Spine> _spine, const std::string& name)
+    {
+#ifdef NDSPINES //render spine properties, if the node is a Spine
+        sptr<SpinesTab> spinesTab = nullptr;
+        spinesTab = cast_sptr<SpinesTab>(NODEDEBUG->getCustomTabByName("Spines"));
+        if (!spinesTab) W4_LOG_INFO("Failed to get Spines tab - getter or cast failed!");
+
+        //Trying to render spine
+        if (spinesTab)
+        {
+            ImGui::Separator();
+            if (spinesTab->hasSpineRecord(_spine->getName()))
+            {
+                spinesTab->renderSpineProperties(
+                    spinesTab->getSpineInfo(_spine->getName()),
+                    _spine->getName() + " Spine Properties",
+                    true);
+            }
+            else
+            {
+                spinesTab->renderSpineProperties(
+                    spinesTab->getSpineInfo(_spine),
+                    _spine->getName() + " Spine Properties",
+                    true);
+            }
+        }
+        else
+            W4_LOG_INFO("Failed to get Spines tab!");
+#endif
     }
 
     bool ImGuiTransforms(sptr<Node> _node)
@@ -571,7 +615,7 @@ namespace ND_Util
         return changed;
     }
 
-    bool ImGuiNodeHierarchy(sptr<Node>& _nodeToSet, const std::string nodePickerLabel)
+    bool ImGuiNodeHierarchy(sptr<Node>& _nodeToSet, const std::string& nodePickerLabel)
     {
         bool changed = false; //tracks if new node was selected
 

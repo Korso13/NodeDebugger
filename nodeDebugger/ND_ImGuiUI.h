@@ -19,8 +19,8 @@ public:
 	void ImGuiUpdate(float dt)NOCOMP;
 	void onGui(float dt) NOCOMP;
 
-	void addImGuiNode(sptr<Node> inNode, std::string altName = "default") NOCOMP;
-	void removeImGuiNode(const std::string nodeName) NOCOMP;
+	void addImGuiNode(sptr<Node> inNode, const std::string& altName = "default") NOCOMP;
+	void removeImGuiNode(const std::string& nodeName) NOCOMP;
 	void removeAllImGuiNodes() NOCOMP;
 
 	void addSpine(sptr<SpineAnimationBase> spineToDebug, std::string altName = "default") NOCOMP;
@@ -54,7 +54,6 @@ private:
 	//ImGui NodeDebugger methods
 	void ImGuiCamera() NOCOMP;
 	void ImGuiConsole() NOCOMP;
-	void ImGuiNodes() NOCOMP;
 
 protected:
 
@@ -63,24 +62,16 @@ protected:
 
 	bool m_foldImGuiMenu = false;
 	bool m_windowFocused = false;
-	bool m_needUpdateNodesFilter = false;
 
 	float m_imGuiFontSize = IMG_FONTSIZE; 
 
 	vec4 m_clearColor = Render::getScreenCamera()->getClearColor();
 
-	std::map<std::string, ImG_Node> m_staticNodes;
-	std::string m_nodesFilter = "";
-	std::set<std::string> m_lastNodeFilterList;
-	int m_nodeFilterItems = 0;
-
 	std::unordered_map<std::string, std::function<void()>> m_debugCallbacks;
-
 	std::vector<sptr<iGuiTab>> m_extraTabs;
 
 	//Editor camera
 	sptr<EditorCamera> m_editorCamera;
-
 };
 
 #ifndef FORCENODEDEBUG_OFF
