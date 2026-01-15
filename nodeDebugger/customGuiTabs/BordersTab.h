@@ -38,9 +38,13 @@ private:
 		// ctor for newly created Border
 		explicit BorderRec(const std::string& borderName) NOCOMP;
 		~BorderRec() NOCOMP;
-		bool onGui() NOCOMP;
+		bool onGui() NOCOMP_B;
 		void addBorderPoint(vec2 newPointPos = INVALIDPOS.withoutZ()) NOCOMP;
-		TabBorderLineData getData() NOCOMP;
+#ifndef FORCENODEDEBUG_OFF
+		TabBorderLineData getData() ;
+#else
+		TabBorderLineData getData() {return TabBorderLineData();};
+#endif
 		void showBorders(bool show) NOCOMP;
 
 	private:
@@ -80,7 +84,7 @@ private:
 		// ctor for newly created Border 'file'
 		BorderFile(const std::string& borderFileName) NOCOMP;
 
-		bool onGui() NOCOMP;
+		bool onGui() NOCOMP_B;
 		void exportToFile() NOCOMP;
 		void addBorder(const std::string& borderName) NOCOMP;
 		void removeBorder(BorderRecIt borderIterator) NOCOMP;
@@ -122,7 +126,7 @@ private:
 	void onKeyReleased(const event::Keyboard::Up& evt)NOCOMP;
 	void onTouchBegin(const Touch::Begin& evt) NOCOMP;
 
-	const char* checkTabNameUnique(const std::string& name) NOCOMP;
+	const char* checkTabNameUnique(const std::string& name) NOCOMP_PTR;
 	void loadJson() NOCOMP;
 
 	static void onJSONLoadCB(void* self, char* result, char* fileName, char* filePath)
