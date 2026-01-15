@@ -86,6 +86,7 @@ W4_NLOHMANN_JSON_SERIALIZE_ENUM(tweenTransformType, {
 
 //Import JS func to write into files (via save dialogue)
 typedef void (*JSStringCallback) (void*, char*);
+typedef void (*JSJsonFileCallback) (void*, char*, char*, char*); //context, json string, fileName, filePath
 
 #ifdef __EMSCRIPTEN__
 W4_JS_IMPORT
@@ -93,6 +94,7 @@ W4_JS_IMPORT
 void jsWriteEvent(const char* data, const char* filename);
 void jsReadImage(void* self, JSStringCallback callback);
 void jsReadJson(void* self, JSStringCallback callback);
+void jsReadJsonEx(void* self, JSJsonFileCallback callback);
 }
 #else
 void jsWriteEvent(const char* data, const char* filename) {}
