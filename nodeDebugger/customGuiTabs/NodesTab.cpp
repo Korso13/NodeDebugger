@@ -15,10 +15,13 @@ void NodesTab::onGuiCall()
 
     if (ImGui::BeginTabBar("NodesTabBar"))
     {
-        if (ImGui::BeginTabItem("Added Nodes"))
+        if (!m_staticNodes.empty())
         {
-            onGuiAddedNodes();
-            ImGui::EndTabItem();
+            if (ImGui::BeginTabItem("Added Nodes"))
+            {
+                onGuiAddedNodes();
+                ImGui::EndTabItem();
+            }
         }
         if (ImGui::BeginTabItem("Nodes Hierarchy"))
         {

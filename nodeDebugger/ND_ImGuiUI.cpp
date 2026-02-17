@@ -55,6 +55,7 @@ ND_ImGui::ND_ImGui()
 
     initCustomTabs();
     TweenContainer::preloadTweenContainer();
+    m_lastColliderProbe.reserve(25);
 }
 
 void ND_ImGui::onResize(const event::Resize& evt)
@@ -189,7 +190,6 @@ const bool ND_ImGui::checkRaycastCollision() const
 
 void ND_ImGui::ImGuiCamera()
 {
-
     if (ImGui::Checkbox("Enable Editor Camera", &editorCamOn))
     {
         m_editorCamera->toggleCameraEnabled();
@@ -217,6 +217,87 @@ void ND_ImGui::ImGuiCamera()
     if (ImGui::ColorEdit("Clear Color edit", m_clearColor))
     {
         Render::getScreenCamera()->setClearColor(m_clearColor);
+    }
+
+    if (ImGui::TreeNode("Collider probe"))
+    {
+        ImGuiColliderProbe();
+        ImGui::TreePop();
+    }
+}
+
+void ND_ImGui::ImGuiColliderProbe()
+{
+    ImGui::TextColored(IMG_WHITE, "%s", "Press CTRL to raycast all colliders under Mouse");
+    ImGui::Separator();
+    for (const auto& data : m_lastColliderProbe)
+    {
+        if (ImGui::TreeNode(data.colliderDisplayName.c_str()))
+        {
+            ImGui::PushID(repeatElemId++);
+
+            ImGui::Columns(2);
+            ImGui::Text("%s", "Parent Node: ");
+            ImGui::NextColumn();
+            ImGui::Text("%s", data.hitParentName.data());
+            ImGui::Columns(1);
+
+            float pos[3]; std::memcpy(&pos, &data.colliderPos.elements, sizeof pos);
+            float size[3]; std::memcpy(&pos, &data.colliderSize.elements, sizeof pos);
+            ImGui::InputFloat3("Collider Pos", pos, "%.3f", ImGuiInputTextFlags_ReadOnly);
+            ImGui::InputFloat3("Collider Size", size, "%.3f", ImGuiInputTextFlags_ReadOnly);
+
+            ImGui::Columns(2);
+            ImGui::Text("%s", "IS Blocking Screencasts?");
+            ImGui::Text("%s", "IS Blocking Raycasts?");
+            ImGui::NextColumn();
+            if (data.blocksScreencasts)
+                ImGui::TextColored(IMG_RED, "%s", "YES");
+            else
+                ImGui::TextColored(IMG_GREEN, "%s", "NO");
+            if (data.blocksRaycasts)
+                ImGui::TextColored(IMG_RED, "%s", "YES");
+            else
+                ImGui::TextColored(IMG_GREEN, "%s", "NO");
+            ImGui::Columns(1);
+            ImGui::TreePop();
+            ImGui::PopID();
+        }
+    }
+}
+
+void ND_ImGui::probeColliders()
+{
+    m_lastColliderProbe.clear();
+    math::Ray ray = Render::getScreenCamera()->createRayFromScreen(Touch::getMousePosition());
+    auto hits = Render::raycastAll(ray);
+
+    for (auto& hit : hits)
+    {
+        if (hit.target != nullptr)
+        {
+            ColliderProbeData data;
+            data.parent = hit.target->getParent();
+            data.hitParentName = data.parent->getName();
+            data.colliderPos = data.parent->getWorldTranslation() + hit.target->getLocalTranslation();
+            auto colliderBounds = hit.target->getVolume()->as<AABB>()->getBounds();
+            data.colliderSize = vec3(
+                neAbs(colliderBounds.max().x - colliderBounds.min().x),
+                neAbs(colliderBounds.max().y - colliderBounds.min().y),
+                neAbs(colliderBounds.max().z - colliderBounds.min().z));
+            data.blocksScreencasts = hit.target->isBlockScreencasts();
+            data.blocksRaycasts = hit.target->isBlockRaycasts();
+
+            for (const auto&[name, collider] : data.parent->getColliders())
+            {
+                if (collider.get() == hit.target)
+                {
+                    data.colliderDisplayName = name + "[" + data.parent->getName() + "]";
+                    break;
+                }
+            }
+            m_lastColliderProbe.push_back(data);
+        }
     }
 }
 
@@ -251,16 +332,20 @@ void ND_ImGui::onGui(float dt)
             //debug camera tab
             if (ImGui::BeginTabItem("Camera"))
             {
+                m_isCameraTabActive = true;
                 ND_Util::ImGuiNodeSettings(true);
 
                 if (ImGui::BeginChild("Camera scrollable zone"))
                 {
                     ImGuiCamera();
                 }
+
                 ImGui::EndChild();
 
                 ImGui::EndTabItem();
             }
+            else
+                m_isCameraTabActive = false;
             //debug calls tab
             if (!m_debugCallbacks.empty())
                 if (ImGui::BeginTabItem("Debug calls"))

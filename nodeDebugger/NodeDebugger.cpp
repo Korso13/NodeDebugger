@@ -308,6 +308,9 @@ void NodeDebugger::onKeyPressed(const event::Keyboard::Down& evt)
         }
         return;
         break;
+    case platform::KeyboardKey::Control:
+        if (m_isCameraTabActive)
+            ND_ImGui::probeColliders();
     default:
         //W4_LOG_DEBUG("Debug::some key pressed");
         break;

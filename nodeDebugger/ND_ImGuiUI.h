@@ -43,6 +43,11 @@ public:
 
 	sptr<iGuiTab> getCustomTabByName(std::string tabName) NOCOMP_PTR;
 
+protected:
+
+	// used for ImGuiColliderProbe()
+	void probeColliders() NOCOMP;
+
 private:
 
 	//called on init
@@ -53,6 +58,7 @@ private:
 
 	//ImGui NodeDebugger methods
 	void ImGuiCamera() NOCOMP;
+	void ImGuiColliderProbe() NOCOMP;
 	void ImGuiConsole() NOCOMP;
 
 protected:
@@ -62,6 +68,7 @@ protected:
 
 	bool m_foldImGuiMenu = false;
 	bool m_windowFocused = false;
+	bool m_isCameraTabActive = false;
 
 	float m_imGuiFontSize = IMG_FONTSIZE; 
 
@@ -72,6 +79,18 @@ protected:
 
 	//Editor camera
 	sptr<EditorCamera> m_editorCamera;
+
+	struct ColliderProbeData
+	{
+		std::string colliderDisplayName;
+		Node* parent = nullptr;
+		std::string_view hitParentName;
+		vec3 colliderPos;
+		vec3 colliderSize;
+		bool blocksScreencasts;
+		bool blocksRaycasts;
+	};
+	std::vector<ColliderProbeData> m_lastColliderProbe;
 };
 
 #ifndef FORCENODEDEBUG_OFF

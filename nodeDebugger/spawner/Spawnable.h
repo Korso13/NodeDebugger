@@ -13,8 +13,13 @@ W4_USE_UNSTRICT_INTERFACE
 class SpawnerTab;
 class SpawnerFactory;
 
-//struct MapObjectsData is defined in "common/nodeDebugger/SpawnerStructs.h"! via MOD_DEFINITION macro
+// Logger macros for Spawnables
+#define sp_debug(FORMAT, ...) W4_LOG_DEBUG((std::string("[%s][%s]") + std::string(FORMAT)).c_str(), __PRETTY_FUNCTION__, getObjId().c_str(), ##__VA_ARGS__);
+#define sp_info(FORMAT, ...) W4_LOG_INFO((std::string("[%s][%s]") + std::string(FORMAT)).c_str(), __PRETTY_FUNCTION__, getObjId().c_str(), ##__VA_ARGS__)
+#define sp_warn(FORMAT, ...) W4_LOG_WARNING((std::string("[%s][%s]") + std::string(FORMAT)).c_str(), __PRETTY_FUNCTION__, getObjId().c_str(), ##__VA_ARGS__)
+#define sp_err(FORMAT, ...) W4_LOG_ERROR((std::string("[%s][%s]") + std::string(FORMAT)).c_str(), __PRETTY_FUNCTION__, getObjId().c_str(), ##__VA_ARGS__)
 
+//struct MapObjectsData is defined in "common/nodeDebugger/SpawnerStructs.h"! via MOD_DEFINITION macro
 class Spawnable
 {
 	friend SpawnerTab;
@@ -131,6 +136,10 @@ protected:
 
 	sptr<Mesh> getChildMeshByName(const std::string& name) const;
 	sptr<Spawnable> getChildByName(const std::string& name) const;
+
+	template<typename T>
+	requires (std::is_same_v<T,bool> || std::is_same_v<T,int> || std::is_same_v<T,float> || std::is_same_v<T,std::string> || std::is_same_v<T,vec2> || std::is_same_v<T,vec3> || std::is_same_v<T,vec4>)
+	std::optional<T> getSetting(const std::string& settingName) const;
 
 	//Called immediately after constructor
 	//Override to add class specific init behavior (better than using onSpawn callback)

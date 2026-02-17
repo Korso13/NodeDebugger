@@ -313,3 +313,52 @@ Spawnable::SpawnSetting& Spawnable::addSpawnableSettingList(const std::string& n
 
 	return addSpawnableSetting(std::move(newSetting));
 }
+
+template<typename T> requires (std::is_same_v<T, bool> || std::is_same_v<T, int> || std::is_same_v<T, float> || std::
+		is_same_v<T, std::string> || std::is_same_v<T, vec2> || std::is_same_v<T, vec3> || std::is_same_v<T, vec4>)
+std::optional<T> Spawnable::getSetting(const std::string& settingName) const
+{
+	if constexpr (std::is_same_v<T, bool>)
+	{
+		if (!m_mapObjectData.settings.flags.contains(settingName))
+			return std::nullopt;
+		return m_mapObjectData.settings.flags.at(settingName);
+	}
+	if constexpr (std::is_same_v<T, int>)
+	{
+		if (!m_mapObjectData.settings.integers.contains(settingName))
+			return std::nullopt;
+		return m_mapObjectData.settings.integers.at(settingName);
+	}
+	if constexpr (std::is_same_v<T, float>)
+	{
+		if (!m_mapObjectData.settings.floats.contains(settingName))
+			return std::nullopt;
+		return m_mapObjectData.settings.floats.at(settingName);
+	}
+	if constexpr (std::is_same_v<T, std::string>)
+	{
+		if (!m_mapObjectData.settings.strs.contains(settingName))
+			return std::nullopt;
+		return m_mapObjectData.settings.strs.at(settingName);
+	}
+	if constexpr (std::is_same_v<T, vec2>)
+	{
+		if (!m_mapObjectData.settings.vec2s.contains(settingName))
+			return std::nullopt;
+		return m_mapObjectData.settings.vec2s.at(settingName);
+	}
+	if constexpr (std::is_same_v<T, vec3>)
+	{
+		if (!m_mapObjectData.settings.vec3s.contains(settingName))
+			return std::nullopt;
+		return m_mapObjectData.settings.vec3s.at(settingName);
+	}
+	if constexpr (std::is_same_v<T, vec4>)
+	{
+		if (!m_mapObjectData.settings.vec4s.contains(settingName))
+			return std::nullopt;
+		return m_mapObjectData.settings.vec4s.at(settingName);
+	}
+	return std::nullopt;
+}

@@ -35,9 +35,9 @@ public:
 
 	void renderSpineProperties(SpineDebugging& spineInfo, const std::string& name, bool noTransformTabs = false) NOCOMP;
 	// If returns falls - use getSpineInfo overload for sptr<Spine>
-	bool hasSpineRecord(const std::string& spineRecordName) const NOCOMP;
-	SpineDebugging& getSpineInfo(const std::string& spineRecordName) NOCOMP;
-	SpineDebugging& getSpineInfo(sptr<Spine>& spine) NOCOMP;
+	bool hasSpineRecord(const std::string& spineRecordName) const NOCOMP_B;
+	SpineDebugging& getSpineInfo(const std::string& spineRecordName) NOCOMP_REF(SpineDebugging);
+	SpineDebugging& getSpineInfo(sptr<Spine>& spine) NOCOMP_REF(SpineDebugging);
 
 private:
 

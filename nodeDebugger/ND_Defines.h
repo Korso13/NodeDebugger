@@ -14,7 +14,9 @@ W4_USE_UNSTRICT_INTERFACE
 #define NOCOMP {};
 #define NOCOMP_B {return false;};
 #define NOCOMP_F {return 1.f;};
+#define NOCOMP_S {return std::string();};
 #define NOCOMP_PTR {return nullptr;}
+#define NOCOMP_REF(type) {static type stubRef; return stubRef;}; //used for conditional compilation. 'type' must have default ctor!
 class ImGuiNode;
 //struct ImVec2 { ImVec2(float, float) {}; };
 #endif
@@ -23,7 +25,9 @@ class ImGuiNode;
 #define NOCOMP ; //used for conditional compilation
 #define NOCOMP_B ;//used for conditional compilation
 #define NOCOMP_F ;
+#define NOCOMP_S ;
 #define NOCOMP_PTR ;//used for conditional compilation
+#define NOCOMP_REF(type) ;//used for conditional compilation
 #include "ImGuiNode.h"
 #include "ImGuiHelpers.h"
 #include "internal/ImGuiFontRoboto.h"
@@ -78,6 +82,7 @@ static float	sliderSensivity = 0.01;
 #define IMG_ORANGE  ImVec4(1.f, 0.2, 0.f, 1.f)
 #define IMG_BLUE	ImVec4(0.f, 0.2, 1.f, 1.f)
 #define IMG_VIOLET  ImVec4(0.4, 0.1, 0.5, 1.f)
+#define IMG_GREEN  ImVec4(0.0, 1.0, 0.2, 1.f)
 #define IMG_WHITE	ImVec4(1.f, 1.f, 1.f, 1.f)
 
 //Slider settings (limits):

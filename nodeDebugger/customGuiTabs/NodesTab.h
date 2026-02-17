@@ -24,7 +24,7 @@ public:
     NodesTab() : iGuiTab("Nodes") {};
 
     void onGuiCall() override NOCOMP;
-    bool isEmpty() override {return m_staticNodes.empty();}
+    bool isEmpty() override {return false;}
 
     void addItem(std::any item, const std::string& altName = "default") override NOCOMP;
 
