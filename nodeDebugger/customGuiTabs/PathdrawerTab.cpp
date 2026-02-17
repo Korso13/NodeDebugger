@@ -24,11 +24,13 @@ void PathdrawerTab::onGuiCall()
 		nlohmann::adl_serializer<PathsData>::to_json(exportJson, pathDataCleared);
 		exportAsJson(exportJson);
 	}
+#ifdef NDPATHDRAWER
 	ImGui::SameLine();
 	if (ImGui::Button("Draw paths from Pathfinder"))
 	{
 		importPathfinderData();
 	}
+#endif
 	ImGui::Spacing();
 	ImGui::Separator();
 
@@ -340,6 +342,7 @@ void PathdrawerTab::loadJson()
 
 void PathdrawerTab::importPathfinderData()
 {
+#ifdef NDPATHDRAWER
 	//purge old data
 	m_pathsData = PathsData();
 	for (auto& [name, mesh] : m_pathNodeRender)
@@ -375,6 +378,7 @@ void PathdrawerTab::importPathfinderData()
 		});
 		renderPathLines(importedPath);
 	}
+#endif
 }
 
 void PathdrawerTab::selectPathLine(const std::string& pathName)
