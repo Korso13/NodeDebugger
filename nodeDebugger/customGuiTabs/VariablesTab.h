@@ -32,14 +32,14 @@ private:
 	void drawMapCollection(const std::string& name, debugMapCollection& collection) NOCOMP;
 	void drawSettingsSubtab() NOCOMP;
 	//Logic for rendering GUI for debug variables
-	void drawVariablesFolder(std::unordered_map<std::string, debugVariant>& variables) NOCOMP;
+	void drawVariablesFolder(std::map<std::string, debugVariant>& variables) NOCOMP;
 
 private:
 
-	std::unordered_map<std::string, debugMapCollection> m_debugMaps;
-	std::unordered_map<std::string, debugVectors> m_debugVectors;
+	std::map<std::string, debugMapCollection> m_debugMaps;
+	std::map<std::string, debugVectors> m_debugVectors;
 
-	using variables_container = std::unordered_map<std::string, std::unordered_map<std::string, debugVariant>>;
+	using variables_container = std::map<std::string, std::map<std::string, debugVariant>>;
 	variables_container m_debugVariables;
 	size_t m_variablesCounter = 0;
 

@@ -42,7 +42,6 @@ MAKE_SERIALIZED_ENUM_CLASS(BonusType,
 	(Bow)
 	(Potion)
 	(Crown)
-	(Feather)
 	(ChampionArmor)
 	(ChampionSword)
 	(ChampionHelmet)
@@ -55,19 +54,19 @@ MAKE_SERIALIZED_ENUM_CLASS(BonusType,
 	(GoldenSword)
 	(GoldenAxe)
 	(Scythe)
-	(x5)
-	(x10)
-	(x50)
-	(Heart)
-	(Trident)
-	(Lightning)
 	(FireUlt)
 	(ElectricUlt)
+	(Emerald)
+	(Ruby)
+	(Key)
+	(AuroraBuff)
+	(Dash)
+	(Immortal)
+
+
 	(Coins)
 	(ExpSpheres)
 	(CoinsAndSpheres)
-	(Emerald)
-	(Ruby)
 	(NONE)
 );
 
@@ -104,6 +103,12 @@ SERIALIZE_ENUM(Aligning,
 	(RIGHT)
 );
 
+MAKE_SERIALIZED_ENUM_CLASS(BorderType,
+	(Inner)
+	(Outer)
+	(TriggerZone)
+);
+
 MAKE_SERIALIZED_ENUM_CLASS(GAL_ATTACK_TYPE,
 	(DEFAULT) //standard attack
 	(LAST_USED) //last used attack or ultimate
@@ -120,4 +125,7 @@ MAKE_SERIALIZED_ENUM_CLASS(GAL_ATTACK_TYPE,
 	(ATTACK_DOUBLE)
 	(ATTACK_COMBO)
 	(ATTACK_FLYING)
+	(ATTACK_WHIRLWIND)
+	(ATTACK_SPELL)
+	(ATTACK_RAM)
 );

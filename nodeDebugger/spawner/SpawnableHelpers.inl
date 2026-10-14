@@ -2,8 +2,10 @@
 #include "../Concepts.h"
 
 	//forward decl
+public:
 	struct SpawnSetting;
 
+protected:
 	//helper structs:
 
 	//Structs to hold spawnable child objects and meshes. todo: consider moving elsewhere
@@ -36,6 +38,7 @@
 		inline static MapMeshData m_defaultVal = MapMeshData(); //for default constructor
 	};
 
+public:
 	//Struct containing information about exposed setting, callback for changing it and ImGui render for it
 	struct SpawnSetting
 	{

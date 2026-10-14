@@ -22,6 +22,7 @@ class ImGuiNode;
 #endif
 
 #ifndef FORCENODEDEBUG_OFF
+#define SHIPPING_STATIC
 #define NOCOMP ; //used for conditional compilation
 #define NOCOMP_B ;//used for conditional compilation
 #define NOCOMP_F ;
@@ -33,6 +34,8 @@ class ImGuiNode;
 #include "internal/ImGuiFontRoboto.h"
 #include "internal/ImGuiDrawerGizmo.h"
 #include "internal/ImGuiAuto.h"
+#else
+#define SHIPPING_STATIC static
 #endif
 
 #define jsprint(vec) ND_Util::jsstring(vec).c_str()
@@ -85,6 +88,8 @@ static float	sliderSensivity = 0.01;
 #define IMG_GREEN  ImVec4(0.0, 1.0, 0.2, 1.f)
 #define IMG_WHITE	ImVec4(1.f, 1.f, 1.f, 1.f)
 
+#define IMG_DISABLED	ImVec4(0.66, 0.66, 0.66, 1.f)
+
 //Slider settings (limits):
 #define IMG_POSRANGE 900.f
 #define IMG_ROTRANGE_DEG 360.f
@@ -92,6 +97,9 @@ static float	sliderSensivity = 0.01;
 #define IMG_SCALERANGE 50.f
 
 #define IMG_PLOTTERSTIMESTEP 0.01
+
+// Base priority == 10. 15 - means we can auto-sort up to 5 overlapping Spawner objects on click
+#define SPAWNER_MAX_COLLIDER_PRIORITY 15
 //=========================================================================================
 
 //pair of parameter name and its default value
@@ -143,7 +151,7 @@ struct Visitor : Lambdas...
 	using Lambdas::operator()...;
 };
 
-using variable_t = std::variant<bool*, int*, float*, std::string*, vec2*, vec3*, vec4*, ivec2*>;
+using variable_t = std::variant<bool*, int*, size_t*, float*, std::string*, vec2*, vec3*, vec4*, ivec2*, uvec2*>;
 
 struct debugVariant
 {

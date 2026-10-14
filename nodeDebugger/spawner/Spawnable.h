@@ -5,25 +5,32 @@
 #include <any>
 #include <type_traits>
 #include "SpawnerStructs.h"
-#include "../Concepts.h"
-
-W4_USE_UNSTRICT_INTERFACE
+#include "common/nodeDebugger/Concepts.h"
 
 //forward decl
+class CollidersExt;
 class SpawnerTab;
 class SpawnerFactory;
+class Spawnable;
+W4_USE_UNSTRICT_INTERFACE
+
+namespace SP_Utils
+{
+SHIPPING_STATIC void onGuiSingleExportBtns(Spawnable& obj);
+}
 
 // Logger macros for Spawnables
-#define sp_debug(FORMAT, ...) W4_LOG_DEBUG((std::string("[%s][%s]") + std::string(FORMAT)).c_str(), __PRETTY_FUNCTION__, getObjId().c_str(), ##__VA_ARGS__);
-#define sp_info(FORMAT, ...) W4_LOG_INFO((std::string("[%s][%s]") + std::string(FORMAT)).c_str(), __PRETTY_FUNCTION__, getObjId().c_str(), ##__VA_ARGS__)
-#define sp_warn(FORMAT, ...) W4_LOG_WARNING((std::string("[%s][%s]") + std::string(FORMAT)).c_str(), __PRETTY_FUNCTION__, getObjId().c_str(), ##__VA_ARGS__)
-#define sp_err(FORMAT, ...) W4_LOG_ERROR((std::string("[%s][%s]") + std::string(FORMAT)).c_str(), __PRETTY_FUNCTION__, getObjId().c_str(), ##__VA_ARGS__)
+#define sp_debug(FORMAT, ...) W4_LOG_DEBUG((std::string("[%s][%s]") + std::string(FORMAT)).c_str(), __func__, getObjId().c_str(), ##__VA_ARGS__)
+#define sp_info(FORMAT, ...) W4_LOG_INFO((std::string("[%s][%s]") + std::string(FORMAT)).c_str(), __func__, getObjId().c_str(), ##__VA_ARGS__)
+#define sp_warn(FORMAT, ...) W4_LOG_WARNING((std::string("[%s][%s]") + std::string(FORMAT)).c_str(), __func__, getObjId().c_str(), ##__VA_ARGS__)
+#define sp_err(FORMAT, ...) W4_LOG_ERROR((std::string("[%s][%s]") + std::string(FORMAT)).c_str(), __func__, getObjId().c_str(), ##__VA_ARGS__)
 
 //struct MapObjectsData is defined in "common/nodeDebugger/SpawnerStructs.h"! via MOD_DEFINITION macro
 class Spawnable
 {
 	friend SpawnerTab;
 	friend SpawnerFactory;
+	friend void SP_Utils::onGuiSingleExportBtns(Spawnable& obj);
 
 protected:
 	//moved helper structs into a separate file
@@ -42,12 +49,17 @@ public:
 	//Use only if you are not setting up updates for Spawnable via
 	virtual void spawnableSelfUpdate(float dt) { };
 
-	//Used by Spawner Tab. Do not call youreself!
+	// Called by Spawner Tab when Spawnable object is selected.
+	// Do not call yourself!
 	virtual bool onGui(const char* label);
 
 	//used to get data for exporting spawned entities
 	//Always call Spawnable::getMapObjectsData() if your class can have children (it updates getMapObjectsData().childObjects!!)
 	virtual MapObjectsData& getMapObjectsData();
+	template<typename T>
+	requires (std::is_same_v<T,bool> || std::is_same_v<T,int> || std::is_same_v<T,float> || std::is_same_v<T,std::string> || std::is_same_v<T,vec2> || std::is_same_v<T,vec3> || std::is_same_v<T,vec4>)
+	std::optional<T> getSetting(const std::string& settingName) const;
+
 	[[nodiscard]] size_t getUid() const { return m_uid; }
 	const std::string& getObjId() const {return m_mapObjectData.objId;}
 
@@ -55,6 +67,11 @@ public:
 	std::vector<SpawnableChildMesh>& getSpawnedChildMeshes() { return m_childMeshes; };
 	sptr<Spawnable> getParent() const;
 	bool hasParent() const {return m_mapObjectData.isChildObj && !m_parent.expired();}
+	bool checkFlag(const std::string& flagName) { 
+		if (m_mapObjectData.settings.flags.contains(flagName))
+			return  m_mapObjectData.settings.flags[flagName];
+		return false;
+	}
 
 protected:
 
@@ -71,11 +88,15 @@ protected:
 		auto folderName = ND_Util::tryGetFolderName(newSetting.settingName);
 		if (folderName)
 		{
+			if (m_spawnableSettings[*folderName].contains(newSetting.settingName))
+				m_spawnableSettings[*folderName].erase(newSetting.settingName);
 			auto result = m_spawnableSettings[*folderName].insert({ newSetting.settingName, std::move(newSetting)});
 			return result.first->second; //return ref to freshly added setting
 		}
 		else
 		{
+			if (m_spawnableSettings[""].contains(newSetting.settingName))
+				m_spawnableSettings[""].erase(newSetting.settingName);
 			auto result = m_spawnableSettings[""].insert({ newSetting.settingName, std::move(newSetting)});
 			return result.first->second; //return ref to freshly added setting
 		}
@@ -86,7 +107,11 @@ protected:
 		auto editableCopy = settingName;
 		auto folderName = ND_Util::tryGetFolderName(editableCopy);
 		if (folderName)
+		{
 			m_spawnableSettings[*folderName].erase(editableCopy);
+			if (m_spawnableSettings[*folderName].empty())
+				m_spawnableSettings.erase(*folderName);
+		}
 		else
 			m_spawnableSettings[""].erase(editableCopy);
 	}
@@ -133,13 +158,8 @@ protected:
 	//Better to call it from onBeginPlay (otherwise children may fail to find proper node) or at least after initSpawnable!
 	void spawnAllChildren();
 
-
 	sptr<Mesh> getChildMeshByName(const std::string& name) const;
 	sptr<Spawnable> getChildByName(const std::string& name) const;
-
-	template<typename T>
-	requires (std::is_same_v<T,bool> || std::is_same_v<T,int> || std::is_same_v<T,float> || std::is_same_v<T,std::string> || std::is_same_v<T,vec2> || std::is_same_v<T,vec3> || std::is_same_v<T,vec4>)
-	std::optional<T> getSetting(const std::string& settingName) const;
 
 	//Called immediately after constructor
 	//Override to add class specific init behavior (better than using onSpawn callback)
@@ -156,7 +176,8 @@ protected:
 
 	// Used to render focus frame around Spawnable.
 	// Returns coords for approximate bounding volume around all childs of m_spRoot (except ParticleEmitter, meshes with 'target' texture, disabled VisualNodes). Spines' bounding volume data is unreliable! :(
-	std::array<vec3, 2> getSpawnableBounds(sptr<Node> spawnableRoot);
+	std::array<vec3, 2> getSpawnableBounds(sptr<Node> spawnableRoot, bool forceUpdateBounds = false);
+	std::array<vec3, 2> getOtherSpawnableBounds(sptr<Spawnable> spawnable, bool forceUpdateBounds = false);
 	void renewSpawnableBounds(){m_cachedBounds = std::array<w4::math::vec3, 2>();}
 
 	bool hasChildMesh(const std::string& name) const;
@@ -165,6 +186,11 @@ protected:
 	//required to call before export - updates data relevant to children export
 	//override it in case you need some specific logic on exporting to JSON only (don't forget to call Spawnable's impl too!)
 	virtual void updateChildrenData();
+
+	// Called when Spawnable gains focus (from SpawnableTab). Call default impl when overriding!
+	virtual void onSelected();
+	// Called when Spawnable looses focus (from SpawnableTab). Call default impl when overriding!
+	virtual void onDeselected();
 
 private:
 
@@ -179,9 +205,9 @@ private:
 	//spawns Mesh child and registers it where necessary
 	sptr<Mesh> spawnChildMesh(sptr<MapMeshData> childData, SpawnableChildMesh& childHolder);
 
-	void removeFocusFrame();
 
 	void initSpawnableCollider(std::function<void(const CollisionInfo&)> clickCb);
+	void updateSpawnableCollider(const std::array<vec3, 2>& bounds);
 	std::string getNewMeshIdSuffix(const std::string& meshName);
 
 	SpawnableChildMesh& getChildMeshHolder(const std::string& name);
@@ -217,7 +243,11 @@ private:
 	std::vector<SpawnableChild> m_children;
 	std::vector<SpawnableChildMesh> m_childMeshes;
 
-	sptr<Collider> m_spawnableSelectCollider = nullptr;
+	//sptr<Collider> m_spawnableSelectCollider = nullptr;
+	sptr<CollidersExt> m_spawnableSelectCollider = nullptr;
+	size_t m_colliderCbHandlerId;
+	size_t m_colliderRayCbHandlerId;
+	bool m_colliderPriorityResetRaycast = false;
 
 	std::array<vec3, 2> m_cachedBounds;
 	std::string m_lastSelectedChildMesh = "";

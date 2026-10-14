@@ -1,4 +1,6 @@
 #include "SpawnerWrappers.h"
+
+#include "game/components/TutorTarget.h"
 #include "game/playerController/PlayerController.h"
 #include "others/utils/ScreenSpaceShader.h"
 #include "ui/PlacementStrategies.h"
@@ -74,12 +76,7 @@ void SceneObject::initSpawnable(sptr<Node> rootNode)
    Spawnable::initSpawnable(rootNode);
    addChildSpawner(std::bind(&SceneObject::onChildSpawned, this, std::placeholders::_1));
 
-   addSpawnableSetting(SpawnSetting("Object id",m_mapObjectData.objId,
-      [this](std::string& var)
-         {
-            if (m_root) m_root->setName(var);
-         }));
-
+#ifdef DEBUG
    if (m_placementStrategy)
       addSpawnableSetting(SpawnSetting("Placement Strategy",m_placementStrategy));
 
@@ -109,6 +106,33 @@ void SceneObject::initSpawnable(sptr<Node> rootNode)
             }
          }
    );
+
+
+    // Tutor
+    addSpawnableSetting(SpawnSetting(
+        "[Tutor]Is tutor target?",
+        m_mapObjectData.tutorData.isTutorTarget,
+        [this](bool& val)
+        {
+          if (val)
+          {
+            m_mapObjectData.tutorData.isTutorTarget = true;
+            TutorTarget::create(*m_root, m_mapObjectData);
+          }
+          else
+              m_root->removeFirstComponent<TutorTarget>();
+          }));
+    auto tutorTargetChecker = [this](){return m_mapObjectData.tutorData.isTutorTarget;};
+
+    addSpawnableSetting(SpawnSetting(
+        "[Tutor]Tutor Settings",
+        m_mapObjectData.tutorData,
+        [this](TutorData& val)
+        {
+          getTutorTarget(m_root)->getTutorData() = val;
+        })).setSettingEnabledChecker(tutorTargetChecker);
+
+#endif
 }
 
 void SceneObject::onChildSpawned(sptr<Spawnable> newChild)

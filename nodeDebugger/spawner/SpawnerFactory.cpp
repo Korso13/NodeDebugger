@@ -1,12 +1,21 @@
 #include "SpawnerFactory.h"
 
-#include "SpawnerTools.h"
 #include "common/nodeDebugger/NodeDebugger.h"
 #include "settings/CustomSettingsContainer.h"
+#include "SpawnerTools.h"
+#include "common/DelayFunctionsInside.h"
 
-void SpawnerFactory::SpawnObjects(const std::string& mapDataFileOverride)
+void SpawnerFactory::SpawnObjects(const std::string& mapDataFileOverride, std::vector<std::string> additionalLevelFiles)
 {
 	getAllMapData(mapDataFileOverride, true); //loads requested or default map objects file
+	// Append mapData or overwrite some of its entries with data from additional files
+	if (!additionalLevelFiles.empty())
+	{
+		for (const auto& additionalLevelFile : additionalLevelFiles)
+		{
+			getAllMapData(additionalLevelFile, false, true);
+		}
+	}
 	info("[SpawnerFactory]Loaded %d meshes and %d Spawnable objects(not counting child objects)", MAP_MESH_DATA.size(), MAP_DATA.size());
 
 	//Ensuring all pre-existing nodes are uniquely named! 
@@ -30,11 +39,17 @@ void SpawnerFactory::SpawnObjects(const std::string& mapDataFileOverride)
 	for (auto& obj : MAP_DATA)
 	{
 		if (!m_classesRegistry.contains(obj.className))
+		{
+			warn("[SpawnerFactory::SpawnObjects] No class %s found in registry! Did you add it correctly via registerSpawnableClass() ?", obj.className.c_str());
 			continue;
+		}
 
 		auto spawnerRec = getSpawnerRecord(obj.className);
 		if (!spawnerRec.m_spawnerFunc)
+		{
+			err("[SpawnerFactory::SpawnObjects] No class spawner func %s found in registry! WTF?!", obj.className.c_str());
 			continue;
+		}
 
 		//setting up spawner function's parent node
 		sptr<Node> defaultClassSpawnNode = spawnerRec.getConstructNode();
@@ -122,6 +137,15 @@ void SpawnerFactory::SpawnObjects(const std::string& mapDataFileOverride)
 #ifdef DEBUG
 	//checkNodeHierarchyNames();
 	ND_SPAWNER->initClickColliders();
+
+	// Some objects get finite bounds only after couple of updates :(
+	m_delay->addTask([this]()
+	{
+		for (auto& [id, spawnable] : m_spawnedEntitiesRegistry)
+		{
+			spawnable->updateSpawnableCollider(spawnable->getSpawnableBounds(spawnable->getSpawnableRoot(), true));
+		}
+	}, 0.1f);
 #endif // DEBUG
 }
 
@@ -260,6 +284,24 @@ std::string SpawnerFactory::checkUniqueMeshName(const std::string& name)
 	}
 
 	return "NoUniqueName!";
+}
+
+void SpawnerFactory::updateSpawnableNameRegistry(const std::string& oldName, const std::string& newName)
+{
+	if (!m_spawnedEntities.contains(oldName))
+	{
+		err("[SpawnerFactory::updateSpawnableNameRegistry] can't find Spawnable under old name %s", oldName.c_str());
+		return;
+	}
+	if (m_spawnedEntities.contains(newName))
+	{
+		err("[SpawnerFactory::updateSpawnableNameRegistry] Registry already contains object named %s! You must check for unique names first!", newName.c_str());
+		return;
+	}
+
+	auto spawnable = m_spawnedEntities[oldName];
+	m_spawnedEntities.erase(oldName);
+	m_spawnedEntities[newName] = spawnable;
 }
 
 void SpawnerFactory::updateMeshHierarchyRecords()
@@ -475,6 +517,19 @@ sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string address)
 	return foundNode;
 }
 
+void SpawnerFactory::onUpdate(float dt)
+{
+	if (m_delay) m_delay->update(dt);
+}
+
+SpawnerFactory::SpawnerFactory()
+		:
+		MeshesContainer(Render::getRoot())
+{
+		m_delay = M_SPTR<DelayedTimerInside>();
+		setAutomaticOnUpdate(true);
+}
+
 sptr<Mesh> SpawnerFactory::getMeshByName(const std::string& meshName)
 {
 	if (m_spawnedMeshes.contains(meshName))
@@ -682,8 +737,12 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, boo
 		{
 			newEntityName,
 			newEntity
-		}
-	);
+		});
+	m_spawnedEntitiesRegistry.insert(
+		{
+			newEntity->getUid(),
+			newEntity
+		});
 
 	if (bTabSpawned && newEntity->getSpawnableRoot())
 	{
@@ -763,8 +822,12 @@ sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, Map
 		{
 			newEntityName,
 			newEntity
-		}
-	);
+		});
+	m_spawnedEntitiesRegistry.insert(
+	{
+		newEntity->getUid(),
+		newEntity
+	});
 	m_lastSpawnedObjectName = newEntityName;
 
 	//placing new object in front of camera or at set coordinates
@@ -820,7 +883,7 @@ sptr<Spawnable> SpawnerFactory::spawnCopyOfObject(MapObjectsData& objectsMOD, ve
 	auto& SpawnerRec = getSpawnerRecord(objectsMOD.className);
 	MapObjectsData modCopy = objectsMOD;
 	if (modCopy.objId.find("_copy") == std::string::npos)
-		modCopy.objId = modCopy.objId + "_copy_000";
+		modCopy.objId = modCopy.objId + "_copy";
 
 	for (auto& childRec : modCopy.childObjects)
 	{
@@ -878,6 +941,18 @@ void SpawnerFactory::removeObject(const std::string& objId)
 		return;
 
 	auto& spawnableForDeletion = getAllSpawnables()[objId];
+	removeObjectByUid(spawnableForDeletion->getUid());
+}
+
+void SpawnerFactory::removeObjectByUid(size_t uid)
+{
+	if (!m_spawnedEntitiesRegistry.contains(uid))
+	{
+		return;
+	}
+
+	auto objId = m_spawnedEntitiesRegistry[uid]->getObjId();
+	auto& spawnableForDeletion = m_spawnedEntitiesRegistry[uid];
 
 	if(spawnableForDeletion->m_childrenAdderEnabled)
 	{
@@ -885,11 +960,10 @@ void SpawnerFactory::removeObject(const std::string& objId)
 		for (auto& childHolder : childrenArrayCopy)
 		{
 			if (!childHolder.child.expired())
-				removeObject(childHolder.child.lock()->getMapObjectsData().objId);
+				removeObjectByUid(childHolder.child.lock()->getUid());
 		}
 	}
 
-	//debug("[SpawnerFactory::removeObject]Deleting %s of class %s", spawnableForDeletion->getMapObjectsData().objId.c_str(), spawnableForDeletion->getMapObjectsData().className.c_str());
 	spawnableForDeletion->onEndPlay(spawnableForDeletion, objId);
 	if (getClassRegistry().contains(spawnableForDeletion->getMapObjectsData().className))
 	{
@@ -898,13 +972,21 @@ void SpawnerFactory::removeObject(const std::string& objId)
 			spawnRecord.m_onDeleteCb(spawnableForDeletion);
 	}
 	//removing the Spawnable from the Spawner's list of entities
-	getAllSpawnables().erase(objId);
+	m_spawnedEntities.erase(objId);
+	info("[SpawnerFactory::removeObject] Deleting %s of class %s.\nRefs alive for object: %d(must be 1)",
+		spawnableForDeletion->getMapObjectsData().objId.c_str(),
+		spawnableForDeletion->getMapObjectsData().className.c_str(),
+		spawnableForDeletion.use_count());
+	m_spawnedEntitiesRegistry.erase(uid);
+
+	//spawnableForDeletion->m_spawnableSelectCollider = nullptr;
 	ND_SPAWNER->m_needUpdateEntitiesFilter = true;
 }
 
 void SpawnerFactory::purgeSpawnedObjects()
 {
 	m_spawnedEntities.clear();
+	m_spawnedEntitiesRegistry.clear();
 }
 
 void SpawnerFactory::purgeSpawnedMeshes()
@@ -912,22 +994,82 @@ void SpawnerFactory::purgeSpawnedMeshes()
 	m_spawnedMeshes.clear();
 }
 
-MapObjectsContainer& SpawnerFactory::getAllMapData(const std::string& mapDataFileOverride, bool forceReloadMapData)
+void mergeMocFiles(MapObjectsContainer& mainContainer, MapObjectsContainer appendedContainer)
 {
-	if ((mapData.mapObjectsData.empty() && mapData.mapMeshData.empty()) || forceReloadMapData)
+	// Spawnables
+	for (auto& object : appendedContainer.mapObjectsData)
 	{
-		mapData.mapMeshData.clear();
-		mapData.mapObjectsData.clear();
+		// check if main container already has appended object
+		auto match = std::find_if(mainContainer.mapObjectsData.begin(), mainContainer.mapObjectsData.end(),
+			[appendObjId = object.objId](const MapObjectsData& obj)
+			{
+				return appendObjId == obj.objId;
+			});
+
+		debug("[mergeMocFiles] Found existing object record when adding {%s}: %s", object.objId.c_str(), BOOL_STR(match != mainContainer.mapObjectsData.end()));
+		if (match != mainContainer.mapObjectsData.end())
+			*match = object;
+		else
+			mainContainer.mapObjectsData.push_back(object);
+	}
+
+	// Meshes
+	for (auto& mesh : appendedContainer.mapMeshData)
+	{
+		// check if main container already has appended mesh
+		auto match = std::find_if(mainContainer.mapMeshData.begin(), mainContainer.mapMeshData.end(),
+			[appendMeshId = mesh.meshId](const MapMeshData& obj)
+			{
+				return appendMeshId == obj.meshId;
+			});
+
+		debug("[mergeMocFiles] Found existing mesh record when adding {%s}: %s", mesh.meshId.c_str(), BOOL_STR(match != mainContainer.mapMeshData.end()));
+		if (match != mainContainer.mapMeshData.end())
+			*match = mesh;
+		else
+			mainContainer.mapMeshData.push_back(mesh);
+	}
+}
+
+MapObjectsContainer& SpawnerFactory::getAllMapData(
+	const std::string& mapDataFileOverride,
+	bool forceReloadMapData,
+	bool appendMapData)
+{
+	if ((mapData.mapObjectsData.empty() && mapData.mapMeshData.empty()) || forceReloadMapData || appendMapData)
+	{
+		if (forceReloadMapData)
+		{
+			mapData.mapMeshData.clear();
+			mapData.mapObjectsData.clear();
+		}
 		if (!mapDataFileOverride.empty())
 		{
 			m_mapDataFile = mapDataFileOverride;
 			if (m_mapDataFile.find(".json") == std::string::npos)
 				m_mapDataFile += ".json";
 		}
+
+		if (!w4::filesystem::isPathExists("config/" + m_mapDataFile))
+		{
+			W4_LOG_ERROR("[SpawnerFactory::getAllMapData] file not found: {%s}!", ("config/" + m_mapDataFile).c_str());
+			return mapData;
+		}
+
 		auto file = w4::filesystem::open("config/" + m_mapDataFile);
 		auto json = nlohmann::json::parse(file->data(), file->data() + file->size());
-		nlohmann::adl_serializer<MapObjectsContainer>::from_json(json, mapData);
-		W4_LOG_DEBUG("Loaded {%d} MapObjects", mapData.mapObjectsData.size());
+		if (!appendMapData)
+			nlohmann::adl_serializer<MapObjectsContainer>::from_json(json, mapData);
+		else
+		{
+			MapObjectsContainer appendContainer;
+			nlohmann::adl_serializer<MapObjectsContainer>::from_json(json, appendContainer);
+			mergeMocFiles(mapData, appendContainer);
+		}
+		W4_LOG_DEBUG("[SpawnerFactory::getAllMapData] Loaded {%d} MapObjects, New data entries: {%d} (append mode: %s)",
+			mapData.mapObjectsData.size(),
+			json.size(),
+			BOOL_STR(appendMapData));
 	}
 
 	return mapData;

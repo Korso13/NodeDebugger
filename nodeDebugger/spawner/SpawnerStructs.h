@@ -60,6 +60,39 @@ JSTRUCT_DEFINITION(TextNodeSettings,
 	((vec4, strokeColor, vec4(1.f)))
 );
 
+JSTRUCT_DEFINITION(TutorData,
+	((bool, isTutorTarget, false)) // can be targeted by tutor in principle?
+	((bool, isTutorEnabledOnTarget, true)) // can be right now be a target?
+	((bool, overrideGeneralTutorBehavior, false)) // if true - uses different type of tutor or delay
+	// ===== overrides =====
+	((bool, useCircle, true))
+	((bool, useHand, false))
+	((bool, useTopDownArrow, false))
+	((bool, useAnimatedPath, false))
+	((bool, useHighlight, false))
+	((float, tutorDelayOverride, -1.f)) // if < 0.f, uses default tutor delay
+	// ===== settings =====
+	//((bool, hasItemPriority, false)) // has advantage in picking target //todo: deprecate it and use tutorPriority?
+	((int, tutorPriority, -1)) // if < 0, uses regular target search algorythm, else higher priority is picked first
+	((int, powerRequirements, -1)) // if > 0 limits targeting by Gal's level
+	((vec3, circleOffset, vec3::zero))
+	((vec3, handOffset, vec3::zero))
+	((vec3, topDownArrowOffset, vec3::zero))
+	((vec3, animatedPathOffset, vec3::zero))
+	// ===== blockers =====
+	((std::vector<std::string>, blockingObjectsIds, std::vector<std::string>())) // if some blockingObjectsIds are still valid targets - picks best one of them instead
+);
+
+JSTRUCT_DEFINITION(BorderLineData,
+	((std::string, borderName, ""))
+	((std::vector<vec2>, points, std::vector<vec2>()))
+	((BorderType, border_type, BorderType::Outer))
+);
+
+JSTRUCT_DEFINITION(BorderContainer,
+	((std::vector<BorderLineData>, borders, std::vector<BorderLineData>()))
+);
+
 //Struct for Mesh Spawner
 JSTRUCT_DEFINITION(MapMeshData,
 	((std::string, className, "CLASS_NAME"))
@@ -103,6 +136,7 @@ MOD_DEFINITION(
 	((bool, hasTwoActivatePoints, false))
 	((vec3, interactPos_R, vec3(666.f)))
 	((vec3, interactPos_L, vec3(666.f)))
+	((TutorData, tutorData, TutorData()))
 	((SettingsStuct, settings, SettingsStuct()))
 	((TextNodeSettings, textNodeSetting, TextNodeSettings()))
 	((std::vector<SPK_MATERIAL>, SPARK_Materials, std::vector<SPK_MATERIAL>()))

@@ -15,7 +15,7 @@
 //Data container for Meshes from mapObjects.json
 #define MAP_MESH_DATA SpawnerFactory::get().getAllMapData().mapMeshData
 
-class SpawnerFactory : protected MeshesContainer
+class SpawnerFactory : protected MeshesContainer, protected OnUpdateProvider
 {
 public:
 
@@ -144,7 +144,11 @@ public:
 		return instance;
 	}
 
-	void SpawnObjects(const std::string& mapDataFileOverride = "");
+	//void SpawnObjects(const std::string& mapDataFileOverride = "");
+	/// Loads level data into Spawner
+	/// @param mapDataFileOverride - name of json with main data about level
+	/// @param additionalLevelFiles - names of files with additional level contents. Will overwrite objects with matching objId or meshId! Latest file takes priority!
+	void SpawnObjects(const std::string& mapDataFileOverride = "", std::vector<std::string> additionalLevelFiles = {});
 
 	std::map<std::string, SpawnerRecord>& getClassRegistry() { return m_classesRegistry; }
 	//Use it to show a combo list with classes available in Spawner. 
@@ -193,13 +197,16 @@ public:
 	sptr<Spawnable> spawnCopyOfObject(MapObjectsData& objectsMOD, vec3 spawnAt = INVALIDPOS, bool bTabSpawned = false);
 	const std::string& getLastSpawnedObjectName() const { return m_lastSpawnedObjectName; }
 	void removeObject(const std::string& objId);
+	void removeObjectByUid(size_t uid);
 
 	//removes sptrs of spawned meshes/Spawnables
 	void purgeSpawnedObjects();
 	void purgeSpawnedMeshes();
 
 	//returns struct with mapObjects.json data
-	MapObjectsContainer& getAllMapData(const std::string& mapDataFileOverride = "", bool forceReloadMapData = false);
+	MapObjectsContainer& getAllMapData(const std::string& mapDataFileOverride = "",
+																			bool forceReloadMapData = false,
+																			bool appendMapData = false);
 
 	//Spawned objects getter
 	std::map<std::string, sptr<Spawnable>>& getAllSpawnables() { return m_spawnedEntities; }
@@ -214,6 +221,8 @@ public:
 	template<typename T> requires(std::is_base_of_v<Spawnable, T> || std::derived_from<T, Spawnable>)
 	sptr<T> getObjectByName(const std::string& spawnableName);
 	template<typename T> requires(std::is_base_of_v<Spawnable, T> || std::derived_from<T, Spawnable>)
+	sptr<T> getObjectByUid(size_t uid);
+	template<typename T> requires(std::is_base_of_v<Spawnable, T> || std::derived_from<T, Spawnable>)
 	std::vector<sptr<T>> getAllObjectsOfClass(const std::string className);
 
 	//Used by SpawnerTab::onGuiMeshPalette() to set root for newly spawned meshes
@@ -227,6 +236,8 @@ public:
 	//prevents repeating names wrecking ImGui tree menus
 	std::string checkUniqueName(const std::string& name);
 	std::string checkUniqueMeshName(const std::string& name);
+	// Used internally by Spawnable class. Do not call yourself
+	void updateSpawnableNameRegistry(const std::string& oldName, const std::string& newName);
 
 	//used before exporting mapObjects to json
 	void updateMeshHierarchyRecords();
@@ -236,13 +247,13 @@ public:
 	//converts node's string adress into place in node hierarchy
 	sptr<Node> findNodeByHierarchyAddress(std::string address);
 
+protected:
+
+	void onUpdate(float dt) override;
+
 private:
 
-	SpawnerFactory() 
-		: 
-		MeshesContainer(Render::getRoot()) 
-	{
-	};
+	SpawnerFactory();
 
 	void checkNodeHierarchyNames();
 
@@ -254,11 +265,13 @@ private:
 
 	MapObjectsContainer mapData;
 	std::string m_mapDataFile = "mapObjects.json";
+	sptr<class DelayedTimerInside> m_delay = nullptr;
 
 	std::map<std::string, SpawnerRecord> m_classesRegistry;
 	std::map<std::string, CommonTypes::MeshesContainerSetting> m_meshesList;
 
 	std::map<std::string, sptr<Spawnable>> m_spawnedEntities;
+	std::map<size_t, sptr<Spawnable>> m_spawnedEntitiesRegistry;
 	std::map<std::string, std::pair<MapMeshData, sptr<Mesh>>> m_spawnedMeshes;
 
 	bool m_primaryMeshLoadComplete = false;

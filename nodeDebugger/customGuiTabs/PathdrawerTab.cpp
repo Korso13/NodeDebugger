@@ -24,13 +24,11 @@ void PathdrawerTab::onGuiCall()
 		nlohmann::adl_serializer<PathsData>::to_json(exportJson, pathDataCleared);
 		exportAsJson(exportJson);
 	}
-#ifdef NDPATHDRAWER
 	ImGui::SameLine();
 	if (ImGui::Button("Draw paths from Pathfinder"))
 	{
 		importPathfinderData();
 	}
-#endif
 	ImGui::Spacing();
 	ImGui::Separator();
 
@@ -295,7 +293,7 @@ void PathdrawerTab::renderPathLines(const plottedPath& pathRecordToRedraw, bool 
 		auto vecRot = line->getWorldRotation().toVector();
 		vecRot.z = atan2(prevPos.y - middle.y, prevPos.x - middle.x);
 
-		auto scale = vec3((nodePos - prevPos).length(), 0.1f, 1.0f);
+		auto scale = vec3((nodePos - prevPos).length(), 0.1f * SF("ND_pathfinderRenderScale"), 1.0f);
 
 		line->setWorldScale(scale);
 		line->setRenderOrder(9000 - 1 + (reRenderSelectedPath ? 100 : 0));
@@ -342,7 +340,6 @@ void PathdrawerTab::loadJson()
 
 void PathdrawerTab::importPathfinderData()
 {
-#ifdef NDPATHDRAWER
 	//purge old data
 	m_pathsData = PathsData();
 	for (auto& [name, mesh] : m_pathNodeRender)
@@ -378,7 +375,6 @@ void PathdrawerTab::importPathfinderData()
 		});
 		renderPathLines(importedPath);
 	}
-#endif
 }
 
 void PathdrawerTab::selectPathLine(const std::string& pathName)
@@ -416,7 +412,7 @@ void PathdrawerTab::renderPathNode(const std::string name, const pathNode& nodeD
 {
 	//instansing and setting up new Path Node mesh
 	auto newPointName = name;
-	auto newPointMesh = Mesh::create::plane(vec2(0.25, 0.25));
+	auto newPointMesh = Mesh::create::plane(vec2(0.25, 0.25) * SF("ND_pathfinderRenderScale"));
 	newPointMesh->setName(name);
 	auto mat = RMat("sprite")->createInstance();
 	color _color = color(1.f, 1.f, 1.f, 1.f);
@@ -853,7 +849,8 @@ void PathdrawerTab::onTouchBegin(const Touch::Begin& evt)
 			{
 				//click adding new path node
 				if (m_activeSubtab == Subtab::PathNodes && m_touchCtrOn)
-					addPathNode(m_newPathNodeNaming, hit.point.withoutZ(), m_nodeDefaultSpeed);
+					addPathNode(m_newPathNodeNaming, getMouseWorldPos(0.f).withoutZ(), m_nodeDefaultSpeed);
+					//addPathNode(m_newPathNodeNaming, hit.point.withoutZ(), m_nodeDefaultSpeed);
 			}
 		}
 	}
@@ -883,7 +880,8 @@ void PathdrawerTab::onTouchMove(const Touch::Move& evt)
 				auto hitName = hit.target->getParent()->getName();
 				if (hitName == "clickMesh_debug")
 				{
-					cursorPos = hit.point;
+					//cursorPos = hit.point;
+					cursorPos = getMouseWorldPos(0.f);
 				}
 			}
 		}

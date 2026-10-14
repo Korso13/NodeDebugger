@@ -384,8 +384,15 @@ void NodesTab::onGuiHierarchy()
                 if (children.empty()) //a leaf - no arrow for tree unfolding
                     nodeFlags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 
+                if (!variantNode->isEnabled())
+                    ImGui::PushStyleColor(ImGuiCol_Text, IMG_DISABLED);
+
                 //render node name and subtree arrow if there are children. Returns bool - if tree is open or close
                 unfoldedChildren = ImGui::TreeNodeEx(name.c_str(), nodeFlags);
+
+                if (!variantNode->isEnabled())
+                    ImGui::PopStyleColor(); // restore regular text color
+
                 unfoldedChildren = unfoldedChildren && !children.empty();
 
                 // Item clicked - select item

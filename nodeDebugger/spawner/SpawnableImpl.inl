@@ -3,6 +3,8 @@
 #include "../Concepts.h"
 #include "../CustomAutos.h"
 
+#define CONTINUOUS_DYNAMIC_CONTAINER_MIN_CAPACITY 50 // containers that can re-allocate memory must reserve memory for N objects to prevent re-allocation to prevent pointer invalidation!
+
 template<typename T>
 bool operator==(const wptr<T>& lhw, const wptr<T>& rhw)
 {
@@ -210,6 +212,11 @@ inline Spawnable::SpawnSetting::SpawnSetting(
 	T& value,
 	std::function<void(std::decay_t<T>&)>&& onChangeCB)
 {
+#ifdef DEBUG
+	if constexpr (ContinuousDynamicContainer<T>)
+		value.reserve(CONTINUOUS_DYNAMIC_CONTAINER_MIN_CAPACITY);
+#endif
+
 	anyVar variable;
 	variable.setValue<std::decay_t<T>>(&value);
 	settingName = name;
@@ -232,6 +239,11 @@ inline Spawnable::SpawnSetting::SpawnSetting(
 	T&& value,
 	std::function<void(std::decay_t<T>)>&& onChangeCB)
 {
+#ifdef DEBUG
+	if constexpr (ContinuousDynamicContainer<T>)
+		value.reserve(CONTINUOUS_DYNAMIC_CONTAINER_MIN_CAPACITY);
+#endif
+
 	anyVar variable;
 	variable.setValueByCopy<std::decay_t<T>>(value);
 	settingName = name;
@@ -254,6 +266,11 @@ inline Spawnable::SpawnSetting::SpawnSetting(
 	const std::decay_t<T> value,
 	std::function<void(std::decay_t<T>)>&& onChangeCB)
 {
+#ifdef DEBUG
+	if constexpr (ContinuousDynamicContainer<T>)
+		value.reserve(CONTINUOUS_DYNAMIC_CONTAINER_MIN_CAPACITY);
+#endif
+
 	anyVar variable;
 	T copy = value;
 	variable.setValueByCopy<std::decay_t<T>>(copy);
@@ -362,3 +379,5 @@ std::optional<T> Spawnable::getSetting(const std::string& settingName) const
 	}
 	return std::nullopt;
 }
+
+#undef CONTINUOUS_DYNAMIC_CONTAINER_MIN_CAPACITY

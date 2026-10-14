@@ -12,12 +12,14 @@ namespace ND_Util
 	enum BtnType
 	{
 		STOP,
+		PAUSE,
 		RANGE,
 		RANGE_OFF,
 		INFIN,
 		INFIN_OFF
 	};
-	
+
+	const sptr<Texture>& getBtnTexture(ND_Util::BtnType type);
 	void imGuiEmitterEditor(const sptr<ParticlesEmitter>& _emitter) NOCOMP;
 	void emitterSettingsDraw(const sptr<ParticlesEmitter>& _emitter, ParticlesEmitterParameters& params) NOCOMP;
 	void particleSettingsDraw(ParticlesEmitterParameters& params) NOCOMP;

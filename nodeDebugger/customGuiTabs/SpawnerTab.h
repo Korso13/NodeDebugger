@@ -61,6 +61,8 @@ private:
 	void setupClickCollider(const std::string& name, sptr<Spawnable> spawnedObj) NOCOMP; //for Spawnables
 	void setupClickCollider(const std::string& name, sptr<Mesh> spawnedMesh) NOCOMP; //for meshes
 
+	void deselectLastSpawnable();
+
 private:
 
 	bool m_needUpdateEntitiesFilter = true; 
@@ -70,8 +72,9 @@ private:
 	std::string m_entitiesFilter = "";
 	std::string m_meshesFilter = "";
 	std::string m_lastSelectedSpawnable = "";
+	size_t m_lastSelectedSpawnableUID = 0;
 	std::string m_lastSelectedMesh = "";
-	std::map<std::string, std::string> m_lastSpawnablesFilterList; //first is objId (UI name), second is spawned name
+	std::map<std::string, std::string> m_lastSpawnablesFilterList; //first is objId (UI name), second is spawned name (todo: charge to uid)
 	std::map<std::string, std::string> m_lastMeshesFilterList; //first is meshId (UI name), second is spawned name
 
 	enum Subtab

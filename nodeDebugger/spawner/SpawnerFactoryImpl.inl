@@ -8,7 +8,21 @@ sptr<T> SpawnerFactory::getObjectByName(const std::string& spawnableName)
 		return cast_sptr<T>(m_spawnedEntities[spawnableName]);
 	else
 	{
-		err("Failed to find Spawnable %s", spawnableName.c_str());
+		err("[SpawnerFactory::getObjectByUid]Failed to find Spawnable %s", spawnableName.c_str());
+		return nullptr;
+	}
+}
+
+template<typename T> requires (std::is_base_of_v<Spawnable, T> || std::derived_from<T, Spawnable>)
+sptr<T> SpawnerFactory::getObjectByUid(size_t uid)
+{
+	if (uid == 0)
+		return nullptr;
+	if (m_spawnedEntitiesRegistry.contains(uid))
+		return cast_sptr<T>(m_spawnedEntitiesRegistry[uid]);
+	else
+	{
+		err("[SpawnerFactory::getObjectByUid]Failed to find Spawnable with uid %d", uid);
 		return nullptr;
 	}
 };

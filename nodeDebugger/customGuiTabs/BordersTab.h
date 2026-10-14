@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ND_iGuiTab.h"
+#include "common/nodeDebugger/spawner/SpawnerEnums.h"
 
 //Tab for building borders for pathfinding, triggers and etc.
 //Load existing json file or create from scratch, then export as json
@@ -15,6 +16,7 @@ public:
 	struct TabBorderLineData {
 		std::string borderName;
 		std::vector<vec2> points;
+		BorderType border_type = BorderType::Outer;
 	};
 	struct TabBorderContainer {
 		std::vector<TabBorderLineData> borders;
@@ -115,7 +117,7 @@ public:
 	};
 
 	void onGuiCall() override NOCOMP;
-	bool isEmpty() override { return false; };
+	bool isEmpty() override { return false; } // This tab must always show up regardless of contents
 
 	void addItem(std::any item, const std::string& altName = "default") override NOCOMP;
 	void purgeValues() override { m_borderFiles.clear(); }

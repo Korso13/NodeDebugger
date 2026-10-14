@@ -2,6 +2,7 @@
 #include "../ND_JsonTools.h"
 #include <settings/JsonDeserializator.h>
 
+#include "common/nodeDebugger/CustomAutos.h"
 #include "game/border/Border.h"
 #include "game/border/BorderController.h"
 
@@ -19,12 +20,14 @@ struct adl_serializer<BordersTab::TabBorderLineData>
 	{
 		FIELD_DESERIALIZE(borderName);
 		FIELD_DESERIALIZE(points);
+		FIELD_DESERIALIZE_OPTIONAL(border_type);
 	}
 
 	static void to_json(json& j, const BordersTab::TabBorderLineData& obj)
 	{
 		FIELD_SERIALIZE(borderName);
 		FIELD_SERIALIZE(points);
+		FIELD_SERIALIZE(border_type);
 	}
 };
 
@@ -124,7 +127,7 @@ bool BordersTab::BorderRec::onGui()
 			BORDER_CTRL.removeTrigger(triggerInstId);
 	}
 	ImGui::InputText("Border Name", &borderRecName, ImGuiInputTextFlags_None); //border record name edit
-
+	NDGui::Auto<BorderType>("Border Type", m_points.border_type);
 	onGuiBorderInstancing();
 
 	// Border rendering and color
@@ -347,7 +350,7 @@ void BordersTab::BorderRec::onGuiBorderInstancing()
 		BorderLineData data;
 		data.borderName = borderRecName;
 		data.points = m_points.points;
-		sptr<Border> newBorder = make::sptr<Border>(Border::Type::Inner, data, BORDER_CTRL.getBorderCtrlRoot());
+		sptr<Border> newBorder = make::sptr<Border>(data.border_type, data, BORDER_CTRL.getBorderCtrlRoot());
 		borderInstId = BORDER_CTRL.addBorderObject(newBorder, borderInstId)->getUpdatableName();
 		m_deferredBorderReAdd = false;
 	}
@@ -356,7 +359,7 @@ void BordersTab::BorderRec::onGuiBorderInstancing()
 		BorderLineData data;
 		data.borderName = borderRecName;
 		data.points = m_points.points;
-		sptr<Border> newBorder = make::sptr<Border>(Border::Type::TriggerZone, data, BORDER_CTRL.getBorderCtrlRoot());
+		sptr<Border> newBorder = make::sptr<Border>(BorderType::TriggerZone, data, BORDER_CTRL.getBorderCtrlRoot());
 		triggerInstId = BORDER_CTRL.addTriggerObject(newBorder, triggerInstId)->getUpdatableName();
 		m_deferredTriggerReAdd = false;
 	}
@@ -369,7 +372,7 @@ void BordersTab::BorderRec::onGuiBorderInstancing()
 			BorderLineData data;
 			data.borderName = borderRecName;
 			data.points = m_points.points;
-			sptr<Border> newBorder = make::sptr<Border>(Border::Type::Inner, data, BORDER_CTRL.getBorderCtrlRoot());
+			sptr<Border> newBorder = make::sptr<Border>(data.border_type, data, BORDER_CTRL.getBorderCtrlRoot());
 			borderInstId = BORDER_CTRL.addBorderObject(newBorder, borderInstId)->getUpdatableName();
 		}
 	}
@@ -395,7 +398,7 @@ void BordersTab::BorderRec::onGuiBorderInstancing()
 			BorderLineData data;
 			data.borderName = borderRecName;
 			data.points = m_points.points;
-			sptr<Border> newBorder = make::sptr<Border>(Border::Type::TriggerZone, data, BORDER_CTRL.getBorderCtrlRoot());
+			sptr<Border> newBorder = make::sptr<Border>(BorderType::TriggerZone, data, BORDER_CTRL.getBorderCtrlRoot());
 			triggerInstId = BORDER_CTRL.addTriggerObject(newBorder, triggerInstId)->getUpdatableName();
 		}
 	}

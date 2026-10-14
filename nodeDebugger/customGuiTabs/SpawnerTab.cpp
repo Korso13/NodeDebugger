@@ -9,6 +9,7 @@
 #include "settings/JsonDeserializator.h"
 #include "../CustomAutos.h"
 #include "common/nodeDebugger/spawner/SpawnerTools.h"
+#include "others/utils/CollidersExt.h"
 
 static std::string lastSelectedSpawnerClass = "CLASS_NAME";
 
@@ -29,7 +30,15 @@ void SpawnerTab::markActive(bool isActive)
 	{
 		if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
 		{
-			SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->removeFocusFrame();
+			SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->onDeselected();
+			//SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->childrenVisiter([this](Spawnable& child) {child.removeFocusFrame(); });
+		}
+	}
+	else
+	{
+		if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
+		{
+			SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->onSelected();
 			//SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->childrenVisiter([this](Spawnable& child) {child.removeFocusFrame(); });
 		}
 	}
@@ -43,18 +52,7 @@ void SpawnerTab::setupClickCollider(const std::string& name, sptr<Spawnable> spa
 	spawnable->initSpawnableCollider(
 		[this, name](const CollisionInfo& hit)
 		{
-			if (!ND_CASTALLOWED || m_activeSubtab != SpawnedObjects)
-				return;
 
-			if (m_clickFiltering && !ND_Util::checkFilterConditions(name, m_entitiesFilter))
-				return;
-
-			if (isActiveTab() && m_lastSelectedSpawnable != name)
-			{
-				if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
-					SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->removeFocusFrame();
-				m_lastSelectedSpawnable = name;
-			}
 		});
 }
 
@@ -81,6 +79,18 @@ void SpawnerTab::setupClickCollider(const std::string& name, sptr<Mesh> newMesh)
 	collider->setRaycastCallback(clickCb);
 	collider->setScreencastCallback(ScreencastEvent::Down, clickCb);
 	collider->setLocalTranslation(vec3(0.f, 0.f, -0.01));
+}
+
+void SpawnerTab::deselectLastSpawnable()
+{
+	if (!m_lastSelectedSpawnable.empty())
+	{
+		if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
+			SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->onDeselected();
+		else if (m_lastSelectedSpawnableUID != 0)
+			if (auto lastSpawnable = SPAWNER.getObjectByUid<Spawnable>(m_lastSelectedSpawnableUID); lastSpawnable)
+				lastSpawnable->onDeselected();
+	}
 }
 
 void SpawnerTab::initClickColliders()
@@ -327,13 +337,21 @@ void SpawnerTab::onGuiSpawnedList()
 		//renders filtered list of spawned objects
 		//============================================================
 		bool bNeedDeletion = false;
-		std::string defferedDeleteName;
-		//pair - is changed? - internal Spawner name
+		size_t defferedDeleteUid;
+
+		// detect renaming of selected spawnable
+		// todo: rewrite m_lastSpawnablesFilterList to be a list with UID + objId and remove m_lastSelectedSpawnable to rely solely on m_lastSelectedSpawnableUID
+		if (m_lastSelectedSpawnableUID != 0 && !m_lastSpawnablesFilterList.contains(m_lastSelectedSpawnable))
+		{
+			m_lastSelectedSpawnable = SPAWNER.getObjectByUid<Spawnable>(m_lastSelectedSpawnableUID)->getObjId();
+		}
+
+		//pair ->  is changed? -- internal Spawner name
 		auto listResult = ND_Util::ImGuiListBox(
 			"Spawned", m_lastSpawnablesFilterList, m_lastSelectedSpawnable,
 				//RMB-triggered popup menu render
 				//todo: export to separate function
-			[this, &bNeedDeletion, &defferedDeleteName, &isFilterChanged](std::string key)
+			[this, &bNeedDeletion, &defferedDeleteUid, &isFilterChanged](std::string key)
 				{
 					ImGui::Text("%s", key.c_str());
 					ImGui::Separator();
@@ -345,6 +363,11 @@ void SpawnerTab::onGuiSpawnedList()
 							if (!originalObject->getMapObjectsData().isChildObj)
 							{
 								auto copy = SPAWNER.spawnCopyOfObject(originalObject->getMapObjectsData(), originalObject->m_spRoot->getWorldTranslation());
+								deselectLastSpawnable();
+								m_lastSelectedSpawnable = copy->getObjId();
+								m_lastSelectedSpawnableUID = copy->getUid();
+								copy->onSelected();
+								setupClickCollider(copy->getObjId(), copy);
 							}
 							//NOTE: child obj needs separate handler
 							else if (auto parent = originalObject->getParent(); parent)
@@ -360,20 +383,28 @@ void SpawnerTab::onGuiSpawnedList()
 					}
 					if (ImGui::Button("Delete"))
 					{
-						bNeedDeletion = true;
-						defferedDeleteName = m_lastSpawnablesFilterList[key];
-						isFilterChanged = true;
-						return true;
+						if (SPAWNER.getAllSpawnables().contains(m_lastSpawnablesFilterList[key]))
+						{
+							auto& originalObject = SPAWNER.getAllSpawnables()[m_lastSpawnablesFilterList[key]];
+							bNeedDeletion = true;
+							defferedDeleteUid = originalObject->getUid();
+							isFilterChanged = true;
+
+							return true;
+						}
 					}
 					return false;
 				});
 
 		//updating spawned entity's selection
+		bool changedSelection = false;
 		if(listResult.first)
 		{
-			if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
-				SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->removeFocusFrame();
+			deselectLastSpawnable();
+			if (m_lastSelectedSpawnable != listResult.second)
+				changedSelection = true;
 			m_lastSelectedSpawnable = listResult.second;
+			m_lastSelectedSpawnableUID = SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->getUid();
 		}
 		//scrollable child panel
 		if (ImGui::BeginChild("Spawned Objects Panel", ND_Util::getSizeForChild(0.7), true, ImGuiWindowFlags_AlwaysAutoResize))
@@ -381,37 +412,45 @@ void SpawnerTab::onGuiSpawnedList()
 			//============================================================
 			//Selected spawned object with its exposed settings
 			//============================================================
-			if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
+			sptr<Spawnable> spawnedObject = nullptr;
+			if (!m_lastSelectedSpawnable.empty())
 			{
-				auto& spawnedObject = SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable];
-				if (spawnedObject)
-				{
-					//onGui call renders exposed settings for the Spawnable object
-					//render Spawnable's settings
-					//failsafe in case object was not named
-					if (spawnedObject->getObjId().empty())
-						bNeedDeletion = spawnedObject->onGui(SPAWNER.checkUniqueName("Unnamed").c_str()); //can't be deleted if the name is empty, so we're not using return value
-					else //correct default behavior
-						bNeedDeletion = spawnedObject->onGui(spawnedObject->getObjId().c_str());
-				}
+				if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
+					spawnedObject = SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable];
+				else if (m_lastSelectedSpawnableUID != 0)
+					if (auto spawnableByUid = SPAWNER.getObjectByUid<Spawnable>(m_lastSelectedSpawnableUID); spawnableByUid)
+						spawnedObject = spawnableByUid;
+			}
+			if (spawnedObject)
+			{
+				if (changedSelection) spawnedObject->onSelected();
+				//onGui call renders exposed settings for the Spawnable object
+				//render Spawnable's settings
+				//failsafe in case object was not named
+				if (spawnedObject->getObjId().empty())
+					bNeedDeletion = spawnedObject->onGui(SPAWNER.checkUniqueName("Unnamed").c_str()); //can't be deleted if the name is empty, so we're not using return value
+				else //correct default behavior
+					bNeedDeletion = spawnedObject->onGui(spawnedObject->getObjId().c_str());
+
 				//if 'x' button was pressed for current record
 				if (bNeedDeletion)
-					defferedDeleteName = m_lastSelectedSpawnable;
+					defferedDeleteUid = m_lastSelectedSpawnableUID;
 			}
 
 			//executing delete entry order (if any) for Spawnable
-			if (!defferedDeleteName.empty())
+			if (bNeedDeletion)
 			{
-				SPAWNER.removeObject(defferedDeleteName);
-				m_lastSpawnablesFilterList.erase(defferedDeleteName);
-				defferedDeleteName.clear();
+				SPAWNER.removeObjectByUid(defferedDeleteUid);
+				m_lastSelectedSpawnableUID = 0;
+				m_lastSelectedSpawnable = "";
+				m_needUpdateEntitiesFilter = true;
 			}
 		}
 		ImGui::EndChild(); //ends selected Spawned object scrollable zone
 		ImGui::EndTabItem();
 	}//end of "Spawned Objects" tab
-	else if (SPAWNER.getAllSpawnables().contains(m_lastSelectedSpawnable))
-		SPAWNER.getAllSpawnables()[m_lastSelectedSpawnable]->removeFocusFrame();
+	else
+		deselectLastSpawnable();
 }
 
 void SpawnerTab::onGuiSpawnedMeshesList()
@@ -491,6 +530,7 @@ void SpawnerTab::onGuiSpawnedMeshesList()
 						camPos.x = centerPos.x; camPos.y = centerPos.y;
 						Render::getScreenCamera()->setWorldTranslation(camPos);
 					};
+					SP_Utils::onGuiSingleExportBtns(spawnedMesh);
 
 					auto materialSelectorResult = ND_Util::ImGuiMaterialSelector(spawnedMesh.first.material);
 					if (materialSelectorResult.first)
@@ -559,38 +599,96 @@ void SpawnerTab::onTouchBegin(const Touch::Begin& evt)
 {
 	if (!isActiveTab())
 		return;
-
-	if (!m_clickAddModeON)
+	if (!ND_CASTALLOWED)
 		return;
 
-	if (m_activeSubtab == SpawnedObjects || m_activeSubtab == SpawnedMeshes)
-		return;
-
-	vec3 clickPos = getMouseWorldPos();
-
-	if(m_activeSubtab == ClassPalette && lastSelectedSpawnerClass != "CLASS_NAME")
+	// Spawned objects selection
+	if (m_activeSubtab == SpawnedObjects /*|| m_activeSubtab == SpawnedMeshes*/)
 	{
-		info("Spawning %s!", lastSelectedSpawnerClass.c_str());
-		//Spawns new object of class and registers it to appear in Spawned subtab (kept in SpawnerFactory's getAllSpawnables())
-		auto newEntity = SPAWNER.spawnObjectOfClass(SPAWNER_REC(lastSelectedSpawnerClass), true, clickPos * vec3(1.f, 1.f, 0.f));
-		auto name = SPAWNER.getLastSpawnedObjectName();
-		setupClickCollider(name, newEntity);
-	}
-	//else if (m_activeSubtab == ClassPalette)
-	//	info("[SpawnerTab::onTouchBegin] Class palette tab, but class name is %s, not spawning!", lastSelectedSpawnerClass.c_str());
-	else if (m_activeSubtab == MeshPalette && !m_currentMeshSpawnerSetting.meshName.empty())
-	{
-		auto newMesh = SPAWNER.spawnMesh(m_currentMeshSpawnerSetting);
-		if (newMesh)
+		//debug("[SpawnerTab::onTouchBegin] Raycasting");
+		auto ray =  Render::getScreenCamera()->createRayFromScreen(evt.point);
+		auto hits = Render::raycastAll(ray);
+		std::multimap<int32_t, sptr<CollidersExt>> spawnableColliders;
+		for (auto& hit : hits)
 		{
-			info("Spawning new mesh %s!", m_currentMeshSpawnerSetting.meshName.c_str());
-			newMesh->setWorldTranslation(clickPos);
-			auto name = m_currentMeshSpawnerSetting.meshId;
-			m_currentMeshSpawnerSetting.meshId = m_currentMeshSpawnerSetting.meshName;
-			setupClickCollider(name, newMesh);
+			if (hit.target == nullptr) continue;
+			auto hitParentName = hit.target->getParent()->getName();
+			sptr<CollidersExt> spawnableCollider = CollidersExt::getColliderExtFromCollider(hit.target);
+			//debug("[SpawnerTab::onTouchBegin] Hit {%s} - it is ColliderExt: %s", hitParentName.c_str(), BOOL_STR(spawnableCollider != nullptr));
+			if (spawnableCollider && spawnableCollider->getColliderName().ends_with("_spawner_collider"))
+			{
+				//debug("[SpawnerTab::onTouchBegin] ColliderExt {%s} is spawner collider", spawnableCollider->getColliderName().c_str());
+				spawnableColliders.emplace(spawnableCollider->getColliderPriority(), spawnableCollider);
+			}
+			//else
+			//	debug("[SpawnerTab::onTouchBegin] ColliderExt {%s} is NOY spawner collider", spawnableCollider->getColliderName().c_str());
+		}
+		if (spawnableColliders.empty())
+			return;
+
+		sptr<CollidersExt> spawnableColliderSelected = spawnableColliders.rbegin()->second;
+		if (!spawnableColliderSelected) return;
+
+		debug("[SpawnerTab::onTouchBegin] Working with CollidersExt %s with priority %d", spawnableColliderSelected->getColliderName().c_str(), spawnableColliderSelected->getColliderPriority());
+		auto spawnable = SPAWNER.getObjectByUid<Spawnable>(spawnableColliderSelected->getParentObject<Spawnable>().getUid()); // more reliable than ref
+
+		if (!spawnable || (m_clickFiltering && !ND_Util::checkFilterConditions(spawnable->getObjId(), m_entitiesFilter)))
+			return;
+
+		if (isActiveTab() && (m_lastSelectedSpawnable != spawnable->getObjId() || m_lastSelectedSpawnableUID != spawnable->getUid()))
+		{
+			info("[SpawnerTab::onTouchBegin] Selected new spawnable (last selected: %s, newly selected: %s)", m_lastSelectedSpawnable.c_str(), spawnable->getObjId().c_str());
+			deselectLastSpawnable();
+			m_lastSelectedSpawnable = spawnable->getObjId();
+			m_lastSelectedSpawnableUID = spawnable->getUid();
+			spawnable->onSelected();
+		}
+
+		// Overlapping spawnable colliders priority sorting
+		if (spawnableColliders.size() == 1)
+			spawnableColliderSelected->setColliderPriority(SPAWNER_MAX_COLLIDER_PRIORITY);
+		else
+		{
+			for (auto& [priority, spawnableCollider] : spawnableColliders)
+			{
+				if (spawnableCollider == spawnableColliderSelected)
+					spawnableCollider->setColliderPriority(10);
+				else if (priority < SPAWNER_MAX_COLLIDER_PRIORITY)
+				{
+					spawnableCollider->setColliderPriority(priority + 1);
+				}
+			}
 		}
 	}
-	m_needUpdateEntitiesFilter = true;
+
+	// Click-spawning objects
+	if (m_clickAddModeON)
+	{
+		vec3 clickPos = getMouseWorldPos();
+		if(m_activeSubtab == ClassPalette && lastSelectedSpawnerClass != "CLASS_NAME")
+		{
+			info("Spawning %s!", lastSelectedSpawnerClass.c_str());
+			//Spawns new object of class and registers it to appear in Spawned subtab (kept in SpawnerFactory's getAllSpawnables())
+			auto newEntity = SPAWNER.spawnObjectOfClass(SPAWNER_REC(lastSelectedSpawnerClass), true, clickPos * vec3(1.f, 1.f, 0.f));
+			auto name = SPAWNER.getLastSpawnedObjectName();
+			setupClickCollider(name, newEntity);
+		}
+		//else if (m_activeSubtab == ClassPalette)
+		//	info("[SpawnerTab::onTouchBegin] Class palette tab, but class name is %s, not spawning!", lastSelectedSpawnerClass.c_str());
+		else if (m_activeSubtab == MeshPalette && !m_currentMeshSpawnerSetting.meshName.empty())
+		{
+			auto newMesh = SPAWNER.spawnMesh(m_currentMeshSpawnerSetting);
+			if (newMesh)
+			{
+				info("Spawning new mesh %s!", m_currentMeshSpawnerSetting.meshName.c_str());
+				newMesh->setWorldTranslation(clickPos);
+				auto name = m_currentMeshSpawnerSetting.meshId;
+				m_currentMeshSpawnerSetting.meshId = m_currentMeshSpawnerSetting.meshName;
+				setupClickCollider(name, newMesh);
+			}
+		}
+		m_needUpdateEntitiesFilter = true;
+	}
 }
 
 #endif

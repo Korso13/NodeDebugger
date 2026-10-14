@@ -6,10 +6,11 @@
 
 static bool bEmitterEdited = false;
 
-ImVec2 btnSize = ImVec2(33, 33);
+ImVec2 btnSize = ImVec2(27, 27);
 std::string base64Appender = "data:image/jpeg;base64,";
 static sptr<Texture> fallbackBtnTxt;
 static sptr<Texture> stopBtnTxt;
+static sptr<Texture> pauseBtnTxt;
 static sptr<Texture> rangeBtnTxt;
 static sptr<Texture> rangeOffBtnTxt;
 static sptr<Texture> infinityBtnTxt;
@@ -19,7 +20,7 @@ const char* const emitterTransformTypes[2] = { "EMITTER", "PARTICLE" };
 const char* const emitterTypes[2] = { "GRAVITY", "RADIUS" };
 
 //Button texture getter
-const sptr<Texture>& getBtnTexture(ND_Util::BtnType type)
+const sptr<Texture>& ND_Util::getBtnTexture(ND_Util::BtnType type)
 {
 	switch (type)
 	{
@@ -33,6 +34,17 @@ const sptr<Texture>& getBtnTexture(ND_Util::BtnType type)
 		}
 
 		return stopBtnTxt;
+		break;
+	case ND_Util::BtnType::PAUSE:
+		if (!pauseBtnTxt)
+		{
+			std::string pauseImgB64 = base64Appender + "/9j/4AAQSkZJRgABAQEAYABgAAD/4QBoRXhpZgAATU0AKgAAAAgABAEaAAUAAAABAAAAPgEbAAUAAAABAAAARgEoAAMAAAABAAIAAAExAAIAAAARAAAATgAAAAAAAABgAAAAAQAAAGAAAAABUGFpbnQuTkVUIDUuMS4xMgAA/9sAQwABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB/9sAQwEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB/8AAEQgAHQAfAwERAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/aAAwDAQACEQMRAD8A+E/gX8M/+F0/G34O/Bz+2v8AhGv+Fs/FT4e/DP8A4SP+zf7Z/sD/AITvxbpHhb+2/wCyPt+lf2r/AGV/av27+zf7U037d5H2X7fZ+b9oj6G7JvsB+0P7a3/BDn/hj39mX4l/tGf8NP8A/CxP+Fd/8Ib/AMUd/wAKU/4RL+2P+Eu+IHhTwL/yMP8AwtrxP/Z/9n/8JP8A2p/yA777X9h+w/6N9p+2W8Kd3a34/wDAAP2Kf+CHP/DYX7Mvw0/aM/4af/4V3/wsT/hMv+KO/wCFKf8ACW/2P/wiPxA8V+Bf+Rh/4W14Y/tD+0P+EY/tT/kB2P2T7d9h/wBJ+zfbLgc7O1vx/wCAB+L3x0+Gf/Clvjb8Yvg5/bX/AAkv/Cpvip8Qvhn/AMJH/Zv9jf2//wAIJ4t1fwt/bf8AZH2/Vf7K/tX+yvt39m/2pqX2Hz/sv2+88r7RJad0n3A9T/YX/wCT2v2O/wDs6f8AZ8/9W14RpPZ+j/ID+0P/AILWf8oyv2lv+6N/+tAfCqsofEvn+TAP+CKf/KMr9mn/ALrJ/wCtAfFWifxP5fkgP4vP26P+T2v2xP8As6f9oP8A9W14urVbL0X5AZX7Gmu6J4X/AGv/ANlPxN4m1jSvDvhvw7+0l8DNd8QeINd1C00jRNC0TSPif4X1DVdZ1nVdQmt7DTNK0ywt7i91DUL24gtLK0gmubmaKGJ3Uez9GB/W3/wV3/au/Zc+JX/BPH9oTwT8Of2k/gF4/wDGWtf8Kn/sbwl4J+MXw78VeJ9W/s744fDXVtQ/szQdC8RX+q3/ANg0qwvtTvfstpL9l0+yu72fZbW80iZxT5lo+vTyAP8AgkR+1d+y58Nf+CeP7Pfgn4jftJ/ALwB4y0X/AIWx/bPhLxt8Yvh34V8T6T/aPxw+JWraf/aeg674isNVsPt+lX9jqdl9qtIvtWn3tpewb7a4hkcknzPR9OnkB/JJ+2XruieKP2v/ANqzxN4Z1jSvEXhvxF+0l8c9d8P+INC1C01fRNd0TV/if4o1DStZ0bVdPmuLDU9K1OwuLe90/ULK4ntL20nhubaaWGVHbRbL0QHzbTAKACgAoA//2Q==";
+			ResourceLoadDescr stopImgDscr(pauseImgB64.c_str());
+			sptr<w4::resources::Image> pauseImg = w4::resources::Image::loadFromUrl(stopImgDscr, pauseImgB64.c_str());
+			pauseBtnTxt = make::sptr<Texture>(pauseImg->getDescr(), pauseImg);
+		}
+
+		return pauseBtnTxt;
 		break;
 	case ND_Util::BtnType::RANGE:
 		if (!rangeBtnTxt)

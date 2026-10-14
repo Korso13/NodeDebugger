@@ -41,7 +41,10 @@ inline static const char* enumToStr(const T& value)
 {
 	int val = static_cast<int>(value);
 	int size = 0;
-	return nlohmann::adl_serializer<T>::getValues(size)[std::min(size, val)].second;
+	auto values = nlohmann::adl_serializer<T>::getValues(size);
+	if (val >= size)
+		return "INVALID ENUM VALUE!";
+	return values[std::min(size-1, val)].second;
 }
 
 template<typename T>

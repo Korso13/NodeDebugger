@@ -28,3 +28,9 @@ concept serializedEnumConcept = requires(T & _value, int count)
 {
 	nlohmann::adl_serializer<T>::getValues(count);
 };
+
+template<typename T>
+concept ContinuousDynamicContainer = requires(T& _value, int count)
+{
+	_value.reserve(count);
+};

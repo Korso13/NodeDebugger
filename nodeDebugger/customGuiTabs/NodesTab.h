@@ -24,7 +24,7 @@ public:
     NodesTab() : iGuiTab("Nodes") {};
 
     void onGuiCall() override NOCOMP;
-    bool isEmpty() override {return false;}
+    bool isEmpty() override {return false;} // This tab must always show up regardless of contents
 
     void addItem(std::any item, const std::string& altName = "default") override NOCOMP;
 
@@ -36,15 +36,15 @@ private:
 
     void nodesScrapperBtn() NOCOMP;
     // Renders NodeVariant. Returns true if it needs to be deleted (for onGuiAddedNodes())
-    bool renderNodeVariant(ImG_Node::NodeVariantHolder node, const std::string& name) NOCOMP;
-    bool isNodeVariantExpired(ImG_Node::NodeVariantHolder node) const NOCOMP;
-    std::string getVariantNodeName(ImG_Node::NodeVariantHolder node) const NOCOMP;
-    sptr<Node> castVariantToNode(ImG_Node::NodeVariantHolder node) NOCOMP;
+    bool renderNodeVariant(ImG_Node::NodeVariantHolder node, const std::string& name) NOCOMP_B;
+    bool isNodeVariantExpired(ImG_Node::NodeVariantHolder node) const NOCOMP_B;
+    std::string getVariantNodeName(ImG_Node::NodeVariantHolder node) const NOCOMP_S;
+    sptr<Node> castVariantToNode(ImG_Node::NodeVariantHolder node) NOCOMP_PTR;
     void onGuiAddedNodes() NOCOMP;
     void onGuiHierarchy() NOCOMP;
 
     //debug
-    std::string getVariantTypeInfo(ImG_Node::NodeVariantHolder node) NOCOMP;
+    std::string getVariantTypeInfo(ImG_Node::NodeVariantHolder node) NOCOMP_S;
 private:
 
     bool m_needUpdateNodesFilter = false;

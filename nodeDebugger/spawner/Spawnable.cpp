@@ -3,20 +3,28 @@
 #include "SpawnerFactory.h"
 #include <common/nodeDebugger/NodeDebugger.h>
 
-#include "SpawnerTools.h"
 #include "others/utils/ScreenSpaceShader.h"
-#include "common/Digits_S.h"
+//#include "common/Digits_S.h"
+#include "others/utils/CollidersExt.h"
+#ifndef FORCENODEDEBUG_OFF
+#include "SpawnerTools.h"
+#endif
 
-std::array<vec3, 2> Spawnable::getSpawnableBounds(sptr<Node> spawnableRoot)
+std::array<vec3, 2> Spawnable::getOtherSpawnableBounds(sptr<Spawnable> spawnable, bool forceUpdateBounds)
+{
+	return spawnable->getSpawnableBounds(spawnable->getSpawnableRoot(), forceUpdateBounds);
+}
+
+std::array<vec3, 2> Spawnable::getSpawnableBounds(sptr<Node> spawnableRoot, bool forceUpdateBounds)
 {
 	if (!spawnableRoot)
 		return m_cachedBounds;
 
-	if(m_cachedBounds != std::array<w4::math::vec3, 2>())
+	if(!forceUpdateBounds && m_cachedBounds != std::array<w4::math::vec3, 2>())
 		return m_cachedBounds;
 
 	constexpr const static vec3 bDefaultMin = math::vec3(std::numeric_limits<float>::max());
-	constexpr const static vec3 bDefaultMax = math::vec3(std::numeric_limits<float>::lowest());
+	constexpr const static vec3 bDefaultMax = math::vec3(-std::numeric_limits<float>::max());
 	vec3 bmin = bDefaultMin;
 	vec3 bmax = bDefaultMax;
 	spawnableRoot->traversalChildrenTyped<VisibleNode>(
@@ -32,7 +40,7 @@ std::array<vec3, 2> Spawnable::getSpawnableBounds(sptr<Node> spawnableRoot)
 			{
 				auto mesh = node->as<Mesh>();
 				auto textureName = mesh->getMaterialInst()->getTexture(TextureId::TEXTURE_0)->getName();
-				if (textureName.find("target.png") != std::string::npos)
+				if (textureName.find("target.png") != std::string::npos || mesh->getName().find(getObjId()+"_spawner_collider") != std::string::npos)
 				{
 					//info("[Spawnable::getSpawnableBounds]Skipping mesh %s with texture name %s", node->getName().c_str(), textureName.c_str());
 					return;
@@ -47,30 +55,47 @@ std::array<vec3, 2> Spawnable::getSpawnableBounds(sptr<Node> spawnableRoot)
 
 				spine::SkeletonBounds boundingBox;
 				boundingBox.update(*(spine->skeleton.get()), true);
-				if (boundingBox.getWidth() != std::numeric_limits<float>::lowest() || boundingBox.getWidth() != std::numeric_limits<float>::max())
+				if (boundingBox.getWidth() != -1.f * std::numeric_limits<float>::max()
+					&& boundingBox.getWidth() != std::numeric_limits<float>::max()
+					&& boundingBox.getWidth() != std::numeric_limits<float>::lowest()
+					)
 				{
 					spineSize = vec3(boundingBox.getWidth()/1024.f * spine->getLocalScale().x,
 														boundingBox.getHeight()/1024.f * spine->getLocalScale().y,
 														0.1);
+					//sp_info("Spine size WITH bounding box: %s (width %f)\nNumeric min: %f, Numeric max: %f",
+					//	CVEC(spineSize), boundingBox.getWidth(), -1.f * std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
 				}
 				else
 				{
 					auto matrix = spine->getSkeletonCurrentBounds().getMatrix();
 					vec3 scale = spine->getSkeletonCurrentBounds().scale();
 					spineSize = (matrix * vec4(scale.x, scale.y, scale.z, 1)).asVec3();  // normalize to world size
+
+					//sp_info("Spine size with NO bounding box: %s", CVEC(spineSize));
 				}
 				spineSize.z = 0.01;
 
 				vec3 leftBottom = node->getWorldTranslation() - spineSize * vec3(0.5, 0.f, 1.f);
 				vec3 rightTop = node->getWorldTranslation() + spineSize * vec3(0.5, 1.f, 1.f);
-				bmin = std::min(bmin, leftBottom);
+
+				if(bmin != bDefaultMin)
+					bmin = std::min(bmin, leftBottom);
+				else
+					bmin = leftBottom;
+
 				if(bmax != bDefaultMax)
 					bmin = std::min(bmax, leftBottom);
 				if(bmin != bDefaultMin)
 					bmax = std::max(bmin, rightTop);
-				bmax = std::max(bmax, rightTop);
+
+				if(bmax != bDefaultMax)
+					bmax = std::max(bmax, rightTop);
+				else
+					bmax = rightTop;
 			}
-			else
+			// All other visibleNodes
+			else if (node->getSurfacesCount() > 0)
 			{
 				//calculating visible node's bounds and matching against current min-max bounds
 				for (auto it = node->getGeometryIterator(); it; ++it)
@@ -79,34 +104,45 @@ std::array<vec3, 2> Spawnable::getSpawnableBounds(sptr<Node> spawnableRoot)
 					bmax = std::max(bmax, it->pos*node->getWorldScale() + node->getWorldTranslation());
 				}
 			}
-			//debug("[Spawnable::getSpawnableBounds]After node %s (of %s) \nmin: %s, max: %s", node->getName().c_str(), spawnableRoot->getName().c_str(),CVEC(bmin), CVEC(bmax));
+			//sp_debug("After node %s (of %s) \nmin: %s, max: %s", node->getName().c_str(), spawnableRoot->getName().c_str(),CVEC(bmin), CVEC(bmax));
 		});
 
 	bmin = std::min(bmin, spawnableRoot->getWorldTranslation());
 	bmax = std::max(bmax, spawnableRoot->getWorldTranslation());
-	//debug("[Spawnable::getSpawnableBounds]After root pos (of %s) min-max \nmin: %s, max: %s", spawnableRoot->getName().c_str(),CVEC(bmin), CVEC(bmax));
+	//sp_debug("After root pos (of %s) min-max \nmin: %s, max: %s", spawnableRoot->getName().c_str(),CVEC(bmin), CVEC(bmax));
 
 	if(bmin != bDefaultMin)
 	{
 		m_cachedBounds[0] = bmin; m_cachedBounds[0].z = -0.05;
 	}
+	else
+	{
+		m_cachedBounds[0] = vec3(-0.5, -0.5, -0.05f);
+	}
 	if(bmax != bDefaultMax)
 	{
 		m_cachedBounds[1] = bmax; m_cachedBounds[1].z =  0.05;
 	}
-	// debug("[Spawnable::getSpawnableBounds]Final bounds of %s) \nmin: %s, max: %s",
-	// 	spawnableRoot->getName().c_str(),
-	// 	CVEC(m_cachedBounds[0]), CVEC(m_cachedBounds[1]));
+	else
+	{
+		m_cachedBounds[1] = vec3(0.5, 0.5, 0.05f);
+	}
+	//sp_debug("Final bounds of %s) \nmin: %s, max: %s",
+	//	spawnableRoot->getName().c_str(),
+	//	CVEC(m_cachedBounds[0]), CVEC(m_cachedBounds[1]));
 
 	//in case we found nothing during traversal
-	if (m_cachedBounds == std::array<vec3, 2>() || (m_cachedBounds[1] - m_cachedBounds[0]).length() < 1.f)
+	if (m_cachedBounds == std::array<vec3, 2>() || (m_cachedBounds[1] - m_cachedBounds[0]).length() < 0.6f)
 	{
 		auto pos = spawnableRoot->getWorldTranslation();
 		static std::array<vec3, 2> defaultBounds = {vec3(-0.5, -0.5, -0.05f), vec3(0.5, 0.5, 0.f)};
+		//sp_debug("%s using defaulted bounds![{%s} - {%s}]\n[{%s} - {%s}]\nLength %f fo delta-vector %s",
+		// 	m_mapObjectData.objId.c_str(),
+		// 	CSTR(pos + defaultBounds[0]), CSTR(pos + defaultBounds[1]),
+		// 	CSTR(m_cachedBounds[0]), CSTR(m_cachedBounds[1]),
+		// 	(m_cachedBounds[1] - m_cachedBounds[0]).length(),
+		// 	CVEC(m_cachedBounds[1] - m_cachedBounds[0]));
 		m_cachedBounds = {pos + defaultBounds[0], pos + defaultBounds[1]};
-		 // debug("[Spawnable::getSpawnableBounds] %s using defaulted bounds! \n[{%s} - {%s}]",
-		 // 	m_mapObjectData.objId.c_str(),
-		 // 	CSTR(m_cachedBounds[0]), CSTR(m_cachedBounds[1]));
 	}
 	else
 	{
@@ -118,11 +154,6 @@ std::array<vec3, 2> Spawnable::getSpawnableBounds(sptr<Node> spawnableRoot)
 
 	return m_cachedBounds;
 }
-
-void Spawnable::removeFocusFrame()
-{
-	if (m_framePlotter && m_framePlotter->getParent()) m_framePlotter->getParent()->removeChild(m_framePlotter);
-};
 
 void Spawnable::initSpawnableCollider(std::function<void(const CollisionInfo&)> clickCb)
 {
@@ -138,34 +169,63 @@ void Spawnable::initSpawnableCollider(std::function<void(const CollisionInfo&)> 
 	colliderSize.x = std::max(0.5f, bounds[1].x - bounds[0].x);
 	colliderSize.y = std::max(0.5f, bounds[1].y - bounds[0].y);
 	colliderSize.z = 0.01;
+	vec3 colliderPos = bounds[0] + colliderSize / 2.f - m_spRoot->getWorldTranslation();
+	//sp_warn("colliderSize: %s\nbounds: {%s} - {%s}", CVEC(colliderSize), CVEC(bounds[0]), CVEC(bounds[1]));
 
-	m_spawnableSelectCollider = m_spRoot->addCollider<AABB>("spawner_collider", colliderSize);
+	m_spawnableSelectCollider = CollidersExt::MakeCollidersExt(colliderSize, m_spRoot, 15, getObjId()+"_spawner_collider", "Spawnables");
+	m_spawnableSelectCollider->setColliderPos(colliderPos);
 	m_spawnableSelectCollider->setBlockRaycasts(false);
 	m_spawnableSelectCollider->setBlockScreencasts(false);
-	m_spawnableSelectCollider->setReceiveRaycasts(true);
-	m_spawnableSelectCollider->setRaycastCallback(clickCb);
-	m_spawnableSelectCollider->setScreencastCallback(ScreencastEvent::Down, clickCb);
-	m_spawnableSelectCollider->setLocalTranslation(vec3(0.f, 0.f, -0.01));
-
-	if (SBD("debug_drawColliders"))
-	{
-		auto colliderDebug = createColliderMesh(m_spawnableSelectCollider, color::Red);
-		if (!colliderDebug)
-			return;
-		m_spRoot->addChild(colliderDebug);
-		colliderDebug->setLocalTranslation(m_spawnableSelectCollider->getLocalTranslation());
-		colliderDebug->setRenderOrder(9);
-		ND_NODE(colliderDebug, m_mapObjectData.objId + "_collider");
-	}
+	m_spawnableSelectCollider->setParentObject(*this);
+	// Not really used for now
+	m_colliderCbHandlerId = m_spawnableSelectCollider->addOnScreencastCallback(
+		[this, clickCb](const CollisionInfo& hit, CollidersExt& collider, ScreencastEvent event)
+		{
+			if (clickCb && event == ScreencastEvent::Down)
+			{
+				clickCb(hit);
+			}
+		});
+	// currently unused
+	//m_colliderRayCbHandlerId = m_spawnableSelectCollider->addOnRaycastCallback(
+	//	[this](const CollisionInfo& hit, CollidersExt& collider)
+	//	{});
 #endif // DEBUG
+}
+
+void Spawnable::updateSpawnableCollider(const std::array<vec3, 2>& bounds)
+{
+	vec3 colliderSize = vec3::zero;
+	colliderSize.x = std::max(0.5f, bounds[1].x - bounds[0].x);
+	colliderSize.y = std::max(0.5f, bounds[1].y - bounds[0].y);
+	colliderSize.z = 0.01;
+	vec3 colliderPos = bounds[0] + colliderSize / 2.f - m_spRoot->getWorldTranslation();
+	//sp_warn("[updateSpawnableCollider] colliderSize: %s\nbounds: {%s} - {%s}", CVEC(colliderSize), CVEC(bounds[0]), CVEC(bounds[1]));
+
+	m_spawnableSelectCollider->setColliderSize(colliderSize);
+	m_spawnableSelectCollider->setColliderPos(colliderPos);
 }
 
 Spawnable::~Spawnable()
 {
-	if (m_framePlotter) 
-		Render::getRoot()->removeChild(m_framePlotter); 
-	m_spRoot->removeAllChildren();
-	m_spRoot = nullptr;
+	sp_debug("");
+	if (m_framePlotter)
+		Render::getRoot()->removeChild(m_framePlotter);
+
+	if (m_spawnableSelectCollider)
+	{
+		m_spawnableSelectCollider->removeScreencastCallback(m_colliderCbHandlerId);
+		m_spawnableSelectCollider->removeRaycastCallback(m_colliderRayCbHandlerId);
+		m_spawnableSelectCollider = nullptr;
+	}
+
+	if (m_spRoot)
+	{
+		m_spRoot->removeAllChildren();
+		if (m_spRoot->getParent())
+			m_spRoot->getParent()->removeChild(m_spRoot);
+		m_spRoot = nullptr;
+	}
 }
 
 //Controls Spawnable's ImGui menu render (Root node transform menu, m_spawnableSettings onGui calls and etc)
@@ -195,19 +255,7 @@ bool Spawnable::onGui(const char* label)
 			Render::getScreenCamera()->setWorldTranslation(camPos);
 		};
 	}
-
-	//focus frame render
-	if (m_framePlotter && m_framePlotter->getParent())
-		m_framePlotter->getParent()->removeChild(m_framePlotter);
-	if(getSpawnableRoot())
-	{
-		m_framePlotter = w4::render::Plotter::buildCube(getSpawnableBounds(getSpawnableRoot()), vec4(1.f, 0.f, 0.f, 1.f));
-		m_framePlotter->setWorldRotation(getSpawnableRoot()->getWorldRotation());
-		if (m_spRoot->getRoot())
-			m_spRoot->getRoot()->addChild(m_framePlotter); //todo: consider adding DebugUiPass and attach ImGui + this to its root to always render on top
-		else
-			Render::getRoot()->addChild(m_framePlotter); 
-	}
+	SP_Utils::onGuiSingleExportBtns(*this);
 
 	if(!m_childrenAdderEnabled)
 	{
@@ -306,6 +354,9 @@ void Spawnable::initSpawnable(sptr<Node> rootNode)
 		m_spRoot->unsubscribeFromWorldTransformChanged(m_rootNodeTransformSubsHandler);
 
 	m_spRoot = rootNode;
+#ifndef DEBUG
+	return;
+#endif
 	m_rootNodeTransformSubsHandler = m_spRoot->subscribeToWorldTransformChanged([this](const Transform& trans)
 		{
 			m_mapObjectData.pos = trans.translation();
@@ -325,6 +376,20 @@ void Spawnable::initSpawnable(sptr<Node> rootNode)
 			}
 			m_cachedBounds = std::array<w4::math::vec3, 2>(); //clearing plotter frame pos cache
 		});
+
+	addSpawnableSetting(
+		SpawnSetting(
+			"Name", m_mapObjectData.objId,
+			[this, nameOld = m_mapObjectData.objId](std::string& name) mutable
+			{
+				if (nameOld == name) return;
+
+				m_mapObjectData.objId = SPAWNER.checkUniqueName(name);
+				SPAWNER.updateSpawnableNameRegistry(nameOld, m_mapObjectData.objId);
+				nameOld = m_mapObjectData.objId;
+				if (m_spRoot) m_spRoot->setName(m_mapObjectData.objId);
+				ND_SPAWNER->m_needUpdateEntitiesFilter = true;
+			}));
 }
 
 Spawnable::SpawnSetting& Spawnable::addChildMeshSelectorSetting(const std::string& name,
@@ -660,16 +725,17 @@ void Spawnable::childSpawnerUI()
 				{
 					std::string deletingClassName = selectedChildHolder.mod.className;
 					std::string deletingObjId = m_lastSelectedChildObj;
+					size_t deletingObjUid = selectedChildHolder.child.lock()->getUid();
 					//wptr<Spawnable> deletedObjWptr = selectedChildHolder.child;
 					m_childObjectsRenderPaused = true;
-					m_deferredDeleteOrder = [this, deletingClassName, deletingObjId]()
+					m_deferredDeleteOrder = [this, deletingClassName, deletingObjId, deletingObjUid]()
 						{
-							SPAWNER.removeObject(deletingObjId);
-							std::erase_if(m_children, [this, deletingObjId](const SpawnableChild& childHolder)
+							SPAWNER.removeObjectByUid(deletingObjUid);
+							std::erase_if(m_children, [this, deletingObjUid](const SpawnableChild& childHolder)
 								{
 									if (childHolder.child.expired())
 										return true;
-									return deletingObjId == childHolder.child.lock()->getMapObjectsData().objId;
+									return deletingObjUid == childHolder.child.lock()->getUid();
 								});
 							std::erase_if(m_mapObjectData.childObjects, [this, deletingObjId](const sptr<MapObjectsData>& childMod)
 								{
@@ -740,7 +806,9 @@ void Spawnable::updateChildrenData()
 			meshHolder.mmd.position_local = child->getLocalTranslation();
 			meshHolder.mmd.scale_local = child->getLocalScale();
 			meshHolder.mmd.rotation_local = child->getLocalRotation().euler();
+#ifndef FORCENODEDEBUG_OFF
 			SP_Utils::exportMaterialParams(child->getMaterialInst(), meshHolder.mmd);
+#endif
 			if (neAbs(meshHolder.mmd.position_local.z) < 0.001) meshHolder.mmd.position_local.z = 0.f;
 		};
 
@@ -759,6 +827,35 @@ void Spawnable::updateChildrenData()
 
 	childrenVisiter(visiter);
 }
+
+void Spawnable::onSelected()
+{
+	//sp_warn("Selected");
+	//focus frame render
+	if (m_framePlotter && m_framePlotter->getParent())
+		m_framePlotter->getParent()->removeChild(m_framePlotter);
+	if(getSpawnableRoot())
+	{
+		auto bounds = getSpawnableBounds(getSpawnableRoot(), true);
+		updateSpawnableCollider(bounds);
+		m_framePlotter = Plotter::buildCube(bounds, vec4(1.f, 0.f, 0.f, 1.f));
+		m_framePlotter->setWorldRotation(getSpawnableRoot()->getWorldRotation());
+		if (m_spRoot->getRoot())
+			m_spRoot->getRoot()->addChild(m_framePlotter); //todo: consider adding DebugUiPass and attach ImGui + this to its root to always render on top
+		else
+			Render::getRoot()->addChild(m_framePlotter);
+	}
+
+	// Collider auto sorting
+	m_colliderPriorityResetRaycast = true;
+}
+
+void Spawnable::onDeselected()
+{
+	//sp_warn("Deselected");
+	if (m_framePlotter && m_framePlotter->getParent())
+		m_framePlotter->getParent()->removeChild(m_framePlotter);
+};
 
 bool Spawnable::hasChildMesh(const std::string& name) const
 {

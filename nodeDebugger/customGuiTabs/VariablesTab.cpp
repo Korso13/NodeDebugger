@@ -72,6 +72,8 @@ namespace nlohmann
 	};
 }
 
+extern int repeatElemId;
+
 VariablesTab::VariablesTab()
 	: 
 #ifdef ND_ACCESSENABLED
@@ -143,7 +145,7 @@ void VariablesTab::onGuiCall()
 	ImGui::EndTabBar();
 }
 
-void VariablesTab::drawVariablesFolder(std::unordered_map<std::string, debugVariant>& variables)
+void VariablesTab::drawVariablesFolder(std::map<std::string, debugVariant>& variables)
 {
 	std::for_each(variables.begin(), variables.end(), 
 		[this](const auto& v)
@@ -165,6 +167,16 @@ void VariablesTab::drawVariablesFolder(std::unordered_map<std::string, debugVari
 					if (!var) return;
 					if (ImGui::InputInt(name.c_str(), var))
 						if (cb) cb();
+				},
+				[&name, &cb](size_t* var)
+				{
+					if (!var) return;
+					int castToInt = *var;
+					if (ImGui::InputInt(name.c_str(), &castToInt))
+					{
+						*var = std::clamp(castToInt, 0, std::numeric_limits<int>::max());
+						if (cb) cb();
+					}
 				},
 				[&name, &cb](float* var)
 				{
@@ -211,7 +223,32 @@ void VariablesTab::drawVariablesFolder(std::unordered_map<std::string, debugVari
 				[&name, &cb](ivec2* var)
 				{
 					if (!var) return;
-					//TODO: very shittiy AUTO impl, make your own!!
+
+					int vecC [2] = { var->x, var->y };
+					bool valueChanged = ImGui::DragInt2(name.c_str(), vecC);
+					if (valueChanged)
+					{
+						var->x = vecC[0];
+						var->y = vecC[1];
+						if (cb) cb();
+					}
+				},
+				[&name, &cb](uvec2* var)
+				{
+					if (!var) return;
+
+					int vecC [2] = { CastI(var->x), CastI(var->y) };
+					bool valueChanged = ImGui::DragInt2(name.c_str(), vecC, 1, 0, std::numeric_limits<int>::max(), "%d", ImGuiSliderFlags_AlwaysClamp);
+					if (valueChanged)
+					{
+						var->x = vecC[0];
+						var->y = vecC[1];
+						if (cb) cb();
+					}
+				},
+				[&name, &cb](auto* var)
+				{
+					if (!var) return;
 					if (ImGui::Auto(name.c_str(), var))
 						if (cb) cb();
 				}

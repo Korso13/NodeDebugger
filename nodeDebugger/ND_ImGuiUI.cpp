@@ -15,6 +15,7 @@
 #include "customGuiTabs/SpawnerTab.h"
 #include "NodeDebugger.h"
 #include "customGuiTabs/NodesTab.h"
+//#include "customGuiTabs/SplineEditorTab.h"
 
 ND_ImGui::ND_ImGui()
 {
@@ -157,6 +158,10 @@ void ND_ImGui::initCustomTabs()
     m_extraTabs.push_back(make::sptr<PathdrawerTab>());
 #endif // NDPATHDRAWER
 
+#ifdef NDSPLINES
+    m_extraTabs.push_back(make::sptr<SplineEditorTab>());
+#endif // NDSPLINES
+
     //Spotlight tab
 #ifdef NDSPOTLIGHTS
     m_extraTabs.push_back(make::sptr<SpotlightTab>());
@@ -243,7 +248,7 @@ void ND_ImGui::ImGuiColliderProbe()
             ImGui::Columns(1);
 
             float pos[3]; std::memcpy(&pos, &data.colliderPos.elements, sizeof pos);
-            float size[3]; std::memcpy(&pos, &data.colliderSize.elements, sizeof pos);
+            float size[3]; std::memcpy(&size, &data.colliderSize.elements, sizeof size);
             ImGui::InputFloat3("Collider Pos", pos, "%.3f", ImGuiInputTextFlags_ReadOnly);
             ImGui::InputFloat3("Collider Size", size, "%.3f", ImGuiInputTextFlags_ReadOnly);
 

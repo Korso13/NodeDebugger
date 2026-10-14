@@ -20,6 +20,7 @@ NodeDebugger::NodeDebugger() :
     m_clickMesh = Mesh::create::plane(vec2(1000.f, 1000.f));
     m_clickMesh->setName("clickMesh_debug");
     auto collider = m_clickMesh->addCollider<AABB>("clickMesh_debug", m_clickMesh);
+    collider->setLocalTranslation(vec3(0,0,-0.15));
     collider->setReceiveRaycasts(true);
     collider->setBlockRaycasts(false);
     collider->setBlockScreencasts(false);
@@ -33,10 +34,7 @@ NodeDebugger::NodeDebugger() :
                 vec3 local = hit.point - m_nodeSwitchBoard[m_selectedNode]->getWorldTranslation();
                 W4_LOG_INFO("Click worldPos \n%s\nlocalPos \n%s", jsprint(hit.point), jsprint(local));
             }
-            else
-            {
-                W4_LOG_INFO("Click worldPos \n%s", jsprint(hit.point));
-            }
+            W4_LOG_INFO("Click worldPos \n%s", jsprint(hit.point));
 
             if (m_clickPlacementMode && m_nodeSwitchBoard[m_selectedNode])
             {
