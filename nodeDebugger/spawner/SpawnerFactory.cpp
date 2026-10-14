@@ -1,0 +1,1197 @@
+#include "SpawnerFactory.h"
+
+#include "common/nodeDebugger/NodeDebugger.h"
+#include "settings/CustomSettingsContainer.h"
+#include "SpawnerTools.h"
+#include "common/DelayFunctionsInside.h"
+
+void SpawnerFactory::SpawnObjects(const std::string& mapDataFileOverride, std::vector<std::string> additionalLevelFiles)
+{
+	getAllMapData(mapDataFileOverride, true); //loads requested or default map objects file
+	// Append mapData or overwrite some of its entries with data from additional files
+	if (!additionalLevelFiles.empty())
+	{
+		for (const auto& additionalLevelFile : additionalLevelFiles)
+		{
+			getAllMapData(additionalLevelFile, false, true);
+		}
+	}
+	info("[SpawnerFactory]Loaded %d meshes and %d Spawnable objects(not counting child objects)", MAP_MESH_DATA.size(), MAP_DATA.size());
+
+	//Ensuring all pre-existing nodes are uniquely named! 
+	checkNodeHierarchyNames();
+	if(MAP_MESH_DATA.size() > 1)
+	{
+		std::sort(MAP_MESH_DATA.begin(), MAP_MESH_DATA.end(), [this](MapMeshData& data1, MapMeshData& data2)
+			{
+				return std::count(data1.node.begin(), data1.node.end(), '|') / 2 < std::count(data2.node.begin(), data2.node.end(), '|') / 2;
+			});
+	}
+	if(MAP_DATA.size() > 1)
+	{
+		std::sort(MAP_DATA.begin(), MAP_DATA.end(), [this](MapObjectsData& data1, MapObjectsData& data2)
+			{
+				return std::count(data1.node.begin(), data1.node.end(), '|') / 2 < std::count(data2.node.begin(), data2.node.end(), '|') / 2;
+			});
+	}
+
+	//spawning objects from MapObjects.json
+	for (auto& obj : MAP_DATA)
+	{
+		if (!m_classesRegistry.contains(obj.className))
+		{
+			warn("[SpawnerFactory::SpawnObjects] No class %s found in registry! Did you add it correctly via registerSpawnableClass() ?", obj.className.c_str());
+			continue;
+		}
+
+		auto spawnerRec = getSpawnerRecord(obj.className);
+		if (!spawnerRec.m_spawnerFunc)
+		{
+			err("[SpawnerFactory::SpawnObjects] No class spawner func %s found in registry! WTF?!", obj.className.c_str());
+			continue;
+		}
+
+		//setting up spawner function's parent node
+		sptr<Node> defaultClassSpawnNode = spawnerRec.getConstructNode();
+		bool foundParentNodeRecord = !obj.node.empty(); //only need to search node if it's mentioned in obj.node
+		sptr<Node> parentNode = nullptr;
+		if (foundParentNodeRecord)
+		{
+			parentNode = findNodeByHierarchyAddress(obj.node);
+			if (parentNode)
+				spawnerRec.setNewConstructNode(parentNode);
+		}
+
+		//spawning new object, registering in m_spawnedEntities, executing onSpawn logic
+		auto newEntity = spawnObjectOfClass(spawnerRec, obj, nullptr, false);
+		spawnerRec.setNewConstructNode(defaultClassSpawnNode);
+
+		//in case we failed to find parent node for new entity
+		if (!parentNode)
+		{
+			m_delayedSpawnableParenting.insert({ m_delayedSpawnableParenting.size(), newEntity });
+		}
+	}
+
+	//Meshes spawner (spawns meshes from mapObjects and registers them with SpawnerTab)
+	for (auto& meshData : MAP_MESH_DATA)
+	{
+		spawnMesh(meshData);
+	}
+	m_primaryMeshLoadComplete = true;
+	//small hack for spawning meshes later if their node hierarchy adress relies on another mesh from MAP_MESH_DATA (should not happen due to prior sorting)
+	//same for Spawnables, which had not been parented by node mentioned in their MapObjectData on spawn
+	if (!m_delayedMeshSpawn.empty() || !m_delayedSpawnableParenting.empty())
+	{
+		//m_nodeHierarchySearchLogging = true;
+		info("[SpawnerFactory::SpawnObjects] Mesh spawner has %d meshes on delayed spawn and %d delayed Spawnables. Processing...", m_delayedMeshSpawn.size(), m_delayedSpawnableParenting.size());
+		for (size_t i = 0; i < 10; i++) //how many iterations to try and spawn delayed meshes and parent Spawnables. 30 should be more than enough
+		{
+			if (m_delayedMeshSpawn.empty() && m_delayedSpawnableParenting.empty())
+				break;
+
+			std::set<int> removalQueue1;
+			std::set<int> removalQueue2;
+			for (auto& [id, meshRec] : m_delayedMeshSpawn)
+			{
+				auto result = spawnMesh(meshRec);
+				if (result)
+					removalQueue1.insert(id);
+			}
+			std::erase_if(m_delayedMeshSpawn, [&removalQueue1, this](const std::pair<int, MapMeshData>& elem){return removalQueue1.contains(elem.first);});
+		
+			for (auto& [id, spawned] : m_delayedSpawnableParenting)
+			{
+				auto& obj = spawned->getMapObjectsData();
+				if (spawned->getSpawnableRoot() && !obj.node.empty())
+				{
+					auto parentNode = findNodeByHierarchyAddress(obj.node);
+					if (parentNode)
+					{
+						spawned->getSpawnableRoot()->setParent(parentNode);
+						removalQueue2.insert(id);
+					}
+				}
+			}
+			std::erase_if(m_delayedSpawnableParenting, [&removalQueue2, this](const std::pair<int, sptr<Spawnable>>& elem){return removalQueue2.contains(elem.first);});
+			m_nodeHierarchySearchLogging = false;
+		}
+		//if there're still remaining meshes, spawning them on m_view
+		if (!m_delayedMeshSpawn.empty())
+		{
+			//W4_LOG_ERROR("[SpawnerFactory::SpawnObjects] Mesh spawner could not place %d meshes on nodes written in MapObjects.json! Spawning on default node!", m_delayedMeshSpawn.size());
+			warn("[SpawnerFactory::SpawnObjects] Mesh spawner could not place %d meshes on nodes written in MapObjects.json! Spawning on default node!", m_delayedMeshSpawn.size());
+			for (auto& [id, meshRec] : m_delayedMeshSpawn)
+			{
+				auto adressHolder = meshRec.node;
+				meshRec.node.clear(); //forces m_view as parent
+				spawnMesh(meshRec);
+				meshRec.node = adressHolder;
+			}
+			m_delayedMeshSpawn.clear();
+		}
+	}
+
+	//run it twice in case newly-loaded nodes are poorly-named. Not needed in release versions
+	//Possibly not that nessesary...
+#ifdef DEBUG
+	//checkNodeHierarchyNames();
+	ND_SPAWNER->initClickColliders();
+
+	// Some objects get finite bounds only after couple of updates :(
+	m_delay->addTask([this]()
+	{
+		for (auto& [id, spawnable] : m_spawnedEntitiesRegistry)
+		{
+			spawnable->updateSpawnableCollider(spawnable->getSpawnableBounds(spawnable->getSpawnableRoot(), true));
+		}
+	}, 0.1f);
+#endif // DEBUG
+}
+
+std::string SpawnerFactory::getClassesImGuiCombo(const std::string& selectedClass, const std::string& comboHeader)
+{
+	static std::map<std::string, std::string> classMapForCombo;
+	if (classMapForCombo.size() != m_classesRegistry.size())
+		for (auto& [className, spawnData] : m_classesRegistry)
+			classMapForCombo[className] = className;
+
+	auto comboResult = ND_Util::ImGuiComboList(comboHeader, classMapForCombo, selectedClass);
+	if (comboResult.first)
+		return comboResult.second;
+	else
+		return selectedClass;
+}
+
+SpawnerFactory::SpawnerRecord& SpawnerFactory::getSpawnerRecord(const std::string& className)
+{
+	if (m_classesRegistry.contains(className))
+		return m_classesRegistry[className];
+	else
+	{
+		//err("No SpawnerRecord for %s found!", className.c_str());
+		FATAL_ERROR("No SpawnerRecord for %s found!", className.c_str());
+		static SpawnerRecord defaultRec("CLASS_NAME"); //mutes compiler
+		return defaultRec;
+	}
+}
+
+std::function<void(sptr<Spawnable>)> SpawnerFactory::getObjectOnSpawnCallback(sptr<Spawnable> spawnedObject)
+{
+	if(!spawnedObject)
+		return [this](sptr<Spawnable>) {};
+	return getClassOnSpawnCallback(spawnedObject->getMapObjectsData().className);
+}
+
+std::function<void(sptr<Spawnable>)> SpawnerFactory::getClassOnSpawnCallback(const std::string& className)
+{
+	if (m_classesRegistry.contains(className))
+		return getSpawnerRecord(className).getOnSpawnCallback();
+	else
+		return [this](sptr<Spawnable>) {};
+}
+
+void SpawnerFactory::setDefaultMeshesRoot(sptr<Node> newRoot)
+{
+	if (!newRoot)
+		return;
+
+	m_view = newRoot;
+}
+
+std::map<std::string, CommonTypes::MeshesContainerSetting>& SpawnerFactory::getMeshesSettings()
+{
+	if (m_meshesList.empty())
+	{
+		//parses json value into MeshesContainerSetting
+		auto settingGetter = 
+			[=](nlohmann::json value) -> CommonTypes::MeshesContainerSetting
+			{
+				auto ret = nlohmann::getMeshesContainerSetting(value);
+				return ret;
+			};
+	
+		nlohmann::json json;
+		if (auto file = filesystem::open("config/meshesContainerSettings.json"); file && file->good())
+		{
+			json = nlohmann::json::parse(file->data(), file->data() + file->size());
+		}
+		for (auto& value : json["settings"])
+		{
+			auto setting = settingGetter(value);
+			m_meshesList.emplace(setting.name, setting);
+		}
+		for (size_t i = 0; i < 10; i++)
+		{
+			if (!filesystem::isPathExists("config/meshesContainerSettings" + STR(i) + ".json"))
+				break;
+
+			nlohmann::json json;
+			if (auto file = filesystem::open("config/meshesContainerSettings" + STR(i) + ".json"); file && file->good())
+			{
+				json = nlohmann::json::parse(file->data(), file->data() + file->size());
+			}
+			for (auto& value : json["settings"])
+			{
+				auto setting = settingGetter(value);
+				m_meshesList.emplace(setting.name, setting);
+			}
+		}
+	}
+
+	return m_meshesList;
+}
+
+std::vector<std::string> SpawnerFactory::getMeshesList()
+{
+	std::vector<std::string> result;
+	for (const auto& [meshSettingName, setting] : m_meshesList)
+		result.push_back(meshSettingName);
+	return result;
+}
+
+std::string SpawnerFactory::checkUniqueName(const std::string& name)
+{
+	if (!m_spawnedEntities.contains(name))
+		return name;
+
+	std::string zeroes = "00"; //for better sorting
+	for (size_t i = 0; i < 500; i++)
+	{
+		if (i == 10 || i == 100)
+			zeroes.pop_back();
+
+		if (!m_spawnedEntities.contains(name + "_" + zeroes + std::to_string(i)))
+			return name + "_" + zeroes + std::to_string(i);
+	}
+
+	return "NoUniqueName!";
+}
+
+std::string SpawnerFactory::checkUniqueMeshName(const std::string& name)
+{
+	if (!m_spawnedMeshes.contains(name))
+		return name;
+
+	std::string zeroes = "00"; //for better sorting
+	for (size_t i = 0; i < 500; i++)
+	{
+		if (i == 10 || i == 100)
+			zeroes.pop_back();
+
+		if (!m_spawnedMeshes.contains(name + "(" + zeroes + std::to_string(i) + ")"))
+			return name + "(" + zeroes + std::to_string(i) + ")";
+	}
+
+	return "NoUniqueName!";
+}
+
+void SpawnerFactory::updateSpawnableNameRegistry(const std::string& oldName, const std::string& newName)
+{
+	if (!m_spawnedEntities.contains(oldName))
+	{
+		err("[SpawnerFactory::updateSpawnableNameRegistry] can't find Spawnable under old name %s", oldName.c_str());
+		return;
+	}
+	if (m_spawnedEntities.contains(newName))
+	{
+		err("[SpawnerFactory::updateSpawnableNameRegistry] Registry already contains object named %s! You must check for unique names first!", newName.c_str());
+		return;
+	}
+
+	auto spawnable = m_spawnedEntities[oldName];
+	m_spawnedEntities.erase(oldName);
+	m_spawnedEntities[newName] = spawnable;
+}
+
+void SpawnerFactory::updateMeshHierarchyRecords()
+{
+	for (auto& [name, Spawned] : m_spawnedEntities)
+	{
+		if(auto spawnedRootParent = Spawned->getSpawnableRoot()->getParent(); spawnedRootParent)
+			Spawned->getMapObjectsData().node = getNodeHierarchyAddress(spawnedRootParent);
+	}
+	for (auto& [name, DataAndMesh] : m_spawnedMeshes)
+	{
+		DataAndMesh.first.node = getNodeHierarchyAddress(DataAndMesh.second->getParent()->as<Node>());
+	}
+}
+
+void SpawnerFactory::checkNodeHierarchyNames()
+{
+	sptr<Node> rootNode = Render::getRoot();
+	sptr<Node> hudRootNode = Render::getHudPass().getRoot();
+
+	//cuts traversal 
+	auto predicateCheck = [this](Node& node)
+		{
+			return !node.getChildren().empty();
+		};
+
+	auto nodeNameCheck = [this](Node& node)
+		{
+			auto parentName = node.getName();
+			int32_t unnamedChildrenCount = 0;
+			std::set<std::string> children;
+			for (auto& child : node.getChildren())
+			{
+				if (!child)
+					continue;
+
+				if (child->getName() == "unnamed")
+					child->setName(parentName + "_child_" + STR(unnamedChildrenCount++));
+				else if (children.contains(child->getName()))
+				{
+					for (size_t i = 0; i < 500; i++)
+					{
+						if (!children.contains(child->getName() + "_" + STR(i)))
+						{
+							child->setName(child->getName() + "_" + STR(i));
+							break;
+						}
+					}
+				}
+
+				children.insert(child->getName());
+			}
+		};
+
+	if (rootNode)
+	{
+		rootNode->traversal(predicateCheck, nodeNameCheck);
+	}
+	if (hudRootNode)
+	{
+		hudRootNode->traversal(predicateCheck, nodeNameCheck);
+	}
+}
+
+//helper recursive function for SpawnerFactory::getNodeHierarchyAddress()
+//writes result into hierarchyAdress string
+void recursiveNodeGetter(sptr<Node> node, std::string& hierarchyAdress)
+{
+	if (!node)
+	{
+		W4_LOG_ERROR("[SpawnerFactory::getNodeHierarchyAddress->recursiveNodeGetter] Null node!");
+		return;
+	}
+	if (node == Render::getRoot())
+	{
+		hierarchyAdress.insert(0, "Root");
+		return;
+	}
+	if (node == Render::getHudPass().getRoot())
+	{
+		hierarchyAdress.insert(0, Render::getHudPass().getRoot()->getName());
+		return;
+	}
+
+	if (node->getParent())
+	{
+		hierarchyAdress.insert(0, "||" + node->getName());
+		recursiveNodeGetter(node->getParent(), hierarchyAdress);
+	}
+}
+
+std::string SpawnerFactory::getNodeHierarchyAddress(sptr<Node> node)
+{
+	std::string hierarchyAdress = "";
+	recursiveNodeGetter(node, hierarchyAdress);
+
+	return hierarchyAdress;
+}
+
+sptr<Node> SpawnerFactory::findNodeByHierarchyAddress(std::string address)
+{
+	if (m_nodeHierarchySearchLogging)
+		debug("[SpawnerFactory::findNodeByHierarchyAddress] %s", address.c_str());
+	sptr<Node> foundNode = nullptr;
+	if (address.empty())
+		return nullptr;
+	do
+	{
+		if (!foundNode) //first iteration
+		{
+			std::string firstNodeName;
+			if (address.find("||") != std::string::npos)
+			{
+				firstNodeName = address.substr(0, address.find("||")); //getting sub string up to the next separator
+				address.erase(0, address.find("||") + 2); //removing found node from the address along with the separator
+			}
+			else //adress is just root node
+			{
+				firstNodeName = address;
+				address.clear();
+			}
+			if(m_nodeHierarchySearchLogging)
+				info("[SpawnerFactory::findNodeByHierarchyAddress]\nfirstNodeName: %s", firstNodeName.c_str());
+
+			if (firstNodeName == "Root")
+				foundNode = Render::getRoot();
+			else if (firstNodeName == "HudPassRoot" || firstNodeName == "HUD Root" || firstNodeName == "ScreenSpace_Root" || firstNodeName == "Screen_Render")
+				foundNode = Render::getHudPass().getRoot();
+		}
+		else
+		{
+			std::string nextNodeName = address.substr(0, address.find("||")); //getting sub string up to the next separator
+			if (m_nodeHierarchySearchLogging)
+				info("[SpawnerFactory::findNodeByHierarchyAddress]\nnextNodeName: %s", nextNodeName.c_str());
+			auto children = foundNode->getChildren();
+			auto childIt = children.begin();
+			bool bFound = false;
+			for (; childIt != children.end(); childIt++)
+			{
+				if ((*childIt)->getName() == nextNodeName)
+				{
+					if (m_nodeHierarchySearchLogging)
+						warn("[SpawnerFactory::findNodeByHierarchyAddress]Found child %s matching name %s. It's parent %s",
+							(*childIt)->getName().c_str(),
+							nextNodeName.c_str(), 
+							(*childIt)->getParent()->getName().c_str());
+					foundNode = *childIt;
+					bFound = true;
+					break;
+				}
+			}
+
+			if (bFound)
+			{
+				if (m_nodeHierarchySearchLogging)
+				{
+					std::string output = "Children of " + foundNode->getName() + " " + STR(foundNode->getChildren().size()) + "\n";
+					warn("[SpawnerFactory::findNodeByHierarchyAddress]\n%s", output.c_str());
+					for (auto& child : foundNode->getChildren())
+					{
+						info("[SpawnerFactory::findNodeByHierarchyAddress]\n%s", child->getName().c_str());
+					}
+				}
+
+				address.erase(0, address.find("||") + 2); //removing found node from the adress along with the separator
+				if (m_nodeHierarchySearchLogging)
+					info("[SpawnerFactory::findNodeByHierarchyAddress]\n Address after iteration: \n%s", address.c_str());
+			}
+			else
+			{
+				if (m_nodeHierarchySearchLogging)
+					warn("[SpawnerFactory::findNodeByHierarchyAddress]\nCoundn't find %s", nextNodeName.c_str());
+				foundNode = nullptr;
+				break;
+			}
+		}
+	} while (address.find("||") != std::string::npos);
+	
+	//final iteration
+	if (!address.empty())
+	{
+		std::string lastNodeName = address;
+		if (m_nodeHierarchySearchLogging)
+			info("[SpawnerFactory::findNodeByHierarchyAddress]\nlastNodeName: %s, last found node %s has %d children", lastNodeName.c_str(), foundNode->getName().c_str(), foundNode->getChildren().size());
+		auto children = foundNode->getChildren();
+		auto childIt = children.begin();
+		bool bFound = false;
+		for (; childIt != children.end(); childIt++)
+		{
+			if ((*childIt)->getName() == lastNodeName)
+			{
+				foundNode = *childIt;
+				bFound = true;
+				break;
+			}
+		}
+		if (!bFound)
+		{
+			if (m_nodeHierarchySearchLogging)
+			{
+				warn("[SpawnerFactory::findNodeByHierarchyAddress]\nCoundn't find last node: %s", lastNodeName.c_str());
+				std::string output = "Children " + STR(children.size()) + "\n";
+				for (auto& child : children)
+				{
+					output = output + "\n" + child->getName();
+				}
+				warn("[SpawnerFactory::findNodeByHierarchyAddress]\n%s", output.c_str());
+			}
+			foundNode = nullptr;
+		}
+	}
+
+	return foundNode;
+}
+
+void SpawnerFactory::onUpdate(float dt)
+{
+	if (m_delay) m_delay->update(dt);
+}
+
+SpawnerFactory::SpawnerFactory()
+		:
+		MeshesContainer(Render::getRoot())
+{
+		m_delay = M_SPTR<DelayedTimerInside>();
+		setAutomaticOnUpdate(true);
+}
+
+sptr<Mesh> SpawnerFactory::getMeshByName(const std::string& meshName)
+{
+	if (m_spawnedMeshes.contains(meshName))
+		return m_spawnedMeshes[meshName].second;
+	else
+		return nullptr;
+}
+
+std::vector<sptr<Mesh>> SpawnerFactory::getAllMeshesMatching(const std::string& meshName)
+{
+	std::vector<sptr<Mesh>> searchResult;
+	for (auto& [name, spawnedMesh] : m_spawnedMeshes)
+	{
+		if (!ND_Util::checkFilterConditions(name, meshName) || !spawnedMesh.second)
+			continue;
+		
+		searchResult.push_back(spawnedMesh.second);
+	}
+
+	return searchResult;
+}
+
+sptr<Mesh> SpawnerFactory::spawnMesh(MapMeshData& meshData)
+{
+	//spawn logic
+	sptr<Node> parentNode = nullptr;
+	if (meshData.node.empty()) //spawned from tab
+		parentNode = m_view;
+	else
+		parentNode = findNodeByHierarchyAddress(meshData.node);
+
+	//necessary hack for meshes from MapObjects.json if they rely on other mesh being spawned first
+	if(!parentNode && !m_primaryMeshLoadComplete && !meshData.isChild)
+	{
+		m_delayedMeshSpawn.insert({CastI(m_delayedMeshSpawn.size()), meshData});
+		info("[SpawnerFactory::spawnMesh] Couldn't find parent node {%s} for mesh {%s}. primaryMeshLoadComplete: %s",
+			  meshData.node.c_str(),
+			  meshData.meshId.c_str(),
+			  BOOL_STR(m_primaryMeshLoadComplete));
+		return nullptr;
+	}
+	else if (!parentNode && meshData.isChild)
+	{
+		info("[SpawnerFactory::spawnMesh] Parent {%s} not found for child mesh {%s}",
+			meshData.node.c_str(),
+			meshData.meshId.c_str());
+	}
+
+	sptr<Mesh> newMesh;
+	if (isMeshSettingExist(meshData.meshName))
+		newMesh = createMesh(meshData.meshName, "", "sprite", true, parentNode); //material replaced with unique instance later
+	//two fallback options for cases, when we removed meshes or textures after making mapObjects.json - to prevent crashes
+	else if (ResourceLibrary::instance().getLoadedTexturesInfo().contains(meshData.meshName))
+	{
+		newMesh = Mesh::create::plane();
+		auto mat = RMat("sprite")->createInstance();
+		mat->setTexture(TextureId::TEXTURE_0, RT(meshData.meshName));
+		mat->enableBlending(true); mat->setBlendFunc(BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA);
+		newMesh->setMaterialInst(mat);
+		parentNode->addChild(newMesh);
+		warn("[SpawnerFactory::spawnMesh] No mesh data for %s! Created default mesh with same texture!", meshData.meshName.c_str());
+	}
+	else
+	{
+		newMesh = Mesh::create::plane();
+		auto mat = RMat("sprite")->createInstance();
+		mat->setTexture(TextureId::TEXTURE_0, Texture::createWithColor(color::Purple));
+		mat->enableBlending(true); mat->setBlendFunc(BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA);
+		newMesh->setMaterialInst(mat);
+		parentNode->addChild(newMesh);
+		warn("[SpawnerFactory::spawnMesh] No mesh data for %s!", meshData.meshName.c_str());
+	}
+
+	//naming and parenting																				 //naming and parenting
+	std::string uniqueName; 
+	if(!meshData.meshId.empty())
+		uniqueName = checkUniqueMeshName(meshData.meshId);
+	else
+		uniqueName = checkUniqueMeshName(meshData.meshName);
+
+	if (uniqueName != meshData.meshId)
+		meshData.meshId = uniqueName;
+	newMesh->setName(uniqueName);
+	// if (parentNode)
+	// 	parentNode->addChild(newMesh, false);
+	// else
+	// 	newMesh->setParent(nullptr); //otherwise will be spawned on default spawner node!
+
+	//making unique material instance
+	auto newMatInst = RMat(meshData.material)->createInstance();
+	newMatInst->setTexture(TextureId::TEXTURE_0, newMesh->getMaterialInst()->getTexture(TextureId::TEXTURE_0));
+	SP_Utils::loadMaterialParams(newMatInst, meshData);
+	newMesh->setMaterialInst(newMatInst);
+	newMesh->setRenderOrder(meshData.renderOrder);
+	if (meshData.useWorldPos)
+		newMesh->setWorldTranslation(meshData.position_world);
+	else
+		newMesh->setLocalTranslation(meshData.position_local);
+	newMesh->setLocalScale(meshData.scale_local);
+	newMesh->setLocalRotation(Rotator(meshData.rotation_local));
+
+	//Adds mesh to list of spawned entities
+	if(!meshData.isChild)
+	{
+		m_spawnedMeshes.insert({ uniqueName, {meshData, newMesh} });
+		newMesh->subscribeToWorldTransformChanged([this, uniqueName](const Transform& trans)
+			{
+				if (!m_spawnedMeshes.contains(uniqueName))
+					return;
+
+				m_spawnedMeshes[uniqueName].first.position_local = m_spawnedMeshes[uniqueName].second->getLocalTranslation();
+				m_spawnedMeshes[uniqueName].first.position_world = trans.translation();
+				m_spawnedMeshes[uniqueName].first.scale_local = m_spawnedMeshes[uniqueName].second->getLocalScale();
+				m_spawnedMeshes[uniqueName].first.rotation_local = m_spawnedMeshes[uniqueName].second->getLocalRotation().euler();
+				m_spawnedMeshes[uniqueName].first.renderOrder = m_spawnedMeshes[uniqueName].second->getRenderOrder();
+			});
+	}
+
+	ND_NODE(newMesh);
+
+	return newMesh;
+}
+
+//const MapObjectsData SpawnerFactory::SpawnerRecord::getMapObjectsData()
+//{
+//	for (auto& param : this->constructorParams)
+//	{
+//		if (param.isMapData)
+//		{
+//			return param.paramValue.get<MapObjectsData>();
+//		}
+//	}
+//
+//	//muting compilationError
+//	return MapObjectsData();
+//}
+
+void SpawnerFactory::SpawnerRecord::setNewMapObjectsData(MapObjectsData& newMOD)
+{
+	for (auto& param : this->constructorParams)
+	{
+		if (param.isMapData)
+		{
+			m_defaultMod = param.paramValue.get<MapObjectsData>();
+			return param.paramValue.setValue<MapObjectsData>(newMOD);
+		}
+	}
+}
+
+void SpawnerFactory::SpawnerRecord::resetToDefaultMapObjectsData()
+{
+	for (auto& param : this->constructorParams)
+	{
+		if (param.isMapData)
+		{
+			return param.paramValue.setValue<MapObjectsData>(m_defaultMod);
+		}
+	}
+}
+
+sptr<Node> SpawnerFactory::SpawnerRecord::getConstructNode() const
+{
+	for (const auto& param : constructorParams)
+		if (!param.node.expired())
+			return param.node.lock();
+	return nullptr;
+}
+
+void SpawnerFactory::SpawnerRecord::setNewConstructNode(sptr<Node> newNode)
+{
+	for (auto& param : constructorParams)
+	{
+		if (!param.node.expired())
+		{
+			param.paramValue.setValue<sptr<Node>>(newNode);
+			param.node = newNode;
+		}
+	}
+}
+
+sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, bool bTabSpawned, vec3 spawnAt)
+{
+	spawnData.resetToDefaultMapObjectsData();
+	auto newEntity = spawnData.m_spawnerFunc(spawnData.constructorParams);
+	if (!newEntity)
+	{
+		err("[SpawnerFactory::spawnObjectOfClass]Failed to spawn new object!");
+		return nullptr;
+	}
+
+	newEntity->isSpawned = bTabSpawned; //marks entity as spawned via ND tab
+	newEntity->m_self = newEntity;
+	if (newEntity->m_deferredSpawnChildrenCall) newEntity->m_deferredSpawnChildrenCall(); //here and below - try to execute delayed children spawning
+
+	std::string newEntityName; 
+	if(!newEntity->getMapObjectsData().objId.empty())
+		newEntityName = checkUniqueName(newEntity->getMapObjectsData().objId);
+	else if (newEntity->getSpawnableRoot() && newEntity->getSpawnableRoot()->getName() != "Unnamed")
+		newEntityName = checkUniqueName(newEntity->getSpawnableRoot()->getName());
+	else if(!newEntity->getMapObjectsData().className.empty())
+		newEntityName = checkUniqueName(newEntity->getMapObjectsData().className);
+	if (newEntityName.empty()) newEntityName = checkUniqueName("Unnamed"); //must have unique, non-empty name!!
+	newEntity->getMapObjectsData().objId = newEntityName;
+	m_spawnedEntities.insert(
+		{
+			newEntityName,
+			newEntity
+		});
+	m_spawnedEntitiesRegistry.insert(
+		{
+			newEntity->getUid(),
+			newEntity
+		});
+
+	if (bTabSpawned && newEntity->getSpawnableRoot())
+	{
+		ND_NODE(newEntity->getSpawnableRoot());
+		if(spawnAt == INVALIDPOS)
+		{
+			vec3 cameraPos = Render::getScreenCamera()->getWorldTranslation();
+			cameraPos.z = 0.f;
+			if(newEntity->getSpawnableRoot())
+				newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
+			spawnAt = cameraPos;
+		}
+		else
+		{
+			newEntity->getSpawnableRoot()->setWorldTranslation(spawnAt);
+		}
+
+		if (newEntity->getMapObjectsData().isChildObj)
+		{
+			newEntity->getSpawnableRoot()->setLocalScale((newEntity->getMapObjectsData().local_scale));
+			newEntity->getSpawnableRoot()->setLocalRotation(Rotator(newEntity->getMapObjectsData().local_rotation));
+		}
+		else
+		{
+			newEntity->getSpawnableRoot()->setWorldScale((newEntity->getMapObjectsData().scale));
+			newEntity->getSpawnableRoot()->setWorldRotation(Rotator(newEntity->getMapObjectsData().rotation));
+		}
+	}
+
+	newEntity->onBeginPlay(newEntity, bTabSpawned, (bTabSpawned ? spawnAt : newEntity->getMapObjectsData().pos));
+	if (newEntity->m_deferredSpawnChildrenCall) newEntity->m_deferredSpawnChildrenCall();
+
+	if (spawnData.m_onSpawnCb)
+		spawnData.m_onSpawnCb(newEntity);
+	if (newEntity->m_deferredSpawnChildrenCall) newEntity->m_deferredSpawnChildrenCall();
+
+	m_lastSpawnedObjectName = newEntityName;
+#ifndef FORCENODEDEBUG_OFF 
+	ND_SPAWNER->m_needUpdateEntitiesFilter = true;
+#endif
+
+	return newEntity;
+}
+
+sptr<Spawnable> SpawnerFactory::spawnObjectOfClass(SpawnerRecord& spawnData, MapObjectsData& customMOD, std::function<void(sptr<Spawnable>)> customOnSpawnCb, bool bTabSpawned)
+{
+	//Customizing Spawn's MOD
+	spawnData.setNewMapObjectsData(customMOD);
+
+	//spawning new object
+	auto newEntity = spawnData.m_spawnerFunc(spawnData.constructorParams);
+	if (!newEntity)
+	{
+		err("[SpawnerFactory::spawnObjectOfClass]Failed to spawn new object!");
+		return nullptr;
+	}
+	newEntity->isSpawned = bTabSpawned; //marks object as spawned via ND tab
+	newEntity->m_self = newEntity;
+	if (newEntity->m_deferredSpawnChildrenCall) newEntity->m_deferredSpawnChildrenCall(); //here and below - try to execute delayed children spawning
+
+	std::string newEntityName;
+
+	//naming new object
+	if (!newEntity->getMapObjectsData().objId.empty())
+		newEntityName = checkUniqueName(newEntity->getMapObjectsData().objId);
+	else if (newEntity->getSpawnableRoot() && newEntity->getSpawnableRoot()->getName() != "Unnamed")
+		newEntityName = checkUniqueName(newEntity->getSpawnableRoot()->getName());
+	else if (!newEntity->getMapObjectsData().className.empty())
+		newEntityName = checkUniqueName(newEntity->getMapObjectsData().className);
+	if (newEntityName.empty()) newEntityName = checkUniqueName("Unnamed"); //must have unique, non-empty name!!
+	newEntity->getMapObjectsData().objId = newEntityName;
+
+	//restoring default MOD
+	spawnData.resetToDefaultMapObjectsData();
+
+	m_spawnedEntities.insert(
+		{
+			newEntityName,
+			newEntity
+		});
+	m_spawnedEntitiesRegistry.insert(
+	{
+		newEntity->getUid(),
+		newEntity
+	});
+	m_lastSpawnedObjectName = newEntityName;
+
+	//placing new object in front of camera or at set coordinates
+	vec3 cameraPos = Render::getScreenCamera()->getWorldTranslation();
+	cameraPos.z = 0.f;
+	if (newEntity->getSpawnableRoot())
+	{
+		if (bTabSpawned)
+		{
+			ND_NODE(newEntity->getSpawnableRoot());
+			if(newEntity->getMapObjectsData().pos == vec3::zero)
+			{
+				newEntity->getSpawnableRoot()->setWorldTranslation(cameraPos);
+			}
+			else if (newEntity->getMapObjectsData().pos != INVALIDPOS)
+				newEntity->getSpawnableRoot()->setWorldTranslation(newEntity->getMapObjectsData().pos);
+		}
+
+		if (newEntity->getMapObjectsData().isChildObj)
+		{
+			if (!bTabSpawned) newEntity->getSpawnableRoot()->setLocalTranslation((newEntity->getMapObjectsData().local_pos));
+			newEntity->getSpawnableRoot()->setLocalScale((newEntity->getMapObjectsData().local_scale));
+			newEntity->getSpawnableRoot()->setLocalRotation(Rotator(newEntity->getMapObjectsData().local_rotation));
+		}
+		else
+		{
+			if (!bTabSpawned) newEntity->getSpawnableRoot()->setWorldTranslation((newEntity->getMapObjectsData().pos));
+			newEntity->getSpawnableRoot()->setWorldScale((newEntity->getMapObjectsData().scale));
+			newEntity->getSpawnableRoot()->setWorldRotation(Rotator(newEntity->getMapObjectsData().rotation));
+		}
+	}
+
+	newEntity->onBeginPlay(newEntity, bTabSpawned, (bTabSpawned ? cameraPos : newEntity->getMapObjectsData().pos));
+	if (newEntity->m_deferredSpawnChildrenCall) newEntity->m_deferredSpawnChildrenCall();
+
+	//executing onSpawn logic
+	if (customOnSpawnCb)
+		customOnSpawnCb(newEntity);
+	else if (spawnData.m_onSpawnCb)
+		spawnData.m_onSpawnCb(newEntity);
+	if (newEntity->m_deferredSpawnChildrenCall) newEntity->m_deferredSpawnChildrenCall();
+
+#ifndef FORCENODEDEBUG_OFF 
+	ND_SPAWNER->m_needUpdateEntitiesFilter = true;
+#endif
+
+	return newEntity;
+}
+
+sptr<Spawnable> SpawnerFactory::spawnCopyOfObject(MapObjectsData& objectsMOD, vec3 spawnAt, bool bTabSpawned)
+{
+	if (objectsMOD.className.empty()) return nullptr;
+	auto& SpawnerRec = getSpawnerRecord(objectsMOD.className);
+	MapObjectsData modCopy = objectsMOD;
+	if (modCopy.objId.find("_copy") == std::string::npos)
+		modCopy.objId = modCopy.objId + "_copy";
+
+	for (auto& childRec : modCopy.childObjects)
+	{
+		if (!childRec) continue;
+		childRec = M_SPTR<MapObjectsData>(*childRec); //creating true copy from underlying object of MOD sptr
+		//todo: needs better solution :(
+		if (size_t parentNamePos = childRec->node.find("||" + objectsMOD.objId + "||"); parentNamePos != std::string::npos)
+		{
+			//trying to fix child node parenting to target new parent
+			auto oldNode = childRec->node;
+			childRec->node.replace(parentNamePos, 4 + objectsMOD.objId.size(), "||" + modCopy.objId + "||");
+			info("[SpawnerFactory::spawnCopyOfObject] Fixed child {%s} node from \n%s\nto\n%s",
+				childRec->objId.c_str(), oldNode.c_str(), childRec->node.c_str());
+		}
+		else
+			childRec->node.clear(); //defaulting to parent's root node
+	}
+	for (auto& childRec : modCopy.childMeshes)
+	{
+		if (!childRec) continue;
+		childRec = M_SPTR<MapMeshData>(*childRec); //creating true copy from underlying object of MMD sptr
+		//todo: needs better solution :(
+		if (size_t parentNamePos = childRec->node.find("||" + objectsMOD.objId + "||"); parentNamePos != std::string::npos)
+		{
+			//trying to fix child node parenting to target new parent
+			auto oldNode = childRec->node;
+			childRec->node.replace(parentNamePos, 4 + objectsMOD.objId.size(), "||" + modCopy.objId + "||");
+			info("[SpawnerFactory::spawnCopyOfObject] Fixed child mesh {%s} node from \n%s\nto\n%s",
+				childRec->meshId.c_str(), oldNode.c_str(), childRec->node.c_str());
+		}
+		else
+			childRec->node.clear(); //defaulting to parent's root node
+	}
+
+	auto copy = spawnObjectOfClass(SpawnerRec, modCopy, nullptr, bTabSpawned);
+	if (!copy)
+	{
+		err("[SpawnerFactory::spawnCopyOfObject]Failed to spawn object copy!");
+		return nullptr;
+	}
+
+	if (copy->getSpawnableRoot())
+	{
+		if (spawnAt != INVALIDPOS)
+			copy->getSpawnableRoot()->setWorldTranslation(spawnAt);
+		else
+			copy->getSpawnableRoot()->setWorldTranslation(Render::getScreenCamera()->getWorldTranslation()*vec3(1.f, 1.f, 0.f));
+	}
+	return copy;
+}
+
+void SpawnerFactory::removeObject(const std::string& objId)
+{
+	if (!SPAWNER.getAllSpawnables().contains(objId))
+		return;
+
+	auto& spawnableForDeletion = getAllSpawnables()[objId];
+	removeObjectByUid(spawnableForDeletion->getUid());
+}
+
+void SpawnerFactory::removeObjectByUid(size_t uid)
+{
+	if (!m_spawnedEntitiesRegistry.contains(uid))
+	{
+		return;
+	}
+
+	auto objId = m_spawnedEntitiesRegistry[uid]->getObjId();
+	auto& spawnableForDeletion = m_spawnedEntitiesRegistry[uid];
+
+	if(spawnableForDeletion->m_childrenAdderEnabled)
+	{
+		auto childrenArrayCopy = spawnableForDeletion->getSpawnedChildren();
+		for (auto& childHolder : childrenArrayCopy)
+		{
+			if (!childHolder.child.expired())
+				removeObjectByUid(childHolder.child.lock()->getUid());
+		}
+	}
+
+	spawnableForDeletion->onEndPlay(spawnableForDeletion, objId);
+	if (getClassRegistry().contains(spawnableForDeletion->getMapObjectsData().className))
+	{
+		auto& spawnRecord = getClassRegistry()[spawnableForDeletion->getMapObjectsData().className];
+		if (spawnRecord.m_onDeleteCb)
+			spawnRecord.m_onDeleteCb(spawnableForDeletion);
+	}
+	//removing the Spawnable from the Spawner's list of entities
+	m_spawnedEntities.erase(objId);
+	info("[SpawnerFactory::removeObject] Deleting %s of class %s.\nRefs alive for object: %d(must be 1)",
+		spawnableForDeletion->getMapObjectsData().objId.c_str(),
+		spawnableForDeletion->getMapObjectsData().className.c_str(),
+		spawnableForDeletion.use_count());
+	m_spawnedEntitiesRegistry.erase(uid);
+
+	//spawnableForDeletion->m_spawnableSelectCollider = nullptr;
+	ND_SPAWNER->m_needUpdateEntitiesFilter = true;
+}
+
+void SpawnerFactory::purgeSpawnedObjects()
+{
+	m_spawnedEntities.clear();
+	m_spawnedEntitiesRegistry.clear();
+}
+
+void SpawnerFactory::purgeSpawnedMeshes()
+{
+	m_spawnedMeshes.clear();
+}
+
+void mergeMocFiles(MapObjectsContainer& mainContainer, MapObjectsContainer appendedContainer)
+{
+	// Spawnables
+	for (auto& object : appendedContainer.mapObjectsData)
+	{
+		// check if main container already has appended object
+		auto match = std::find_if(mainContainer.mapObjectsData.begin(), mainContainer.mapObjectsData.end(),
+			[appendObjId = object.objId](const MapObjectsData& obj)
+			{
+				return appendObjId == obj.objId;
+			});
+
+		debug("[mergeMocFiles] Found existing object record when adding {%s}: %s", object.objId.c_str(), BOOL_STR(match != mainContainer.mapObjectsData.end()));
+		if (match != mainContainer.mapObjectsData.end())
+			*match = object;
+		else
+			mainContainer.mapObjectsData.push_back(object);
+	}
+
+	// Meshes
+	for (auto& mesh : appendedContainer.mapMeshData)
+	{
+		// check if main container already has appended mesh
+		auto match = std::find_if(mainContainer.mapMeshData.begin(), mainContainer.mapMeshData.end(),
+			[appendMeshId = mesh.meshId](const MapMeshData& obj)
+			{
+				return appendMeshId == obj.meshId;
+			});
+
+		debug("[mergeMocFiles] Found existing mesh record when adding {%s}: %s", mesh.meshId.c_str(), BOOL_STR(match != mainContainer.mapMeshData.end()));
+		if (match != mainContainer.mapMeshData.end())
+			*match = mesh;
+		else
+			mainContainer.mapMeshData.push_back(mesh);
+	}
+}
+
+MapObjectsContainer& SpawnerFactory::getAllMapData(
+	const std::string& mapDataFileOverride,
+	bool forceReloadMapData,
+	bool appendMapData)
+{
+	if ((mapData.mapObjectsData.empty() && mapData.mapMeshData.empty()) || forceReloadMapData || appendMapData)
+	{
+		if (forceReloadMapData)
+		{
+			mapData.mapMeshData.clear();
+			mapData.mapObjectsData.clear();
+		}
+		if (!mapDataFileOverride.empty())
+		{
+			m_mapDataFile = mapDataFileOverride;
+			if (m_mapDataFile.find(".json") == std::string::npos)
+				m_mapDataFile += ".json";
+		}
+
+		if (!w4::filesystem::isPathExists("config/" + m_mapDataFile))
+		{
+			W4_LOG_ERROR("[SpawnerFactory::getAllMapData] file not found: {%s}!", ("config/" + m_mapDataFile).c_str());
+			return mapData;
+		}
+
+		auto file = w4::filesystem::open("config/" + m_mapDataFile);
+		auto json = nlohmann::json::parse(file->data(), file->data() + file->size());
+		if (!appendMapData)
+			nlohmann::adl_serializer<MapObjectsContainer>::from_json(json, mapData);
+		else
+		{
+			MapObjectsContainer appendContainer;
+			nlohmann::adl_serializer<MapObjectsContainer>::from_json(json, appendContainer);
+			mergeMocFiles(mapData, appendContainer);
+		}
+		W4_LOG_DEBUG("[SpawnerFactory::getAllMapData] Loaded {%d} MapObjects, New data entries: {%d} (append mode: %s)",
+			mapData.mapObjectsData.size(),
+			json.size(),
+			BOOL_STR(appendMapData));
+	}
+
+	return mapData;
+}
+
+template<typename className>
+inline SpawnerFactory::SpawnerRecord& SpawnerFactory::registerSpawnableClass(const std::string& entityName)
+{
+	std::string classID = entityName;
+	if (!m_classesRegistry.contains(classID))
+	{
+		//method to be used for spawning the spawnable entity
+		//m_classesRegistry[classID] = SpawnerRecord(classID);
+		m_classesRegistry.emplace(classID, SpawnerRecord(classID));
+		m_classesRegistry[classID].m_spawnerFunc =
+			[this](std::vector<SpawnerRecord::ParamPack> args)
+			{
+				return cast_sptr<Spawnable>(std::shared_ptr<className>(new className()));
+			};
+	}
+	return m_classesRegistry[classID];
+}
+
+SpawnerFactory::SpawnerRecord::SpawnerRecord()
+{
+	warn("[SpawnerRecord::SpawnerRecord] Using default constructor! Should avoid that if possible!");
+	constructorParams.reserve(15);
+	m_argsOnGui.reserve(20);
+}
+
+SpawnerFactory::SpawnerRecord::SpawnerRecord(const std::string& className)
+	:
+	m_classID(className)
+{
+	constructorParams.reserve(15);
+	m_argsOnGui.reserve(20);
+}
+
+SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::operator=(const SpawnerRecord& rhv)
+{
+	if (&rhv == this)
+		return *this;
+
+	constructorParams.reserve(15);
+	m_argsOnGui.reserve(20);
+	return *this;
+}
+
+SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::setOnSpawnCallback(std::function<void(sptr<Spawnable>)>&& cb)
+{
+	m_onSpawnCb = cb;
+	return *this;
+}
+
+SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::setOnDeleteCallback(std::function<void(sptr<Spawnable>)>&& cb)
+{
+	m_onDeleteCb = cb;
+	return *this;
+}
+
+SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::setObjNameList(std::vector<std::string>&& listOfNames)
+{
+#ifndef FORCENODEDEBUG_OFF
+	for(auto& value : listOfNames)
+		m_listOfMODObjNames[value] = value; //need to convert std::vector to map for ND_Util::ImGuiComboList()
+
+	//searching for MapObjectData(MOD) constructor parameter
+	size_t paramIndex = -1;
+	for (ParamPack& param : constructorParams)
+	{
+		paramIndex++;
+
+		if (!param.isMapData)
+			continue;
+
+		ParamPack& MODParamPack = param;
+		auto ImGuiRenderHolder = m_argsOnGui[paramIndex];
+		m_argsOnGui[paramIndex] = [this, paramIndex, ImGuiRenderHolder]()
+			{
+				auto& MODref = getMapObjectsDataRef(); //MapObjectData(MOD) construct param reference
+				//rendering Combo list of possible objName values
+				std::pair<bool, std::string> result = ND_Util::ImGuiComboList("ObjName of " + MODref.className, m_listOfMODObjNames, MODref.objName);
+				
+				//checking if new value was selected from ComboList
+				if (result.first)
+					getMapObjectsDataRef().objName = result.second;
+
+				ImGuiRenderHolder(); //render the rest of MOD struct as usual;
+			};
+	}
+#endif
+
+	return *this;
+}
+
+SpawnerFactory::SpawnerRecord& SpawnerFactory::SpawnerRecord::enableObjNameTextureSelector()
+{
+#ifndef FORCENODEDEBUG_OFF
+	//searching for MapObjectData(MOD) constructor parameter
+	size_t paramIndex = -1;
+	for (ParamPack& param : constructorParams)
+	{
+		paramIndex++;
+
+		if (!param.isMapData)
+			continue;
+
+		ParamPack& MODParamPack = param;
+		//redering image selector before MOD
+		m_argsOnGui.emplace_back( 
+				[this, paramIndex]()
+				{
+					auto& MODref = getMapObjectsDataRef(); //MapObjectData(MOD) construct param reference
+					//rendering Combo list of possible objName values
+					if (ND_Util::ImGuiTextureSelector(MODref.objName, "ObjName selector"))
+					{
+						//constructorParams[paramIndex].paramValue.getRef<MapObjectsData>().objName = MODref.objName;
+					}
+				}		
+			);
+	}
+#endif
+
+	return *this;
+}
