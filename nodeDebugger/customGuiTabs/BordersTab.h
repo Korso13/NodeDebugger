@@ -49,6 +49,8 @@ private:
 #endif
 		void showBorders(bool show) NOCOMP;
 
+		sptr<Node> getBorderRoot() NOCOMP_PTR;
+
 	private:
 		void init() NOCOMP;
 		void updateBorderRender() NOCOMP;

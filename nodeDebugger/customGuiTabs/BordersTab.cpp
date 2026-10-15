@@ -3,6 +3,7 @@
 #include <settings/JsonDeserializator.h>
 
 #include "common/nodeDebugger/CustomAutos.h"
+#include "common/nodeDebugger/ND_ImGuiUI.h"
 #include "game/border/Border.h"
 #include "game/border/BorderController.h"
 
@@ -128,6 +129,16 @@ bool BordersTab::BorderRec::onGui()
 	}
 	ImGui::InputText("Border Name", &borderRecName, ImGuiInputTextFlags_None); //border record name edit
 	NDGui::Auto<BorderType>("Border Type", m_points.border_type);
+	sptr<Node> parentNode = m_localRefNode.expired() ? BorderFile::m_defaultBorderNode : m_localRefNode.lock();
+	if (ND_Util::ImGuiNodeHierarchy(parentNode, "Border root node"))
+	{
+		if (parentNode != BorderFile::m_defaultBorderNode)
+		{
+			isExportedInLocal = true;
+			m_localRefNode = parentNode;
+		}
+	}
+	NDGui::Auto("Exported in Local Coords", isExportedInLocal);
 	onGuiBorderInstancing();
 
 	// Border rendering and color
